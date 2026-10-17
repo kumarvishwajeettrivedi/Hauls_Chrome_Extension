@@ -3,92 +3,113 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HAULS – Don't buy blind</title>
-<meta name="description" content="Real price history, buy-or-wait verdicts, trap prices and grocery comparison for Indian shoppers. Free browser extension for Chrome, Edge and Brave.">
-<meta property="og:title" content="HAULS – Don't buy blind">
+<meta name="color-scheme" content="light">
+<title>HAULS – Know the real price before you buy</title>
+<meta name="description" content="Real price history, buy-or-wait verdicts, trap prices and grocery comparison for Indian shoppers. Free extension for Chrome, Edge and Brave.">
+<meta property="og:title" content="HAULS – Know the real price before you buy">
 <meta property="og:description" content="See a product's real price history before you buy. Compare grocery prices for your exact pincode.">
-<meta property="og:image" content="img/grocery.png">
+<meta property="og:image" content="img/hero.jpg">
 <link rel="icon" href="img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--blue:#0754F8;--lav:#EAE5FF;--mint:#19E68C;--yel:#FFD93D;--ink:#131316;--ink2:#545459;--bg:#fff;--card:#fff;--line:#EAEAF0}
-@media (prefers-color-scheme:dark){:root{--lav:#17142B;--ink:#F5F5F7;--ink2:#B8B8C4;--bg:#0E0E12;--card:#1C1C22;--line:#2E2E38}}
+:root{--bg:#FAF8F4;--paper:#fff;--ink:#15151A;--mute:#55555C;--blue:#0754F8;--blue-d:#0640C4;--mint:#0E8F57;--line:#E6E2DA}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
-body{margin:0;font:500 16px/1.55 "Be Vietnam Pro",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg)}
-a{color:inherit}.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
-header.top{background:var(--blue);color:#fff}.top .wrap{display:flex;align-items:center;gap:12px;height:68px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;text-decoration:none}.brand img{width:36px;height:36px;border-radius:50%;box-shadow:0 0 0 2px #fff}
-.top nav{margin-left:auto;display:flex;gap:18px;align-items:center}.top nav a{text-decoration:none;font-weight:700;font-size:14px;opacity:.92}
-.btn{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 24px;border-radius:99px;border:2px solid var(--ink);background:var(--ink);color:var(--bg);font-weight:800;text-decoration:none;letter-spacing:.02em;box-shadow:3px 3px 0 var(--mint);transition:transform .1s}
-.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--mint)}.btn.ghost{background:var(--card);color:var(--ink);box-shadow:3px 3px 0 var(--ink)}
-.top .btn{min-height:38px;padding:0 16px;font-size:13px;background:#fff;color:var(--ink);border-color:#fff;box-shadow:none}
-.hero{background:var(--lav);padding:64px 0 72px}.hero .wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center}
-.pill{display:inline-block;background:var(--yel);color:#131316;border:2px solid #131316;border-radius:99px;padding:4px 14px;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;box-shadow:2px 2px 0 #131316}
-h1{font-size:clamp(38px,6vw,64px);line-height:1.04;margin:18px 0 14px;font-weight:800;letter-spacing:-.02em}
-h1 em{font-style:normal;background:var(--mint);color:#131316;padding:0 10px;border-radius:12px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
-.lead{font-size:19px;color:var(--ink2);max-width:520px;margin:0 0 26px}.cta{display:flex;gap:14px;flex-wrap:wrap}
-.small{font-size:13px;color:var(--ink2);margin-top:14px}
-.shot{border:2px solid var(--ink);border-radius:18px;box-shadow:6px 6px 0 var(--ink);background:var(--card);overflow:hidden}.shot img{display:block;width:100%;height:auto}
-.hero .shot{max-width:340px;margin:0 auto;transform:rotate(1.5deg)}
-section{padding:64px 0}h2{font-size:clamp(28px,4vw,40px);line-height:1.1;margin:0 0 10px;font-weight:800;letter-spacing:-.01em}.sub{color:var(--ink2);max-width:620px;margin:0 0 34px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
-.card{background:var(--card);border:2px solid var(--ink);border-radius:18px;padding:22px;box-shadow:4px 4px 0 var(--ink)}.card h3{margin:10px 0 6px;font-size:19px}.card p{margin:0;color:var(--ink2);font-size:15px}
-.ico{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:24px;border:2px solid var(--ink)}
-.c1 .ico{background:var(--mint)}.c2 .ico{background:var(--yel)}.c3 .ico{background:#BFD3FF}.c4 .ico{background:#FFC6E0}
-.shots{background:var(--lav)}.shots .grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start}.shots figcaption{margin-top:10px;font-weight:700;font-size:14px;color:var(--ink2)}.shots figure{margin:0}.shots .shot img{aspect-ratio:16/11;object-fit:cover;object-position:top}
-ol.steps{list-style:none;counter-reset:s;margin:0;padding:0;display:grid;gap:14px;max-width:700px}
-ol.steps li{counter-increment:s;display:flex;gap:16px;align-items:flex-start;background:var(--card);border:2px solid var(--ink);border-radius:16px;padding:14px 18px;box-shadow:3px 3px 0 var(--ink)}
-ol.steps li::before{content:counter(s);flex:none;width:34px;height:34px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800}
-code{background:var(--lav);padding:2px 8px;border-radius:8px;font-size:14px}
-.note{margin-top:22px;padding:16px 18px;border-radius:16px;background:var(--yel);color:#131316;border:2px solid #131316;max-width:700px;font-size:15px}
-footer{border-top:2px solid var(--line);padding:30px 0;color:var(--ink2);font-size:14px}footer .wrap{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center}footer a{font-weight:700}
-@media (max-width:820px){.hero .wrap{grid-template-columns:1fr}.hero .shot{max-width:300px;transform:none}.top nav a:not(.btn){display:none}section{padding:48px 0}.hero{padding:44px 0 52px}}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.serif{font-family:Fraunces,Georgia,serif}
+nav{position:sticky;top:0;z-index:10;background:rgba(250,248,244,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;height:68px;gap:28px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:600 24px Fraunces,Georgia,serif;letter-spacing:-.01em}.brand img{width:32px;height:32px;border-radius:50%}
+nav .links{display:flex;gap:28px;margin-left:auto;font-size:15px;font-weight:500}nav .links a{text-decoration:none;color:var(--mute)}nav .links a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 28px;border-radius:99px;font:600 16px Inter,sans-serif;text-decoration:none;border:1.5px solid var(--blue);background:var(--blue);color:#fff;transition:background .15s}
+.btn:hover{background:var(--blue-d);border-color:var(--blue-d)}
+.btn.out{background:transparent;color:var(--ink);border-color:var(--ink)}.btn.out:hover{background:var(--ink);color:#fff}
+nav .btn{min-height:42px;padding:0 22px;font-size:15px}
+.hero{padding:84px 0 24px;text-align:center}
+h1{font:500 clamp(40px,6.4vw,76px)/1.05 Fraunces,Georgia,serif;letter-spacing:-.025em;margin:0 auto 22px;max-width:860px}
+.lead{font-size:20px;color:var(--mute);max-width:620px;margin:0 auto 34px}
+.cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}.fine{font-size:14px;color:var(--mute);margin-top:18px}
+.frame{margin:56px auto 0;max-width:1080px;background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 60px -20px rgba(21,21,26,.18);overflow:hidden}
+.bar{display:flex;align-items:center;gap:7px;padding:12px 16px;border-bottom:1px solid var(--line);background:#F4F1EB}
+.bar i{width:11px;height:11px;border-radius:50%;background:#D5D0C6}.bar span{margin:0 auto;font-size:12px;color:var(--mute);background:#fff;border:1px solid var(--line);border-radius:7px;padding:3px 40px}
+.frame img{display:block;width:100%;height:auto}
+.trust{padding:56px 0 8px}.trust .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;border-top:1px solid var(--line);padding-top:36px}
+.trust b{display:block;font:600 18px Fraunces,Georgia,serif;margin-bottom:4px}.trust span{font-size:15px;color:var(--mute)}
+.feat{padding:80px 0}.row{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}.feat.alt .row>:first-child{order:2}
+.kick{font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin-bottom:12px}
+h2{font:500 clamp(30px,4vw,46px)/1.12 Fraunces,Georgia,serif;letter-spacing:-.02em;margin:0 0 16px}
+.feat p{color:var(--mute);margin:0 0 14px}.feat ul{margin:18px 0 0;padding:0;list-style:none}.feat li{padding:10px 0;border-top:1px solid var(--line);font-size:16px}
+.phone{max-width:300px;margin:0 auto;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 24px 50px -18px rgba(21,21,26,.22)}.phone img{display:block;width:100%;height:auto}
+.wide{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 24px 50px -18px rgba(21,21,26,.2)}.wide img{display:block;width:100%;height:auto}
+.cap{font-size:13px;color:var(--mute);margin-top:12px;text-align:center}
+.install{background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:84px 0}
+ol{list-style:none;counter-reset:s;margin:36px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:22px}
+ol li{counter-increment:s;border-top:2px solid var(--ink);padding-top:16px;font-size:16px}
+ol li::before{content:"0" counter(s);display:block;font:500 28px Fraunces,Georgia,serif;color:var(--blue);margin-bottom:6px}
+code{background:#F1EEE8;border-radius:6px;padding:1px 7px;font-size:14px}
+.note{margin-top:34px;padding:16px 20px;border:1px solid var(--line);border-left:3px solid var(--blue);background:var(--bg);font-size:15px;color:var(--mute);border-radius:6px}
+.end{padding:90px 0;text-align:center}
+footer{border-top:1px solid var(--line);padding:28px 0;font-size:14px;color:var(--mute)}footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}footer a{font-weight:500;text-decoration:none;color:var(--ink)}footer .l{margin-left:auto;display:flex;gap:22px}
+@media(max-width:860px){nav .links{display:none}nav .btn{margin-left:auto}.hero{padding-top:52px}.row{grid-template-columns:1fr;gap:34px}.feat.alt .row>:first-child{order:0}.feat{padding:56px 0}.trust .wrap{grid-template-columns:1fr 1fr}.install{padding:56px 0}footer .l{margin-left:0}}
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap"><a class="brand" href="#"><img src="img/logo.png" alt="">HAULS</a><nav><a href="#features">Features</a><a href="#install">Install</a><a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download</a></nav></div></header>
+<nav><div class="wrap"><a class="brand" href="#"><img src="img/logo.png" alt="">HAULS</a>
+<div class="links"><a href="#features">Features</a><a href="#install">Install</a><a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension">GitHub</a></div>
+<a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download</a></div></nav>
 
-<div class="hero"><div class="wrap">
-  <div>
-    <span class="pill">Free browser extension</span>
-    <h1>Don't <em>buy blind.</em></h1>
-    <p class="lead">See a product's real price history before you pay. Get a plain buy-or-wait verdict, set trap prices, and compare grocery prices for your exact pincode.</p>
-    <div class="cta"><a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download for Chrome, Edge &amp; Brave</a><a class="btn ghost" href="#install">How to install</a></div>
-    <p class="small">Works on Amazon.in, Flipkart, Myntra, Croma and more. Your data stays in your browser.</p>
-  </div>
-  <div class="shot"><img src="img/product-panel.png" alt="HAULS panel showing a price history chart and a Buy verdict" width="380" height="800"></div>
+<header class="hero"><div class="wrap">
+<h1>Know the real price before you buy.</h1>
+<p class="lead">HAULS shows a product's price history, tells you whether to buy or wait, and compares grocery prices for your exact pincode.</p>
+<div class="cta"><a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download for Chrome, Edge &amp; Brave</a><a class="btn out" href="#install">How to install</a></div>
+<p class="fine">Free. No account needed. Works on Amazon.in, Flipkart, Myntra, Croma and more.</p>
+<div class="frame"><div class="bar"><i></i><i></i><i></i><span>amazon.in</span></div><img src="img/hero.jpg" alt="HAULS panel open on an Amazon.in product page showing the price, a history chart and a Buy verdict" width="1800" height="1125"></div>
+</div></header>
+
+<div class="trust"><div class="wrap">
+<div><b>Stays in your browser</b><span>Your searches are not sold or shared.</span></div>
+<div><b>Free</b><span>No payment, no ads.</span></div>
+<div><b>Chrome, Edge, Brave</b><span>Any Chromium browser on a computer.</span></div>
+<div><b>Built for India</b><span>Rupees, pincodes, Indian stores.</span></div>
 </div></div>
 
-<section id="features"><div class="wrap">
-  <h2>Know before you buy</h2><p class="sub">Four things HAULS does, nothing you don't need.</p>
-  <div class="grid">
-    <div class="card c1"><div class="ico">📈</div><h3>Price history</h3><p>Lowest, average and highest price over 30 days, 90 days, a year or all time, with a clear chart.</p></div>
-    <div class="card c2"><div class="ico">🎯</div><h3>Buy-or-wait verdict</h3><p>A plain answer, plus a check for "discounts" that were never real.</p></div>
-    <div class="card c3"><div class="ico">🔔</div><h3>Trap prices</h3><p>Set the price you want. Get a notification when it's reached.</p></div>
-    <div class="card c4"><div class="ico">🛒</div><h3>Grocery compare</h3><p>Blinkit, DMart and JioMart side by side, with price per 100 g. Only stores that deliver to your pincode.</p></div>
-  </div>
+<section class="feat" id="features"><div class="wrap row">
+<div><div class="kick">Price history</div><h2>See what it really cost last month.</h2>
+<p>Open any product and the panel shows the lowest, average and highest price, with a chart for 30 days, 90 days, a year or all time.</p>
+<ul><li>A plain Buy or Wait verdict, with the reason.</li><li>A warning when a "discount" was never real.</li><li>Heart a product to keep it on your watchlist.</li></ul></div>
+<div><div class="phone"><img src="img/panel-product.jpg" alt="HAULS panel with price, low, average and high, a history chart and a Buy verdict" width="600" height="1421"></div><div class="cap">The chart here uses sample history. A new install builds real history as you browse.</div></div>
 </div></section>
 
-<section class="shots"><div class="wrap">
-  <h2>See it working</h2><p class="sub">Compare groceries for your pincode and keep a watchlist with trap prices.</p>
-  <div class="grid">
-    <figure class="shot"><img src="img/grocery.png" alt="Grocery comparison cards with store logos and the cheapest highlighted"><figcaption style="padding:0 14px 12px">Grocery comparison for your pincode</figcaption></figure>
-    <figure class="shot"><img src="img/watchlist.png" alt="Watchlist with trap prices"><figcaption style="padding:0 14px 12px">Watchlist and trap prices</figcaption></figure>
-  </div>
+<section class="feat alt" style="padding-top:0"><div class="wrap row">
+<div><div class="kick">Trap prices</div><h2>Name your price. We'll tell you.</h2>
+<p>Set the price you're willing to pay. When the product drops to it, HAULS sends a notification, so you don't have to keep checking.</p></div>
+<div><div class="phone"><img src="img/panel-product.jpg" alt="Set trap price card at the bottom of the HAULS panel" width="600" height="1421" style="object-fit:cover;object-position:bottom;height:300px"></div></div>
 </div></section>
 
-<section id="install"><div class="wrap">
-  <h2>Install in a minute</h2><p class="sub">No store needed. Works on a computer with Chrome, Edge or Brave.</p>
-  <ol class="steps">
-    <li><span><a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip"><b>Download the zip</b></a> and unzip it into a folder you'll keep.</span></li>
-    <li><span>Open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>) and turn on <b>Developer mode</b>.</span></li>
-    <li><span>Click <b>Load unpacked</b> and choose the unzipped folder.</span></li>
-    <li><span>Click the puzzle icon in the toolbar and <b>pin</b> HAULS.</span></li>
-    <li><span>Open a product on Amazon.in or Flipkart. A small HAULS tab appears on the right edge: click it.</span></li>
-  </ol>
-  <div class="note"><b>Updating:</b> download the new zip, unzip over the same folder, then click the reload icon on HAULS in <code>chrome://extensions</code>. Chrome may show a "disable developer mode extensions" notice: keep it enabled.</div>
+<section class="feat" style="padding-top:0"><div class="wrap row">
+<div><div class="kick">Grocery</div><h2>The cheapest, at your pincode.</h2>
+<p>Search once and compare Blinkit, DMart and more, with the price per 100 g. Only stores that confirm delivery to your pincode show a price.</p>
+<ul><li>Cheapest and best value are marked.</li><li>Save your places and switch in one tap.</li><li>Open the full page from the toolbar icon.</li></ul></div>
+<div><div class="phone"><img src="img/panel-grocery.jpg" alt="HAULS grocery tab with pincode, search and product cards" width="600" height="1421"></div></div>
 </div></section>
 
-<footer><div class="wrap"><span>© HAULS · independent tool, not affiliated with any store named here.</span><a href="https://hauls.in/privacy">Privacy</a><a href="https://hauls.in/terms">Terms</a><a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension">GitHub</a></div></footer>
+<div class="wrap" style="padding-bottom:80px"><div class="wide"><img src="img/grocery-home.jpg" alt="HAULS full-page home with grocery results for amul butter" width="1600" height="1000"></div><div class="cap">The full-page home: grocery results for "amul butter" at pincode 842001.</div></div>
+
+<section class="install" id="install"><div class="wrap">
+<div class="kick">Install</div><h2>Ready in a minute.</h2><p style="color:var(--mute);margin:0">No store needed. Works on a computer with Chrome, Edge or Brave.</p>
+<ol>
+<li><a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip"><b>Download the zip</b></a> and unzip it into a folder you'll keep.</li>
+<li>Open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>) and turn on <b>Developer mode</b>.</li>
+<li>Click <b>Load unpacked</b> and choose the unzipped folder.</li>
+<li>Pin HAULS from the puzzle icon, then open a product on Amazon.in or Flipkart.</li>
+</ol>
+<div class="note"><b>Updating:</b> download the new zip, unzip over the same folder, then click reload on HAULS in <code>chrome://extensions</code>. If Chrome mentions developer mode extensions, keep it enabled.</div>
+</div></section>
+
+<section class="end"><div class="wrap"><h2>Don't buy blind.</h2><div class="cta"><a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download HAULS</a></div></div></section>
+
+<footer><div class="wrap"><span>© HAULS. Independent tool, not affiliated with any store named here.</span><span class="l"><a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension">GitHub</a></span></div></footer>
 </body>
 </html>
