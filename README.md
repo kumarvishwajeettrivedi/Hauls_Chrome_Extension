@@ -2,6 +2,8 @@
 
 Price history, buy-or-wait verdicts, trap alerts and grocery comparison for Indian shoppers. Browser-first (everything works offline from `chrome.storage`), optional Google sign-in syncs your watchlist through Supabase.
 
+**Install without the store:** see [INSTALL.md](INSTALL.md).
+
 ```
 extension/            the unpacked extension (Load unpacked → this folder)
 supabase/migrations/  SQL you run once in the Supabase SQL editor (0001 → 0009)
@@ -12,6 +14,7 @@ docs/                 plans, security notes, google-signin-setup.md
 ```
 **Run it:** `chrome://extensions` → Developer mode → Load unpacked → `extension/`.
 **Test:** `npm install && npm run test:unit` (fast) · `npm run test:e2e` (real Chrome, live sites) · `npm run test:integration` (needs `SUPABASE_ANON_KEY`).
+**Share:** `npm run package:share` -> `dist/hauls-share-<version>.zip` (keeps the pinned extension ID; attach it to a GitHub release).
 **Ship:** `npm run package` → `dist/hauls-extension-<version>.zip`.
 **Sign-in:** follow `docs/google-signin-setup.md`.
 
