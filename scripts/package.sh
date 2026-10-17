@@ -17,4 +17,5 @@ if grep -rEq "service_role|SERVICE_ROLE|sb_secret|re_[A-Za-z0-9]{20,}|BEGIN (RSA
 test ! -e "$tmp/.env" || { echo "FAIL: .env in package"; exit 1; }
 if [ "$mode" = share ]; then grep -q '"key"' "$tmp/manifest.json" || { echo "FAIL: share build lost the pinned key"; exit 1; }; else ! grep -q '"key"' "$tmp/manifest.json" || { echo "FAIL: store build still has the dev key"; exit 1; }; fi
 grep -q '"SUPABASE_ANON_KEY": "[^"]' "$tmp/config.js" || { echo "FAIL: config.js has no anon key (run npm run build:config with .env)"; exit 1; }
+[ "$mode" = share ] && cp "dist/$name-$version.zip" dist/hauls-share.zip # stable name: the website links to releases/latest/download/hauls-share.zip
 rm -rf "$tmp"; echo "OK -> dist/$name-$version.zip ($(du -h dist/$name-$version.zip | cut -f1))"
