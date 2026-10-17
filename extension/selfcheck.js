@@ -36,7 +36,7 @@ assert.equal(A.priceConfidence("jsonld", 100).level, "high"); assert.equal(A.pri
 
 // No dark theme, and Chrome's forced dark mode is opted out of (it darkened the panel on some machines)
 const fsx = require("fs"), rd = f => fsx.readFileSync(__dirname + "/" + f, "utf8");
-for (const f of ["theme.js", "home.html", "options.html"]) { assert.ok(/color-scheme:\s*only light/.test(rd(f)), f + " must opt out of forced dark"); assert.ok(!/prefers-color-scheme:\s*dark/.test(rd(f)), f + " must have no dark theme"); }
+for (const f of ["theme.js", "options.html"]) { assert.ok(/color-scheme:\s*only light/.test(rd(f)), f + " must opt out of forced dark"); assert.ok(!/prefers-color-scheme:\s*dark/.test(rd(f)), f + " must have no dark theme"); }
 // Deal Scanner
 const base = [[NOW-120*D,1000],[NOW-100*D,1010],[NOW-80*D,990]];
 const pumped = [...base, [NOW-30*D,1300],[NOW-20*D,1320],[NOW-2*D,1005]];

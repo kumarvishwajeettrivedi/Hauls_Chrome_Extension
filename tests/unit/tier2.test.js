@@ -205,8 +205,13 @@ t("report: every other captured call gets a deep sample of its first product-lik
   const e = boot(); const p = e.T2.capture("Instamart", "milk", { settle: 10, timeout: 200 }); await new Promise(r => setTimeout(r, 5)); const s = { tab: { id: e.tabs[0].id }, url: "https://www.swiggy.com/x" };
   e.T2.onCapture(s, { url: "https://www.swiggy.com/api/instamart/cart", method: "GET", status: 200, body: '{"a":1}', hdr: {} }); e.T2.onCapture(s, { url: "https://www.swiggy.com/api/instamart/search/v2", method: "POST", status: 200, body, hdr: {} });
   const c = await p, o = c.others.find(x => /search\/v2/.test(x.url || "")); assert.ok(o && /displayName/.test(o.sample || "") && /offerPrice/.test(o.sample), "the search call carries a deep product sample"); });
-t("Settings has a Home button in the header that goes to the extension home screen; home.html runs the panel in app mode; the toolbar falls back to it", () => { const h = src("options.html"), j = src("options.js"), home = src("home.html"), bg = src("background.js");
-  assert.ok(/<header>[\s\S]*id="back"[\s\S]*<\/header>/.test(h)); assert.ok(/\$\("back"\)\.onclick = \(\) => \{ location\.href = "home\.html"; \};/.test(j));
-  assert.ok(home.indexOf("home-boot.js") < home.indexOf("content.js") && !/<script>/.test(home), "boot flag first, no inline scripts (extension CSP)"); assert.ok(/window\.HAULS_APP = true/.test(src("home-boot.js"))); assert.ok(/chrome\.tabs\.create\(\{ url: chrome\.runtime\.getURL\("home\.html"\) \}\)/.test(bg));
-  const m = JSON.parse(src("manifest.json")).content_scripts[0].js; for (const f of m) assert.ok(home.includes('src="' + f + '"'), "home.html loads " + f); });
+t("no separate Home page: the toolbar toggles the panel, and on pages the panel cannot run on it opens Settings; Settings has no Home button; one Settings entry in the panel header", () => {
+  const fs = require("fs"), path = require("path"), bg = src("background.js"), h = src("options.html"), c = src("content.js");
+  assert.ok(!fs.existsSync(path.join(__dirname, "../../extension/home.html")) && !fs.existsSync(path.join(__dirname, "../../extension/home-boot.js")), "home.html and its boot file are gone");
+  assert.ok(/chrome\.action\.onClicked[\s\S]{0,260}catch \{ chrome\.runtime\.openOptionsPage\(\); \}/.test(bg), "toolbar fallback opens Settings");
+  assert.ok(!/id="back"/.test(h) && !/home\.html/.test(src("options.js")), "Settings has no Home button");
+  assert.ok(!/HAULS_APP|\bAPP\b/.test(c) && !/home\.html/.test(bg), "the app-mode code paths are gone");
+  assert.equal((c.match(/setBtn\.setAttribute\("aria-label", "Settings"\)/g) || []).length, 1, "exactly one Settings icon in the panel header");
+  assert.ok(!/open-settings/.test(bg) && !/open-settings/.test(src("guard.js")) && !/open-settings/.test(c), "one message type opens Settings (open-options)");
+});
 (async () => { for (const [n, f] of q) { try { await f(); ok++; console.log("  ok   " + n); } catch (e) { bad++; console.log("  FAIL " + n + "\n       " + String(e.message || e).split("\n")[0]); } } console.log(`\ntier2: ${ok} passed, ${bad} failed`); process.exit(bad ? 1 : 0); })();

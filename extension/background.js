@@ -88,7 +88,6 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "ahist-health") { await bumpHealth("chartHealth", m.event, m.reason); reply({ ok: true }); }
     else if (m.type === "ahist-tried") { await withLock(async () => { const items = await get(), it = items[m.key]; if (it) { it.ahist = it.ahist || { ranges: {} }; it.ahist.tried = Date.now(); await put(items); } }); reply({ ok: true }); }
     else if (m.type === "seller") reply(await offSeller({ sid: m.sid }).catch(() => ({ failed: true })));
-    else if (m.type === "open-settings") { try { await chrome.runtime.openOptionsPage(); } catch { chrome.tabs.create({ url: chrome.runtime.getURL("options.html") }); } reply({ ok: true }); }
     else if (m.type === "urg") reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (!it) return null; it.urg = impRecord(it.urg, m.cues, m.price, Date.now()); await put(items); return it.urg; }).catch(() => null));
     else if (m.type === "offers-fk") reply(await offFindFlipkart({ pid: m.pid }).catch(() => ({ offers: [], failed: true })));
     else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));
@@ -140,9 +139,9 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === "trk") { await trkRun().catch(() => {}); await abgRun().catch(() => {}); return; }
 });
 
-// Toolbar click toggles the companion panel; on tabs without it, open the help page.
+// Toolbar click toggles the companion panel; on tabs without it (new tab, chrome://), open Settings.
 chrome.action.onClicked.addListener(async tab => {
-  try { await chrome.tabs.sendMessage(tab.id, { type: "toggle" }); } catch { chrome.tabs.create({ url: chrome.runtime.getURL("home.html") }); } // pages the overlay cannot run on (new tab, chrome://): open the full-page home
+  try { await chrome.tabs.sendMessage(tab.id, { type: "toggle" }); } catch { chrome.runtime.openOptionsPage(); }
 });
 
 // Independent (Shopify) stores: only after the user grants optional host access from the help page.

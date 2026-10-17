@@ -12,7 +12,7 @@ async function abgRun(now = Date.now(), { force = false } = {}) {
     .sort((a, b) => ((items[a].ahist && items[a].ahist.at) || 0) - ((items[b].ahist && items[b].ahist.at) || 0))[0];
   if (!key) return { ok: false, why: "nothing due" };
   A.n++; A.tries[key] = now; for (const k of Object.keys(A.tries)) if (now - A.tries[k] > 3 * 864e5) delete A.tries[k]; await chrome.storage.local.set({ abg: A });
-  const before = (items[key].ahist && items[key].ahist.at) || 0, probe = await T2.openProbe(items[key].url); let got = false;
+  const before = (items[key].ahist && items[key].ahist.at) || 0, /* the #hauls-read marker tells the page script it is the background window */ probe = await T2.openProbe(items[key].url.split('#')[0] + '#hauls-read', { quiet: true }); let got = false;
   try { for (let t0 = Date.now(); Date.now() - t0 < ABG.WAIT_MS && !got; ) { await new Promise(r => setTimeout(r, 1000)); const it = ((await chrome.storage.local.get("items")).items || {})[key]; got = !!(it && it.ahist && it.ahist.at > before); } }
   finally { await probe.close(); }
   await bumpHealth("chartHealth", got ? "bg-read" : "bg-miss", got ? undefined : "no-chart-in-background");

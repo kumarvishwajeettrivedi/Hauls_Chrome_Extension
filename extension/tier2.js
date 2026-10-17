@@ -1,7 +1,7 @@
 // Tier 2: stores whose search can only be read from their own page (signed requests / bot protection).⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌‌​​‌​‌‌​​​‌​​​‌‌‌​​‌​​‌‌​‌‌‌​​‌‌​​​​​​‌‌‌​​‌​​‌‌​​‌‌​​‌‌​​‌​⁡
 // HAULS opens the store's search page in a background tab the USER connected, copies the page's own search response via t2-hook.js, and closes the tab.
 // Everything here is local; nothing is sent anywhere. Parsers are added per store only after a real response has been inspected (see Test in Settings).
-const T2_BUILD = "2026-10-17.r30"; // bump when the background code changes; Settings compares it to detect a stale background
+const T2_BUILD = "2026-10-17.r31"; // bump when the background code changes; Settings compares it to detect a stale background
 const T2 = (() => {
   const STORES = {
     Zepto: { origins: ["https://*.zepto.com/*"], hosts: ["zepto.com"], search: q => "https://www.zepto.com/search?query=" + encodeURIComponent(q) + "&haulsprobe=1" },
@@ -89,9 +89,9 @@ const T2 = (() => {
     return { ...best, all: good, others: good.filter(c => c !== best).map(({ body, ...r }) => { let sh = "", sample; try { const j = JSON.parse(body); sh = JSON.stringify(shapeOf(j)).slice(0, 2000); const n = firstProductLike(j); if (n) sample = JSON.stringify(shapeOf(n, 0, 10)).slice(0, 3500); } catch { sh = safeStr(body.slice(0, 80)); } return { ...r, bytes: body.length, shape: sh, sample }; }) };
   }
   // Chrome never paints/animates a hidden tab and throttles its timers, so modern store pages may never run their search there. A small popup window that stays on screen counts as visible; fall back to an inactive tab only if windows are unavailable.
-  async function openProbe(url) {
+  async function openProbe(url, { quiet = false } = {}) { // quiet: a small window tucked into the bottom-right corner of the window you are using (Amazon history read), instead of the larger top-left one
     const back = async prev => { if (prev && prev.id != null) try { await chrome.windows.update(prev.id, { focused: true }); } catch {} }; // the user's own window stays in front
-    try { const prev = await chrome.windows.getLastFocused().catch(() => null), w = await chrome.windows.create({ url, type: "popup", width: 420, height: 600, left: 30, top: 30, focused: false }), tab = w && w.tabs && w.tabs[0]; await back(prev);
+    try { const prev = await chrome.windows.getLastFocused().catch(() => null), geo = quiet && prev && [prev.left, prev.top, prev.width, prev.height].every(Number.isFinite) ? { width: 340, height: 380, left: Math.max(0, prev.left + prev.width - 350), top: Math.max(0, prev.top + prev.height - 390) } : { width: 420, height: 600, left: 30, top: 30 }, w = await chrome.windows.create({ url, type: "popup", ...geo, focused: false }), tab = w && w.tabs && w.tabs[0]; await back(prev);
       if (tab) return { tab, close: async () => { try { await chrome.windows.remove(w.id); } catch {} await back(prev); } }; } catch {}
     const tab = await chrome.tabs.create({ url, active: false }); return { tab, close: () => Promise.resolve(chrome.tabs.remove(tab.id)).catch(() => {}) };
   }

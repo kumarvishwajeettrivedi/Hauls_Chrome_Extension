@@ -4,8 +4,7 @@
   if (window.__hauls) return;
   const GROCERY = /(^|\.)blinkit\.com$/.test(u.hostname);
   const SHOP = !S && !GROCERY && typeof Shopify_ !== "undefined" && Shopify_.isShopifyDocument(document) && !!Shopify_.productHandle(location.href);
-  const APP = !!window.HAULS_APP; // home.html: the same panel as a full page (Grocery + Watchlist), always open
-  if (!S && !GROCERY && !SHOP && !APP) return;
+  if (!S && !GROCERY && !SHOP) return;
   window.__hauls = 1;
   const q = sels => { for (const s of sels) { const e = document.querySelector(s); if (e && e.textContent.trim()) return e.textContent; } };
   const meta = p => document.querySelector(`meta[property="${p}"],meta[name="${p}"]`)?.content;
@@ -138,7 +137,7 @@
   { const kr = el("span", "krow"); kr.append(logoEl("mark"), el("i", "grip")); knob.append(kr, kd); } knob.title = "HAULS · drag to move"; knob.setAttribute("aria-label", T.open); knob.setAttribute("aria-expanded", "false");
   const panel = el("aside", "panel"); panel.setAttribute("aria-label", T.brand); panel.setAttribute("role", "dialog"); panel.tabIndex = -1;
   const hdr = el("header"), hd = el("div", "hd"), tt = el("div"), rt = el("div", "r"), pinChip = el("button", "pinchip"), close = el("button", "x"); close.append(ico("x")); close.setAttribute("aria-label", T.close);
-  { const br = el("div", "brand"), nm = el("div"); nm.append(el("h1", "", T.brand), el("div", "sub", T.sub)); br.append(logoEl("logo"), nm); tt.append(br); } const acctBtn = el("button", "x acct"); acctBtn.setAttribute("aria-label", "Account"); acctBtn.append(ico("user")); const setBtn = el("button", "x"); setBtn.append(ico("gear")); setBtn.setAttribute("aria-label", "Settings"); setBtn.title = "Settings"; setBtn.onclick = () => { chrome.runtime.sendMessage({ type: "open-settings" }).catch(() => {}); }; rt.append(pinChip, acctBtn, setBtn, close); hd.append(tt, rt);
+  { const br = el("div", "brand"), nm = el("div"); nm.append(el("h1", "", T.brand), el("div", "sub", T.sub)); br.append(logoEl("logo"), nm); tt.append(br); } const acctBtn = el("button", "x acct"); acctBtn.setAttribute("aria-label", "Account"); acctBtn.append(ico("user")); const setBtn = el("button", "x"); setBtn.append(ico("gear")); setBtn.setAttribute("aria-label", "Settings"); setBtn.title = "Settings"; setBtn.onclick = () => { chrome.runtime.sendMessage({ type: "open-options" }).catch(() => {}); }; rt.append(pinChip, acctBtn, setBtn, close); hd.append(tt, rt);
   const tabs = el("div", "tabs"); tabs.setAttribute("role", "tablist");
   const main = el("main"); main.setAttribute("tabindex", "-1");
   const scrim = el("div", "scrim"), sheet = el("div", "sheet");
@@ -148,7 +147,7 @@
   let range = "90D"; chrome.storage.local.get("range").then(s => { if (s.range) range = s.range; });
   const RANGES = [["30D", 30], ["90D", 90], ["1Y", 365], ["All", 0]];
   let cur = null, loading = !!(S || SHOP), tab = S || SHOP ? "product" : "grocery";
-  const TABS = APP ? ["grocery", "traps"] : ["product", "grocery", "traps"];
+  const TABS = ["product", "grocery", "traps"];
   let sheetOpener = null;
   const closeSheet = () => { wrap.classList.remove("sheetopen"); sheet.setAttribute("aria-hidden", "true"); if (sheetOpener && sheetOpener.isConnected) sheetOpener.focus({ preventScroll: true }); sheetOpener = null; };
   const openSheet = (title, nodes) => { sheetOpener = sheetOpener || sh.activeElement; const h = el("h4", "", title); h.tabIndex = -1; const cx = el("button", "x"); cx.append(ico("x")); cx.setAttribute("aria-label", "Close"); cx.onclick = closeSheet; const head = el("div", "sheet-h"); head.append(h, cx); sheet.replaceChildren(head, ...nodes); sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true"); sheet.setAttribute("aria-label", title); sheet.removeAttribute("aria-hidden"); wrap.classList.add("sheetopen"); setTimeout(() => h.focus({ preventScroll: true }), 50); };
@@ -156,7 +155,6 @@
   const setOpen = o => { wrap.classList.toggle("open", o); if (!o) closeSheet(); knob.setAttribute("aria-expanded", String(o)); if (o) { draw(); setTimeout(() => panel.focus({ preventScroll: true }), 60); } else knob.focus({ preventScroll: true }); };
   const toggle = () => setOpen(!wrap.classList.contains("open"));
   close.onclick = () => setOpen(false);
-  if (APP) { wrap.classList.add("app"); close.className = "pinchip"; close.replaceChildren(ico("gear"), "Settings"); close.setAttribute("aria-label", "Settings"); close.title = "Settings"; close.onclick = () => chrome.runtime.sendMessage({ type: "open-options" }); }
   // Draggable notch: vertical position is remembered. A drag never counts as a click.
   let knobTop = 0, drag = null, moved = false;
   const clampTop = y => Math.max(8, Math.min(innerHeight - knob.offsetHeight - 8, y));
@@ -473,7 +471,7 @@
     nodes.push(ph, phm, el("p", "meta", "Google doesn't share phone numbers, so this is optional and only you can type it. We never verify or use it for marketing."));
     const ex = el("button", "btn ghost"); ex.append(ico("download"), "Export my data"); ex.onclick = async () => { const r = await send({ type: "export-data", gesture: gesture() }); if (!r || !r.ok) return void (ex.textContent = "Couldn't export"); const u = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), account: r.data, localWatchlist: r.local }, null, 2)], { type: "application/json" })), l = document.createElement("a"); l.href = u; l.download = "hauls-my-data.json"; l.click(); setTimeout(() => URL.revokeObjectURL(u), 2000); };
     nodes.push(ex);
-    const gs = el("button", "btn ghost"); gs.append(ico("gear"), "Settings"); gs.onclick = () => { chrome.runtime.sendMessage({ type: "open-settings" }).catch(() => {}); }; nodes.push(gs);
+    const gs = el("button", "btn ghost"); gs.append(ico("gear"), "Settings"); gs.onclick = () => { chrome.runtime.sendMessage({ type: "open-options" }).catch(() => {}); }; nodes.push(gs);
     const out = el("button", "btn ghost", "Sign out"); out.onclick = async () => { await chrome.runtime.sendMessage({ type: "signout", gesture: gesture() }); closeSheet(); draw(); };
     const del = el("button", "more", "Erase my cloud data"); let armed = false; del.onclick = async () => { if (!armed) { armed = true; del.textContent = "Tap again to erase everything"; return; } const r = await chrome.runtime.sendMessage({ type: "delete-data", gesture: gesture() }); closeSheet(); draw(); };
     const outc = el("button", "link-btn", "Sign out and clear this device"); outc.onclick = async () => { await send({ type: "signout", clear: true, gesture: gesture() }); closeSheet(); draw(); };
@@ -609,7 +607,7 @@
     return sp && { key: sp.key, site: sp.site, url: sp.url, title: sp.title, image: sp.image, price: sp.price, mrp: sp.mrp > sp.price ? sp.mrp : null, src: "jsonld" };
   }
   async function run() {
-    if (!APP && (await chrome.storage.local.get("overlay")).overlay === false) return void host.remove();
+    if ((await chrome.storage.local.get("overlay")).overlay === false) return void host.remove();
     if (!host.isConnected) document.body.append(host); // re-appending an attached node detaches it first, which silently drops keyboard focus mid-typing
     if (!S && !SHOP) return;
     const p = cleanProduct(S ? extract() : await shopifyExtract());
@@ -619,7 +617,7 @@
     cur = r.limited ? { limited: true, limit: r.limit, usage: { used: r.used, limit: r.limit } } : { p, it: r.it, usage: r.usage, comm: r.comm || [], chart: r.chart || [] };
     loading = false; setBadge(); idleRedraw(); ahAutoRead().catch(() => {});
   }
-  run(); if (APP) setOpen(true);
+  run();
   // SPA navigation (Flipkart/Myntra/Ajio): re-run when the URL changes.
   let href = location.href;
   // Amazon's own price-history answer appears inside the page when the user opens it. We read its text, nothing else, and remember the range for this product.
@@ -649,7 +647,7 @@
   // Fail-safes: only with an ingress button present, once per product per 12 h, panel hidden by CSS while it runs, every step has a timeout, on any doubt it stops and stays quiet.
   let ahBusy = false;
   async function ahAutoRead() {
-    if (ahBusy || !cur || !cur.p || dom !== "amazon.in") return; const dis = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features || []; if (dis.includes("chart-auto") || dis.includes("chart-read")) return; const { ahAuto } = await chrome.storage.local.get("ahAuto"); if (ahAuto !== true) return;
+    if (ahBusy || !cur || !cur.p || dom !== "amazon.in" || !/hauls-read/.test(location.hash)) return; /* only inside the small window HAULS opens for it: Amazon's panel docks on the left and pushes the whole page aside, so it is never opened in your own tab */ const dis = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features || []; if (dis.includes("chart-auto") || dis.includes("chart-read")) return; const { ahAuto } = await chrome.storage.local.get("ahAuto"); if (ahAuto !== true) return;
     const last = cur.it && cur.it.ahist && Math.max(cur.it.ahist.at || 0, cur.it.ahist.tried || 0); if (last && Date.now() - last < 12 * 3600e3) return;
     const wait = (f, ms) => new Promise(res => { const t0 = Date.now(), iv = setInterval(() => { let v; try { v = f(); } catch { v = null; } if (v || Date.now() - t0 > ms) { clearInterval(iv); res(v || null); } }, 150); });
     ahBusy = true; let trig; try { trig = await wait(() => document.querySelector('#rufus-price-ingress-bb [data-action="show-rufus-price-ingress"], .rufus-ph-ingress-pill [data-action="show-rufus-price-ingress"]'), 10000); } finally { if (!trig) ahBusy = false; } if (!trig) return; // Amazon draws the button after the page loads

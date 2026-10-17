@@ -192,16 +192,10 @@ const TT = {
   .w input,.w input:focus,.w input:focus-visible{outline:none;box-shadow:none}.pi:focus-within,.stp-box:focus-within{box-shadow:3px 3px 0 var(--sh)}.panel:focus{outline:none}
   .mrp{color:var(--ink-2)}
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:1ms!important;animation-delay:0s!important;transition-duration:1ms!important}}
-    /* home.html: the panel as a centered mobile-width page */
-  .w.app .knob,.w.app header::before{display:none}
-  .w.app .panel{position:relative;top:auto;bottom:auto;left:auto;right:auto;height:100dvh;width:100%;max-width:1100px;margin:0 auto;transform:none;visibility:visible;border:0;border-radius:0;box-shadow:0 0 40px rgba(19,19,22,.14)}
-  .w.app .tabs{grid-template-columns:repeat(2,1fr);max-width:420px;margin-left:auto;margin-right:auto}.w.app .tabs i{width:calc((100% - 8px)/2)}
-  .w.app .gbox>.field,.w.app .gbox>.pi,.w.app .gbox>.btn.full,.w.app .gbox>.places,.w.app .gbox>.meta{max-width:560px}
   .ggrid + .btn.sm,.gbox .btn.sm.later{margin-top:12px}
   /* grocery results: even spacing, wrapping text, search + button on one line on wide pages */
   .gout{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.gout .meta,.gout .empty,.gout .lbl{margin:0;overflow-wrap:anywhere}.gout .stores{padding:0}
   .srow{display:grid;gap:8px}.srow .btn.full{margin:0}
-  @media (min-width:700px){.w.app .srow{display:flex;align-items:stretch;gap:10px;max-width:760px}.w.app .srow .pi{flex:1 1 auto;min-width:0}.w.app .srow .btn.full{flex:none;width:auto;white-space:nowrap;padding:0 26px}.w.app .gbox>.srow{max-width:760px}}
-  .gout .btn.sm{justify-self:start}.gout .lbl + .stores,.gout .lbl + .stores.wrap{margin-top:6px}
+    .gout .btn.sm{justify-self:start}.gout .lbl + .stores,.gout .lbl + .stores.wrap{margin-top:6px}
 `,
 };

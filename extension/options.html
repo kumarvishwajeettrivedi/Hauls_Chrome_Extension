@@ -20,7 +20,7 @@ button:focus-visible,.sw input:focus-visible+.knobtrack{outline:3px solid var(--
 pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px solid var(--ink);border-radius:12px;padding:12px;font:12px/1.45 ui-monospace,Menlo,monospace;max-height:320px;overflow:auto;margin:10px 0 0}
 /* toggle switch with a visible On/Off */
 .sw{display:inline-flex;align-items:center;gap:10px;cursor:pointer;flex:none;position:relative}.sw input{position:absolute;opacity:0;width:1px;height:1px}
-.knobtrack{width:56px;height:32px;border-radius:99px;border:2px solid var(--ink);background:var(--chip);position:relative;transition:background .2s}.knobtrack::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ink);transition:transform .2s}
+.knobtrack{width:56px;height:32px;border-radius:99px;border:2px solid var(--ink);background:var(--chip);position:relative;transition:background .35s}.knobtrack::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ink);transition:transform .35s cubic-bezier(.4,0,.2,1)}
 .sw input:checked+.knobtrack{background:var(--mint)}.sw input:checked+.knobtrack::after{transform:translateX(24px)}
 .onoff{font-weight:800;font-size:13px;min-width:26px}.onoff::after{content:"Off"}.sw input:checked~.onoff::after{content:"On"}
 .top{display:flex;align-items:center;gap:14px;justify-content:space-between}.top>div:first-child{min-width:0}
@@ -36,21 +36,21 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px
 .step button{min-height:32px;padding:0 12px;font-size:11px;justify-self:start}
 @media (max-width:560px){.steps{grid-template-columns:1fr}.step svg{height:80px}}
 /* animated scenes */
-.a-tg{animation:tg 2.4s ease-in-out infinite}@keyframes tg{0%,25%{transform:translateX(0)}45%,85%{transform:translateX(24px)}100%{transform:translateX(0)}}
-.a-bg{animation:bg 2.4s ease-in-out infinite}@keyframes bg{0%,25%{fill:#F7F7F7}45%,85%{fill:#19E68C}100%{fill:#F7F7F7}}
-.a-ptr{animation:ptr 2.4s ease-in-out infinite}@keyframes ptr{0%{transform:translate(0,14px)}25%{transform:translate(0,0)}35%{transform:translate(0,3px)}50%,85%{transform:translate(0,0)}100%{transform:translate(0,14px)}}
-.a-ring{transform-origin:center;transform-box:fill-box;animation:ring 1.8s ease-out infinite}@keyframes ring{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.7);opacity:0}}
-.a-pop{transform-origin:center;transform-box:fill-box;animation:pop 1.8s ease-in-out infinite}@keyframes pop{0%,40%{transform:scale(1);fill:#fff}55%{transform:scale(1.3);fill:#FF4D6D}75%,100%{transform:scale(1);fill:#FF4D6D}}
-.a-bounce{animation:bounce 1.2s ease-in-out infinite}@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.a-tg{animation:tg 4.8s cubic-bezier(.45,0,.25,1) infinite}@keyframes tg{0%,25%{transform:translateX(0)}45%,85%{transform:translateX(24px)}100%{transform:translateX(0)}}
+.a-bg{animation:bg 4.8s ease-in-out infinite}@keyframes bg{0%,25%{fill:#F7F7F7}45%,85%{fill:#19E68C}100%{fill:#F7F7F7}}
+.a-ptr{animation:ptr 4.8s cubic-bezier(.45,0,.25,1) infinite}@keyframes ptr{0%{transform:translate(0,14px)}25%{transform:translate(0,0)}35%{transform:translate(0,3px)}50%,85%{transform:translate(0,0)}100%{transform:translate(0,14px)}}
+.a-ring{transform-origin:center;transform-box:fill-box;animation:ring 3.2s ease-out infinite}@keyframes ring{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.7);opacity:0}}
+.a-pop{transform-origin:center;transform-box:fill-box;animation:pop 3.6s ease-in-out infinite}@keyframes pop{0%,40%{transform:scale(1);fill:#fff}55%{transform:scale(1.3);fill:#FF4D6D}75%,100%{transform:scale(1);fill:#FF4D6D}}
+.a-bounce{animation:bounce 2.4s ease-in-out infinite}@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 /* tour */
-.tour-dim{position:fixed;inset:0;z-index:50}.tour-spot{position:fixed;z-index:51;border-radius:18px;box-shadow:0 0 0 9999px rgba(19,19,22,.62);border:3px solid var(--yellow);pointer-events:none;transition:all .35s ease}
-.tour-tip{position:fixed;z-index:52;width:min(330px,calc(100vw - 24px));background:#fff;border:2px solid var(--ink);border-radius:16px;box-shadow:4px 4px 0 var(--ink);padding:14px}.tour-tip h3{margin:0 0 4px;font-size:16px}.tour-tip p{margin:0 0 12px;color:var(--mute)}
+.tour-dim{position:fixed;inset:0;z-index:50}.tour-spot{position:fixed;z-index:51;border-radius:18px;box-shadow:0 0 0 9999px rgba(19,19,22,.55);border:3px solid var(--yellow);pointer-events:none;transition:left .8s cubic-bezier(.4,0,.2,1),top .8s cubic-bezier(.4,0,.2,1),width .8s cubic-bezier(.4,0,.2,1),height .8s cubic-bezier(.4,0,.2,1);animation:fadein .9s ease both}@keyframes fadein{from{opacity:0}to{opacity:1}}
+.tour-tip{position:fixed;z-index:52;width:min(330px,calc(100vw - 24px));background:#fff;border:2px solid var(--ink);border-radius:16px;box-shadow:4px 4px 0 var(--ink);padding:14px;transition:opacity .5s ease,transform .5s ease,top .8s cubic-bezier(.4,0,.2,1),left .8s cubic-bezier(.4,0,.2,1)}.tour-tip.hide{opacity:0;transform:translateY(8px)}.tour-tip h3{margin:0 0 4px;font-size:16px}.tour-tip p{margin:0 0 12px;color:var(--mute)}
 .tour-tip .dots{display:flex;gap:6px;margin-bottom:10px}.tour-tip .dots i{width:9px;height:9px;border-radius:50%;border:2px solid var(--ink);background:#fff}.tour-tip .dots i.on{background:var(--ink)}
 .tour-tip .acts{display:flex;gap:8px;justify-content:flex-end;align-items:center}.tour-tip .skip{margin-right:auto;color:var(--mute);font-size:12px;text-transform:none;letter-spacing:0;background:none;box-shadow:none;min-height:30px;padding:0}
-.tour-hand{position:fixed;z-index:53;font-size:30px;pointer-events:none;animation:bounce 1s ease-in-out infinite}
+.tour-hand{position:fixed;z-index:53;font-size:30px;pointer-events:none;transition:left .8s cubic-bezier(.4,0,.2,1),top .8s cubic-bezier(.4,0,.2,1),opacity .5s;animation:bounce 2s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
-<header><div><span class="logo" id="logo"></span><h1>Settings</h1><button id="tour" class="tourbtn" title="A 30-second walkthrough">Take the tour</button><button id="back" class="back" aria-label="Home">← Home</button></div></header>
+<header><div><span class="logo" id="logo"></span><h1>Settings</h1><button id="tour" class="tourbtn" title="A 30-second walkthrough">Take the tour</button></div></header>
 <main>
   <section class="card" id="stale" hidden><h2>HAULS needs a reload</h2><p>The background part is out of date, so some buttons will fail.</p><div class="row"><button id="reload">Reload HAULS</button></div></section>
 
@@ -73,7 +73,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px
   <section class="card hero" id="s-history" data-tour="1">
     <div class="top"><div><h2>Amazon price history <span class="pill rec">Recommended</span></h2><p class="sub">Reads Amazon's own price chart so you see the real history from day one.</p></div>
       <label class="sw" title="Read Amazon's price history automatically"><input type="checkbox" id="ahauto" aria-label="Read Amazon's price history automatically"><span class="knobtrack"></span><span class="onoff"></span></label></div>
-    <p class="meta">Needs you signed in to Amazon. While you are away, one watched product at a time opens in a small window, then closes.</p>
+    <p class="meta">Needs you signed in to Amazon. While you are away, one watched product at a time opens in a small window in the corner of your screen for a few seconds, then closes. Nothing opens in the tab you are using.</p>
     <div class="stat"><div id="hstat" style="display:contents"></div><button id="abgrun" class="ghost" style="margin-left:auto">Read now</button></div>
     <p id="hmsg" role="status" class="meta"></p>
   </section>

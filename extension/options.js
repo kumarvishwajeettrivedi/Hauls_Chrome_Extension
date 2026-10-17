@@ -37,12 +37,10 @@ const showPin = pin => { $("pinval").textContent = pin || "not set"; };
 chrome.storage.local.get("pin").then(v => showPin(v.pin)); chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.pin) showPin(ch.pin.newValue); });
 
 // Is the background (service worker) the same build as this page? A stale one rejects the unknown message.
-const PAGE_BUILD = "2026-10-17.r30";
+const PAGE_BUILD = "2026-10-17.r31";
 chrome.runtime.sendMessage({ type: "t2-version" }).then(r => { const ok = r && r.build === PAGE_BUILD; $("ver").textContent = "HAULS " + chrome.runtime.getManifest().version + (ok ? " · up to date" : "") + " · built by Vishwajeet · hauls.in"; $("stale").hidden = !!ok; }).catch(() => { $("stale").hidden = false; });
 $("reload").onclick = () => chrome.runtime.reload();
 
-// Back goes to the extension home screen (the same panel, full page).
-$("back").onclick = () => { location.href = "home.html"; };
 
 // ---- Amazon price-history page report: runs only on click, only on an Amazon.in tab the user already has open ----
 let lastProbe = "";
@@ -119,14 +117,16 @@ function startTour(i = 0) {
     const below = t.bottom + 16 + 190 < innerHeight, top = below ? t.bottom + 14 : Math.max(10, t.top - 14 - tip.offsetHeight), left = Math.max(12, Math.min(innerWidth - tip.offsetWidth - 12, t.left)); Object.assign(tip.style, { top: top + "px", left: left + "px" });
     Object.assign(hand.style, { left: Math.min(innerWidth - 40, t.right - 44) + "px", top: (below ? t.bottom - 10 : t.top - 36) + "px" });
   }
+  let seq = 0;
   function show() {
-    const st = TOUR[i]; $(st.el).scrollIntoView({ block: "center", behavior: "smooth" }); tip.replaceChildren();
+    const my = ++seq, st = TOUR[i]; $(st.el).scrollIntoView({ block: "center", behavior: "smooth" }); tip.classList.add("hide"); hand.style.opacity = "0";
     const dots = document.createElement("div"), h = document.createElement("h3"), p = document.createElement("p"), acts = document.createElement("div"); dots.className = "dots"; TOUR.forEach((_, k) => { const d = document.createElement("i"); if (k === i) d.className = "on"; dots.append(d); }); h.textContent = `${i + 1}. ${st.title}`; p.textContent = st.text; acts.className = "acts";
     const mk = (label, cls, fn) => { const b = document.createElement("button"); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; acts.append(b); return b; };
     mk("Skip", "skip", end); if (i > 0) mk("Back", "ghost", () => { i--; show(); });
     if (st.act) mk(st.act[0], "ghost", async e => { await st.act[1](); e.target.textContent = "Done ✓"; e.target.disabled = true; });
     mk(i === TOUR.length - 1 ? "Done" : "Next", "", () => { if (i === TOUR.length - 1) end(); else { i++; show(); } });
-    tip.append(dots, h, p, acts); setTimeout(place, 380); place();
+    setTimeout(() => { if (my !== seq) return; tip.replaceChildren(dots, h, p, acts); place(); }, tip.childElementCount ? 380 : 0); // let the old text fade before the new text appears
+    setTimeout(() => { if (my === seq) place(); }, 600); setTimeout(() => { if (my !== seq) return; place(); tip.classList.remove("hide"); hand.style.opacity = "1"; }, 1100); // the spotlight settles first, then the words fade in
   }
   addEventListener("resize", place); addEventListener("scroll", place, true); addEventListener("keydown", key); dim.onclick = end; show();
 }
