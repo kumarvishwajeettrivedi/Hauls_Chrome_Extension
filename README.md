@@ -4,7 +4,7 @@ Price history, buy-or-wait verdicts, trap alerts and grocery comparison for Indi
 
 ```
 extension/            the unpacked extension (Load unpacked → this folder)
-supabase/migrations/  SQL you run once in the Supabase SQL editor (0001 → 0008)
+supabase/migrations/  SQL you run once in the Supabase SQL editor (0001 → 0009)
 tests/{unit,integration,e2e}
 scripts/              build-config, extension-key, package
 docs/                 plans, security notes, google-signin-setup.md
