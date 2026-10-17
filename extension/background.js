@@ -71,7 +71,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "history-ref") { const items = await get(), it = items[m.key]; const price = it && it.hist.length ? it.hist[it.hist.length - 1][1] : 0;
       if (it && m.low <= m.high && price >= m.low * 0.6 && price <= m.high * 1.4) { it.ref = { days: Math.round(m.days), low: m.low, high: m.high, at: Date.now() }; await put(items); reply({ ok: true, it }); } else reply({ ok: false }); }
     else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));
-    else if (m.type === "compare") reply(await cmpFind({ title: m.title, brand: m.brand, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
+    else if (m.type === "compare") reply(await cmpFind({ title: m.title, brand: m.brand, mpn: m.mpn, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
     else if (m.type === "trk-run") reply(await trkRun(Date.now()).catch(e => ({ error: e.message })));
     else if (m.type === "iplocate") reply(await ipLocate().catch(() => ({})));
     else if (m.type === "reverse") reply(await reverseGeocode(m.lat, m.lon).catch(() => ({})));

@@ -1,6 +1,6 @@
 // Cross-store compare: parsers read real captured structure, the matcher never calls a different model/variant "Exact".
 const assert = require("assert"), fs = require("fs"), path = require("path");
-global.mtFacts = require("../../extension/match.js").mtFacts; global.mtCompare = require("../../extension/match.js").mtCompare; global.mtAlnum = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); const C = require("../../extension/compare.js"), fx = n => fs.readFileSync(path.join(__dirname, "../fixtures/compare", n + ".html"), "utf8");
+global.mtChecks = require("../../extension/match.js").mtChecks; global.mtFacts = require("../../extension/match.js").mtFacts; global.mtCompare = require("../../extension/match.js").mtCompare; global.mtAlnum = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); const C = require("../../extension/compare.js"), fx = n => fs.readFileSync(path.join(__dirname, "../fixtures/compare", n + ".html"), "utf8");
 let n = 0; const ok = (c, m) => { assert.ok(c, m); n++; };
 const AMZ_TITLE = "boAt Airdopes 141 Gen 2, 4 Mics ENx Tech, 48 Hrs Playback, Fast Charge, Low Latency, IPX4, v5.4 Bluetooth Earbuds TWS Ear Buds Wireless with mic (Active Black)";
 

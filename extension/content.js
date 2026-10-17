@@ -42,6 +42,13 @@
     return b.replace(/[‎‏]/g, "").slice(0, 60);
   }
 
+  // Manufacturer model / part number as the page states it ("Item model number", "Manufacturer Part Number", JSON-LD mpn): the strongest free identifier.
+  function readMpn() {
+    for (const tr of document.querySelectorAll("#productDetails_techSpec_section_1 tr, #productDetails_detailBullets_sections1 tr, .prodDetTable tr, #detailBullets_feature_div li")) { const m = tr.textContent.replace(/\s+/g, " ").replace(/[‎‏]/g, "").trim().match(/^(?:Item model number|Model Number|Manufacturer Part Number|Part Number)\s*[:]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\. ]{3,38})$/i); if (m) return m[1].trim(); }
+    for (const s of document.querySelectorAll('script[type="application/ld+json"]')) { const m = s.textContent.match(/"mpn"\s*:\s*"([^"]{4,40})"/); if (m) return m[1]; }
+    return "";
+  }
+
   function extract() {
     const u = new URL(location.href), id = S && S.id(u);
     if (!id) return null;
@@ -50,7 +57,7 @@
     if (!price) { price = num(meta("product:price:amount") || meta("og:price:amount")); src = "meta"; }
     if (!price) return null;
     return { key: `${dom}:${id}`, site: S.name, url: u.origin + u.pathname + (dom === "flipkart.com" ? `?pid=${id}` : ""),
-      title: title || meta("og:title") || document.title, image: image || meta("og:image"), price, mrp: num(q(S.mrp)) || (ldMrp > price ? ldMrp : null) || strikePrice(price), src, seller: readSeller(), brand: readBrand(title || meta("og:title") || document.title) };
+      title: title || meta("og:title") || document.title, image: image || meta("og:image"), price, mrp: num(q(S.mrp)) || (ldMrp > price ? ldMrp : null) || strikePrice(price), src, seller: readSeller(), brand: readBrand(title || meta("og:title") || document.title), mpn: readMpn() || undefined };
   }
 
 
@@ -317,15 +324,18 @@
     const paintCmp = r => {
       cbox.replaceChildren(); const here = p.price;
       if (r.error) return void cbox.append(el("p", "meta", "Couldn't compare right now. Try again later."), cbtn);
-      const all = [...r.results.map(x => x.price), here], low = Math.min(...all);
+      const all = [...r.results.filter(x => x.confidence === "Exact").map(x => x.price), here], low = Math.min(...all); // a "lowest" badge is only earned against confirmed same-product rows
       if (!r.results.length) { cbox.append(el("p", "meta", "No confident match at other stores.")); (r.near || []).slice(0, 2).forEach(x => { const a = el("a", "cmp-r near"); a.href = x.url; a.target = "_blank"; a.rel = "noopener"; a.append(el("span", "", x.store), el("b", "num", fmt(x.price)), el("span", "tag", x.why), el("small", "", "Closest, not the same item: " + String(x.title).slice(0, 70))); cbox.append(a); }); }
       else { const hr = el("div", "cmp-r" + (here <= low ? " low" : "")); hr.append(el("span", "", `${p.site} (here)`), el("b", "num", fmt(here)), el("span", "tag", here <= low ? "Lowest" : "")); cbox.append(hr); }
-      r.results.forEach(x => { const a = el("a", "cmp-r" + (x.price <= low ? " low" : "")), d = x.price - here; a.href = x.url; a.target = "_blank"; a.rel = "noopener";
-        a.append(el("span", "", x.store), el("b", "num", fmt(x.price)), el("span", "tag", x.price <= low ? "Lowest" : d > 0 ? `${fmt(d)} more` : d < 0 ? `${fmt(-d)} less` : "Same"), el("small", "", x.confidence + " match")); cbox.append(a); });
+      r.results.forEach(x => { const ex = x.confidence === "Exact", a = el("a", "cmp-r" + (ex && x.price <= low ? " low" : "")), d = x.price - here; a.href = x.url; a.target = "_blank"; a.rel = "noopener";
+        a.append(el("span", "", x.store), el("b", "num", fmt(x.price)), el("span", "tag", ex && x.price <= low ? "Lowest" : d > 0 ? `${fmt(d)} more` : d < 0 ? `${fmt(-d)} less` : "Same"));
+        const sp = el("div", "same"); sp.append(el("b", "", x.confidence === "Exact" ? "Same product" : "Likely the same"));
+        (x.checks || []).forEach(c => { const ch = el("span", "chk " + (c.ok === true ? "y" : c.ok === false ? "n" : "u")); ch.append(ico(c.ok === true ? "check" : "minus"), `${c.k} ${c.v}`); ch.title = c.ok === null ? "The listing does not say" : c.info ? "Differs; price can vary by this" : "Matches"; sp.append(ch); });
+        a.append(sp); cbox.append(a); });
       if (r.failed.length) cbox.append(el("p", "meta", `Couldn't check: ${r.failed.join(", ")}.`));
       cbox.append(el("p", "meta", "Prices come from each store's search page. Offers, shipping and seller may differ."));
     };
-    cbtn.onclick = async () => { cbtn.disabled = true; cbtn.textContent = "Checking other stores…"; const r = await send({ type: "compare", title: p.title, brand: p.brand || undefined, site: p.site, price: p.price }).catch(() => ({ error: "x" })); cmpDone[p.key] = r || { error: "x" }; if (cur && cur.p && cur.p.key === p.key) paintCmp(cmpDone[p.key]); };
+    cbtn.onclick = async () => { cbtn.disabled = true; cbtn.textContent = "Checking other stores…"; const r = await send({ type: "compare", title: p.title, brand: p.brand || undefined, mpn: p.mpn || undefined, site: p.site, price: p.price }).catch(() => ({ error: "x" })); cmpDone[p.key] = r || { error: "x" }; if (cur && cur.p && cur.p.key === p.key) paintCmp(cmpDone[p.key]); };
     if (cmpDone[p.key]) paintCmp(cmpDone[p.key]); else cbox.append(cbtn);
     sec.append(cbox);
     const mk = ([n, h, col]) => { const a = el("a", "store"); a.href = h; a.target = "_blank"; a.rel = "noopener"; a.style.setProperty("--c", STORE_C(col)); a.append(el("i"), n); return a; };

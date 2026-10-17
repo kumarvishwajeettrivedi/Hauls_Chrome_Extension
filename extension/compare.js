@@ -53,7 +53,7 @@ function cmpParseAmazon(html) {
 
 // ---- matching ----
 // Identity and matching live in match.js (mtFacts / mtCompare): brand + model + every known spec must agree, conflicts reject.
-function cmpIdentity(title, brand) { const f = mtFacts(title, brand), st = [...f.storage][0]; return { f, brand: f.brand, title, toks: [mtAlnum(brand), ...f.series.slice(0, 3), ...f.model, ...(st ? [st] : [])].filter(Boolean) }; }
+function cmpIdentity(title, brand, mpn) { const f = mtFacts(title, brand, mpn), st = [...f.storage][0]; return { f, brand: f.brand, title, title0: title, toks: [mtAlnum(brand), ...f.series.slice(0, 3), ...f.model, ...(st ? [st] : [])].filter(Boolean) }; }
 function cmpMatch(id, cand) { const r = mtCompare(id.f, cand); return r.verdict ? { label: r.verdict === "exact" ? "Exact" : "Likely", score: r.verdict === "exact" ? 2 : 1 } : null; }
 const CMP_RANK = { Exact: 3, Likely: 2 };
 // Best candidate per store: highest confidence first, then lowest price. Prices far from the reference are dropped as a different product.
@@ -95,13 +95,13 @@ async function cmpFetch(url, doFetch = fetch) {
   try { const r = await doFetch(url, { credentials: "include", signal: ctl.signal, redirect: "follow" }); if (!r.ok) throw new Error("http " + r.status); return await r.text(); } finally { clearTimeout(timer); }
 }
 // -> { results: [{store,title,price,url,confidence}], failed: [store], here }
-async function cmpFind({ title, brand, site, price }, doFetch = fetch, now = Date.now()) {
-  const id = cmpIdentity(title, brand), q = cmpQuery(title, brand); if (!q) return { results: [], failed: [], here: site };
+async function cmpFind({ title, brand, mpn, site, price }, doFetch = fetch, now = Date.now()) {
+  const id = cmpIdentity(title, brand, mpn), q = cmpQuery(title, brand); if (!q) return { results: [], failed: [], here: site };
   const stores = Object.entries(CMP_STORES).filter(([n]) => n !== site), results = [], failed = [], near = [], seen = {};
   await Promise.all(stores.map(async ([name, s]) => {
     const key = name + "|" + q, hit = cmpCache.get(key);
     let cands; if (hit && now - hit.at < CMP_TTL) cands = hit.cands; else { try { cands = s.parse(await cmpFetch(s.search(q), doFetch)); cmpCache.set(key, { at: now, cands }); } catch { failed.push(name); return; } }
-    seen[name] = cands.length; const best = cmpPick(id, cands, price); if (best) results.push({ store: name, title: best.title, price: best.price, url: best.url, confidence: best.confidence }); else { const cl = cmpClosest(id, cands, price); if (cl) near.push({ store: name, ...cl }); }
+    seen[name] = cands.length; const best = cmpPick(id, cands, price); if (best) results.push({ store: name, title: best.title, price: best.price, url: best.url, confidence: best.confidence, checks: mtChecks(id.f, best, id.title0) }); else { const cl = cmpClosest(id, cands, price); if (cl) near.push({ store: name, ...cl }); }
   }));
   results.sort((a, b) => a.price - b.price);
   return { results, failed, here: site, near, seen };

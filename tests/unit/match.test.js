@@ -50,5 +50,45 @@ T("Penguin Atomic Habits Paperback", "Penguin", "Penguin Atomic Habits Paperback
 T("Penguin Atomic Habits Paperback", "Penguin", "Penguin Atomic Habits Paperback", "exact", "same book");
 // no brand on the page: never exact
 T("Airdopes 141 Gen 2", "", "boAt Airdopes 141 Gen 2", null, "brand unknown: refuse rather than guess");
+// ---- reviewer round 2: accessories, used goods, region/carrier, hardware variants (all must be null), and legit matches we must not lose
+const P16 = "iPhone 16 128 GB: 5G Mobile Phone";
+T(P16, "Apple", "Apple iPhone 16 Case Cover for iPhone 16 Silicone Back Cover", null, "case");
+T(P16, "Apple", "Tempered Glass for Apple iPhone 16 Screen Protector", null, "screen guard");
+T(P16, "Apple", "Apple iPhone 16 (128 GB) - Refurbished", null, "refurbished");
+T(P16, "Apple", "Renewed Apple iPhone 16 (128 GB)", null, "renewed");
+T(P16, "Apple", "Magnetic Car Mount Holder for Apple iPhone 16 128 GB", null, "mount: only the for-phrase says accessory");
+T(P16, "Apple", "Apple iPhone 16 (128 GB) Used - Good", null, "used");
+T(P16, "Apple", "Apple iPhone 16 128 GB Dual eSIM Hong Kong Version", null, "region");
+T("Apple iPhone 15 128GB", "Apple", "Apple iPhone 15 128GB Verizon Locked", null, "carrier");
+T("Samsung Galaxy S24 5G 128GB", "Samsung", "Samsung Galaxy S24 5G Back Cover Case for Galaxy S24", null, "case with brand");
+T("Samsung Galaxy S24 5G 128GB", "Samsung", "Samsung Galaxy S24 5G 128GB Charger Combo", null, "combo");
+T("Sony PlayStation 5 Slim Console", "Sony", "Sony PlayStation 5 Slim Console Cover Faceplate", null, "faceplate");
+T("Philips Air Fryer HD9252/90 4.1L", "Philips", "Philips Air Fryer HD9252/90 Spare Basket", null, "spare");
+T("Redmi Note 13 Pro 5G (8GB, 256GB)", "Xiaomi", "Xiaomi Redmi Note 13 Pro+ 5G (8GB, 256GB)", null, "Pro vs Pro+");
+T("Samsung Galaxy S24 5G", "Samsung", "Samsung Galaxy S24+ 5G", null, "S24 vs S24+");
+T("Samsung Galaxy S24+ 5G", "Samsung", "Samsung Galaxy S24 5G", null, "S24+ vs S24");
+T("Apple Watch Series 9 GPS 45mm", "Apple", "Apple Watch Series 9 GPS 41mm", null, "case size");
+T("Apple Watch Series 9 GPS 45mm", "Apple", "Apple Watch Series 9 GPS + Cellular 45mm", null, "cellular");
+T("Sony PS5 Console Slim Digital Edition", "Sony", "Sony PS5 Console Slim Disc Edition", null, "digital vs disc");
+T("Canon EOS R50 Mirrorless Camera Body", "Canon", "Canon EOS R50 Mirrorless Camera with 18-45mm Lens", null, "body vs kit");
+T("Canon EOS R50 Mirrorless Camera with 18-45mm Lens", "Canon", "Canon EOS R50 Mirrorless Camera Body Only", null, "kit vs body");
+T("Mi Power Bank 3i 20000mAh", "Mi", "Mi Power Bank 3i 10000mAh", null, "mAh");
+T("Samsung 1.5 Ton 5 Star Split AC", "Samsung", "Samsung 1.0 Ton 5 Star Split AC", null, "ton");
+T("Nike Air Max 270 Men's Running Shoes", "Nike", "Nike Air Max 270 Women's Running Shoes", null, "gender");
+T("Levi's Men's 511 Slim Fit Jeans Blue L", "Levi's", "Levi's Men's 511 Slim Fit Jeans Blue XL", null, "apparel letter size");
+T("Kindle Paperwhite 16 GB", "Amazon", "Kindle Paperwhite (16 GB) - 6.8 inch display", "exact", "sub-brand title");
+T("Redmi Note 13 5G (8GB, 256GB)", "Xiaomi", "Redmi Note 13 5G (8GB, 256GB)", "exact", "Redmi is Xiaomi");
+T("Amul Butter 500 g", "Amul", "Amul Butter 0.5 kg", "exact", "kg vs g");
+T("Amul Gold Milk 1 L", "Amul", "Amul Gold Milk 1000 ml", "exact", "l vs ml");
+T("Samsung 8 kg Front Load WW80T4040", "Samsung", "Samsung 8 kg Front Load WW80T4040CE1", "exact", "market suffix on the model code");
+T("Philips Air Fryer NA120", "Philips", "Philips Air Fryer NA1200", null, "NA120 vs NA1200 stay different");
+{ const f = M.mtFacts("Apple iPhone 17e 256 GB White", "Apple", "MHRW4HN/A"), g = c => M.mtCompare(f, { title: c });
+  assert.equal(g("Apple iPhone 17e 256 GB (MHRW4HN/A)").mpnHit, true, "page model number found in the listing"); n++;
+  assert.equal(g("Apple iPhone 17e 512 GB (MHRW4HN/A)").verdict, null, "a model number never overrides a spec conflict"); n++; }
+// "same product" panel rows
+{ const S = "Apple iPhone 17e 256 GB: 15.40 cm (6.1″) Super Retina XDR Display, White", f = M.mtFacts(S, "Apple"), rows = M.mtChecks(f, { title: "Apple iPhone 17e (Soft Pink, 256 GB)", brand: "Apple" }, S), g = k => rows.find(r => r.k === k);
+  assert.ok(g("Brand").ok && g("Brand").v === "Apple" && g("Model").v === "17E" && g("Version").v === "Standard" && g("Storage").v === "256GB" && g("Storage").ok === true, "rows agree: " + JSON.stringify(rows)); n++;
+  assert.ok(g("Colour") && g("Colour").ok === false && g("Colour").info, "different colour is shown as info, not a mismatch"); n++;
+  const r2 = M.mtChecks(f, { title: "Apple iPhone 17e", brand: "Apple" }, S); assert.equal(r2.find(r => r.k === "Storage").ok, null, "storage not stated by the listing"); n++; }
 assert.equal(wrongExact, 0, `${wrongExact} gold pair(s) wrong`);
 console.log(`match: ${n} passed, 0 failed`);
