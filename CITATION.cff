@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you reference HAULS, please cite it as below."
+title: "HAULS - price history and buy-or-wait extension for Indian shoppers"
+type: software
+authors:
+  - family-names: "Vishwajeet"
+    alias: "kumarvishwajeettrivedi"
+repository-code: "https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension"
+url: "https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/"
+abstract: "Free browser extension that shows real price history, buy-or-wait verdicts, other sellers and urgency-message checks on Amazon.in, Flipkart, Myntra and other Indian stores."
+keywords: [price tracker, price history, chrome extension, amazon india, flipkart, myntra, deal finder]
+date-released: 2026-10-17

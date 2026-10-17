@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/sitemap.xml

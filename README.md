@@ -1,12 +1,14 @@
 <p align="center"><img src="site/img/logo.png" width="72" alt="HAULS"></p>
 
 <h1 align="center">HAULS</h1>
-<p align="center"><b>Don't buy blind.</b> Price history, buy-or-wait verdicts, trap prices and grocery comparison for Indian shoppers.</p>
+<p align="center"><b>Don't buy blind.</b> A free price tracker and price history extension for Amazon.in, Flipkart and Myntra: buy-or-wait verdicts, other sellers, urgency checks and grocery comparison for Indian shoppers. Chrome, Edge and Brave.</p>
 <p align="center">
   <a href="https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/">Website</a> ·
   <a href="../../releases/latest/download/hauls-share.zip">Download</a> ·
-  <a href="INSTALL.md">Install guide</a>
+  <a href="INSTALL.md">Install guide</a> ·
+  <a href="https://hauls.in/">hauls.in</a>
 </p>
+<p align="center"><a href="../../releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/kumarvishwajeettrivedi/Hauls_Chrome_Extension?label=release"></a> <img alt="manifest v3" src="https://img.shields.io/badge/Chrome-Manifest%20V3-014baa"> <img alt="free" src="https://img.shields.io/badge/price-free-19e68c"></p>
 
 <p align="center"><img src="site/img/hero.jpg" alt="HAULS panel open on an Amazon.in product page" width="860"></p>
 
@@ -71,3 +73,13 @@ Sign-in setup is described in [docs/google-signin-setup.md](docs/google-signin-s
 ## Disclaimer
 
 HAULS is an independent tool and is not affiliated with any store it works with. Prices come from the pages you visit and from public store endpoints, and may differ at checkout.
+
+## Author and authenticity
+
+HAULS is designed and built by **[Vishwajeet](https://github.com/kumarvishwajeettrivedi)** ([@kumarvishwajeettrivedi](https://github.com/kumarvishwajeettrivedi)). More about the product: [hauls.in](https://hauls.in/).
+
+- **Official sources:** this repository, the [project website](https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/) and the [GitHub releases](../../releases). Copies elsewhere are not published by the author.
+- **Check your download:** every release carries `SHA256SUMS.txt`. Run `shasum -a 256 hauls-share.zip` and compare it with the value in that file.
+- **Cite or reference this project:** use the "Cite this repository" button on GitHub (`CITATION.cff`), and link to this repository. The commit history here shows who wrote what and when.
+- **Rights:** see [NOTICE](NOTICE). The code is published for transparency; copying or republishing it as your own work is not permitted without the author's written permission.
+- **Security issues:** please open a private security advisory on this repository instead of a public issue.

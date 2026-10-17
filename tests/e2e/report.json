@@ -1,7 +1,7 @@
 {
-  "at": "2026-10-17T16:33:30.837Z",
+  "at": "2026-10-17T16:38:46.085Z",
   "summary": {
-    "pass": 4,
+    "pass": 3,
     "fail": 0,
     "skip": 0
   },
@@ -10,34 +10,25 @@
       "id": "1",
       "name": "smoke: loads, SW up, knob shows, no console errors",
       "status": "PASS",
-      "ms": 4714,
+      "ms": 7397,
       "failures": [],
       "notes": [],
       "attempts": 1
     },
     {
-      "id": "33",
-      "name": "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy to Wait, saves the choice, and offers an alert price",
+      "id": "27",
+      "name": "page report: Settings button reads only price-history wording and the chart from the Amazon tab",
       "status": "PASS",
-      "ms": 4117,
+      "ms": 3563,
       "failures": [],
       "notes": [],
       "attempts": 1
     },
     {
-      "id": "39",
-      "name": "Impulse Check (Amazon): real page markup -> stock/deal/popularity cues from the product zones only; carousels and reviews ignored; memory + price context drive the verdict; no cue = no card",
+      "id": "30",
+      "name": "settings: background price check card shows per-store health and runs on demand (admin message accepted from the extension page)",
       "status": "PASS",
-      "ms": 10733,
-      "failures": [],
-      "notes": [],
-      "attempts": 1
-    },
-    {
-      "id": "41",
-      "name": "Impulse Check (Flipkart, Myntra): messages near the product title are read (timer d/h/m/s, per-size stock); menus, banners, reviews, carousels, pop-ups are not; a timer that restarts is reported",
-      "status": "PASS",
-      "ms": 5164,
+      "ms": 1818,
       "failures": [],
       "notes": [],
       "attempts": 1
