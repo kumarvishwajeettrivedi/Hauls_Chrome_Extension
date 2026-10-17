@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HAULS – Don't Buy Blind",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Price history, buy-or-wait verdicts and alerts for Amazon, Flipkart, Myntra, Blinkit and more.",
   "permissions": [
     "alarms",
