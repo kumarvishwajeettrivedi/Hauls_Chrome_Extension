@@ -1,0 +1,86 @@
+{
+  "manifest_version": 3,
+  "name": "HAULS – Don't Buy Blind",
+  "version": "0.1.4",
+  "description": "Price history, buy-or-wait verdicts and alerts for Amazon, Flipkart, Myntra, Blinkit and more.",
+  "permissions": [
+    "alarms",
+    "notifications",
+    "scripting",
+    "storage",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://*.amazon.in/*",
+    "https://*.flipkart.com/*",
+    "https://*.myntra.com/*",
+    "https://blinkit.com/*",
+    "https://nominatim.openstreetmap.org/*",
+    "https://digital.dmart.in/*",
+    "https://www.dmart.in/*",
+    "https://www.jiomart.com/*",
+    "https://ipwho.is/*",
+    "https://xesmxpwcmbimhngdufje.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.amazon.in/*",
+        "https://*.flipkart.com/*",
+        "https://*.myntra.com/*",
+        "https://*.blinkit.com/*",
+        "https://*.croma.com/*",
+        "https://*.reliancedigital.in/*",
+        "https://*.tatacliq.com/*",
+        "https://*.nykaa.com/*",
+        "https://*.vijaysales.com/*",
+        "https://*.snapdeal.com/*"
+      ],
+      "js": [
+        "sites-extra.js",
+        "lib.js",
+        "analysis.js",
+        "shopify.js",
+        "reviews.js",
+        "logos.js",
+        "theme.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "HAULS",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "hauls@example.local",
+      "strict_min_version": "128.0"
+    }
+  },
+  "optional_host_permissions": [
+    "https://*/*"
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3+jPa6hKKWhZnNIfChWF7mK/YTMOHpyeyq0XocfqaVeLh90ONXi6nqeVCH8/pDbhRuG+qYNHNDdNt8nNZWc0oe35KiY7hycigrO9IWgMQuvC6gcB2+yjA+shdOZzuHwhgsNW7vZNU9c2MFlZYs3H5uFpNcvHkukBcemAOKftDPSBMSOmOTyu2CMJTZx18fZZcnMmuLCKyAuEmmYQSFKCLZQC2UIkHSy9s9fTWZ1/LyhRktBx3qPt2F5AIltBnOLU2Nn3ihUUAn8dI5u9fOQycd9AlcG9zNcyz99VDPuVK/V/5QFBupE6o6sYFNSsVX2oBdG88etyIDi29ZrWYtrEbwIDAQAB",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'none'"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}

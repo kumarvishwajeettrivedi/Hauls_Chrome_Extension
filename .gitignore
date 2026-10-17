@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+*.zip
+.DS_Store
+keys/
+*.har
+hars/
+.superdesign/
+extension/config.js

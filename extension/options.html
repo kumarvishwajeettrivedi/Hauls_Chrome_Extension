@@ -1,0 +1,44 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HAULS settings</title>
+<style>
+:root{--ink:#131316;--blue:#0754F8;--mint:#19E68C;--yellow:#FFD93D;--line:#EAEAF0;--chip:#F7F7F7}
+@media (prefers-color-scheme:dark){:root{--ink:#F5F5F7;--line:#2E2E38;--chip:#24242C}body{background:#141418}}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;font:500 15px/1.5 "Be Vietnam Pro",system-ui,sans-serif;color:var(--ink)}
+header{background:var(--blue);color:#fff;padding:28px 20px}header div{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:14px}
+.back{margin-left:auto;background:#fff;color:#131316;box-shadow:none;border:2px solid #131316;min-height:38px;padding:0 14px}.logo{width:48px;height:48px;border-radius:50%;box-shadow:0 0 0 3px #fff,3px 3px 0 3px rgba(0,0,0,.3)}.logo svg{width:100%;height:100%;display:block}
+h1{margin:0;font-size:26px;font-weight:800}main{max-width:640px;margin:0 auto;padding:24px 20px 60px;display:grid;gap:18px}
+.card{border:2px solid var(--ink);border-radius:16px;box-shadow:3px 3px 0 var(--ink);padding:18px}.card h2{margin:0 0 6px;font-size:17px;font-weight:800}.card p{margin:6px 0;color:#545459}
+@media (prefers-color-scheme:dark){.card p{color:#B8B8C4}}
+button{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:99px;background:#131316;color:#fff;font-weight:800;font-size:13px;letter-spacing:.05em;text-transform:uppercase;box-shadow:3px 3px 0 var(--mint)}
+button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--mint)}button.ghost{background:var(--chip);color:var(--ink);box-shadow:none;border:2px solid var(--ink)}
+button:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+.pill{display:inline-block;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:800;border:2px solid var(--ink);background:var(--chip);color:var(--ink)}.pill.on{background:var(--mint);color:#131316}
+.srow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 0;border-top:2px dashed var(--line)}.srow:first-of-type{border-top:0}.srow b{min-width:92px;font-weight:800}.srow button{min-height:38px;padding:0 14px;font-size:13px}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px solid var(--ink);border-radius:12px;padding:12px;font:12px/1.45 ui-monospace,Menlo,monospace;max-height:320px;overflow:auto;margin:10px 0 0}
+input{font:inherit;min-height:44px;padding:0 14px;border:2px solid var(--ink);border-radius:99px;background:var(--chip);color:var(--ink);width:150px}
+ul{margin:8px 0 0;padding-left:20px;color:#545459}li{margin:4px 0}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+</style>
+<header><div><span class="logo" id="logo"></span><h1>HAULS settings</h1><button id="back" class="back" aria-label="Home">← Home</button></div></header>
+<main>
+  <section class="card" id="stale" hidden><h2>HAULS needs a reload</h2><p>The background part is out of date, so some buttons will fail.</p><div class="row"><button id="reload">Reload HAULS</button></div></section>
+  <section class="card">
+    <h2>Independent stores (Shopify) <span class="pill" id="state">checking…</span></h2>
+    <p>Track boAt, Mamaearth and other brand sites. Chrome asks for your approval first.</p>
+    <div class="row"><button id="on">Enable independent stores</button><button id="off" class="ghost" hidden>Turn off</button></div>
+    <p id="msg" role="status"></p>
+  </section>
+  <section class="card" id="grocery">
+    <h2>Grocery stores</h2>
+    <p>Connect a store once so HAULS can read its prices in a background tab.</p>
+    <p class="meta">Delivery pincode: <b id="pinval">…</b>. Change it in the Grocery tab.</p>
+    <div id="stores"></div>
+    <p id="smsg" role="status"></p>
+    <pre id="report" hidden></pre>
+    <div class="row"><button id="copy" class="ghost" hidden>Copy report</button></div>
+  </section>
+  <section class="card">
+    <h2>Your data</h2>
+    <ul><li>Your watchlist and price history live in this browser first.</li><li>Signed in, they sync to your account. Export or delete from the account button.</li></ul>
+  </section>
+</main>
+<footer id="ver" style="max-width:640px;margin:0 auto;padding:0 20px 24px;font-size:12px;opacity:.6"></footer>
+<script src="options.js"></script>
