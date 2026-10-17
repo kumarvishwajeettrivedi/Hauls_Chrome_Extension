@@ -66,6 +66,13 @@ assert.ok(A.sellerChange("A", "B") && !A.sellerChange("A", "A") && !A.sellerChan
 assert.equal(A.sellerScore(A.sellerInfo({ name: "Amazon" }, "x")), 92); assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "Amazon" }, "x")), 62); assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "Foo" }, "x")), 38);
 assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "Amazon" }, "x"), { rating: 4.8, ratings: 500 }), 78); assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "Amazon" }, "x"), { rating: 1, ratings: 3 }), 52);
 assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "x" }, "x"), { rating: 1, ratings: 900 }), 8, "many low ratings pull the score down"); assert.equal(A.sellerScore(null), null);
+{ const fs2 = require("fs"), O = require("./offers.js"), big = O.offParseSellerPage(fs2.readFileSync(__dirname + "/../tests/fixtures/offers/seller-big.html", "utf8")), tiny = O.offParseSellerPage(fs2.readFileSync(__dirname + "/../tests/fixtures/offers/seller-tiny.html", "utf8"));
+  const sl = A.sellerInfo({ name: "Clicktech Retail Private Ltd", ships: "Amazon", href: "/gp/aag?seller=AJ6SIZC8YQDZX&isAmazonFulfilled=1" }, "Apple iPhone");
+  const g = A.sellerSignals(sl, big); assert.ok(g.score > 45 && g.score < 80 && !g.limited && g.source === "storefront", "big seller scored from real data: " + JSON.stringify(g)); assert.ok(g.reasons.some(r => /Last 3 months 3.1/.test(r)), "declining recent rating is shown");
+  assert.ok(A.sellerSignals(sl, tiny).limited && A.sellerSignals(sl, tiny).score === null, "3 ratings: limited data, no number");
+  const strong = A.sellerSignals(sl, { ...big, stars: 4.8, positive: 96, m12: { r: 4.8, n: 9000 }, m3: { r: 4.8, n: 3000 }, life: { r: 4.7, n: 20000 } }); assert.ok(strong.score > g.score + 15, "a stronger seller scores clearly higher: " + strong.score + " vs " + g.score);
+  const weak = A.sellerSignals(sl, { ...big, stars: 2.4, positive: 41, m12: { r: 2.4, n: 900 } }); assert.ok(weak.score < g.score - 15, "a weak seller scores clearly lower: " + weak.score);
+  assert.equal(A.sellerSignals(A.sellerInfo({ name: "Amazon" }, "x"), big).score, 92, "first-party keeps the page score"); assert.equal(A.sellerSignals(sl, null).source, "page"); }
 console.log("seller ok");
 
 // Amazon's own history text
@@ -87,6 +94,11 @@ assert.equal(A.historyTextTrusted(real1, { ...prod, price: 899 }), false, "curre
 assert.equal(A.historyTextTrusted(real1, { price: 499, title: "boAt Airdopes 141 Bluetooth Earbuds" }), false, "sentence about another product is rejected");
 assert.equal(A.historyTextTrusted(A.parseAmazonHistoryText("Over the past 30 days, the price of Portronics Clean Kit has ranged from ₹499 to ₹579."), prod), false, "no current price in the sentence: not trusted");
 assert.equal(A.historyTextTrusted(null, prod), false);
+{ const refx = { days: 30, low: 499, high: 579, at: NOW }, one = [[NOW - D, 499]];
+  assert.equal(A.buyWait(one, 499, 0, NOW, refx).verdict, "buy"); assert.equal(A.buyWait(one, 499, 0, NOW, refx).source, "amazon");
+  assert.equal(A.buyWait([[NOW - D, 575]], 575, 0, NOW, refx).verdict, "wait"); assert.equal(A.buyWait([[NOW - D, 540]], 540, 0, NOW, refx).verdict, "okay");
+  assert.equal(A.buyWait(one, 499, 0, NOW).verdict, "unknown", "no reference: still too early"); assert.equal(A.buyWait(one, 499, 0, NOW, { ...refx, at: NOW - 30 * D }).verdict, "unknown", "stale reference ignored");
+  assert.equal(A.buyWait(real, 1200, 1800, NOW, refx).source, undefined, "enough own history wins"); }
 console.log("amazon history ok");
 let u = null; for (let i = 0; i < 50; i++) u = A.useLookup(u && u.usage, "k" + i, "free", new Date(NOW));
 assert.ok(u.allowed && u.used === 50); assert.ok(!A.useLookup(u.usage, "k51", "free", new Date(NOW)).allowed);

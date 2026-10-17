@@ -13,6 +13,13 @@ ok(O.offParseAod('<div id="aod-offer"><span id="aod-price-1"><span class="a-pric
 const b = O.offBest(rows, 64990); ok(b.lowest.price === 57690 && b.saving === 7300, "best + saving " + JSON.stringify(b));
 ok(O.offBest([{ ...rows[0], cond: "Used - Good" }], 70000) === null, "used offers never counted as the cheaper new price");
 ok(O.offBest(rows, 50000).saving === 0, "already lowest: no saving");
+// seller storefront
+{ const big = O.offParseSellerPage(fx("seller-big")), tiny = O.offParseSellerPage(fx("seller-tiny"));
+  ok(big && big.stars === 3.5 && big.positive === 68 && big.n === 75303 && big.months === 12, "storefront headline: " + JSON.stringify(big));
+  ok(big.m1.r === 3.1 && big.m1.n === 8506 && big.m3.r === 3.1 && big.m12.r === 3.7 && big.life.r === 4 && big.life.n === 170541, "rating windows 1m/3m/12m/lifetime: " + JSON.stringify([big.m1, big.m3, big.m12, big.life]));
+  ok(big.dist && big.dist[5] === 63 && big.dist[1] === 20, "star split");
+  ok(tiny && tiny.stars === 1 && tiny.positive === 0 && tiny.n === 3 && tiny.months === 0, "lifetime/tiny seller: " + JSON.stringify(tiny));
+  ok(O.offParseSellerPage("") === null && O.offParseSellerPage("<html>nothing</html>") === null, "garbage: null"); }
 (async () => {
   let calls = 0, last; const f = async (u, o) => { calls++; last = { u, o }; return { ok: true, text: async () => fx("aod-multi") }; };
   O.offCache.clear(); let r = await O.offFind({ asin: "B0DCSYTVDD" }, f, 1000);
@@ -21,5 +28,8 @@ ok(O.offBest(rows, 50000).saving === 0, "already lowest: no saving");
   r = await O.offFind({ asin: "B0DCSYTVDD" }, async () => ({ ok: false, status: 503 }), 1e9); ok(r.failed && !r.offers.length, "503 reported");
   r = await O.offFind({ asin: "bad id" }, f, 3000); ok(r.failed && calls === 1, "invalid asin never fetched");
   const t0 = Date.now(); r = await O.offFind({ asin: "B0AAAAAAAA" }, (u, o) => new Promise((_, rej) => o.signal.addEventListener("abort", () => rej(new Error("a")))), 5000); ok(r.failed && Date.now() - t0 < 9500, "timeout");
+  O.offSellerCache.clear(); let sc = 0; const sf = async u => { sc++; return { ok: true, text: async () => fx("seller-big") }; };
+  let rs = await O.offSeller({ sid: "AJ6SIZC8YQDZX" }, sf, 1000); ok(rs.data && rs.data.n === 75303 && sc === 1, "seller fetched"); await O.offSeller({ sid: "AJ6SIZC8YQDZX" }, sf, 2000); ok(sc === 1, "cached 24h");
+  ok((await O.offSeller({ sid: "bad" }, sf, 3000)).failed && sc === 1, "bad id never fetched"); ok((await O.offSeller({ sid: "AAAAAAAAAA" }, async () => ({ ok: false, status: 503 }), 4000)).failed, "503 reported");
   console.log(`offers: ${n} passed, 0 failed`);
 })().catch(e => { console.error(e); process.exit(1); });

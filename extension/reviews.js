@@ -350,7 +350,7 @@
   // One plain answer from the rating breakdown (or visible reviews when there is none). Wording: what buyers say, never a verdict on anyone.
   function reviewAnswer(hist, reviews, signals) {
     var avg = null, total = null, share4 = null, share1 = null, from = 'ratings';
-    if (hist && hist.dist) { avg = [1, 2, 3, 4, 5].reduce(function (a, k) { return a + k * (hist.dist[k] || 0); }, 0); total = hist.total; share4 = (hist.dist[4] || 0) + (hist.dist[5] || 0); share1 = (hist.dist[1] || 0) + (hist.dist[2] || 0); }
+    if (hist && hist.dist) { var mean = [1, 2, 3, 4, 5].reduce(function (a, k) { return a + k * (hist.dist[k] || 0); }, 0); avg = hist.avg && Math.abs(hist.avg - mean) <= 0.35 ? hist.avg : mean; /* the page's own average (4.1) beats the mean of rounded percentages (4.18); a wildly different parse is ignored */ total = hist.total; share4 = (hist.dist[4] || 0) + (hist.dist[5] || 0); share1 = (hist.dist[1] || 0) + (hist.dist[2] || 0); }
     else { var rs = (reviews || []).filter(function (r) { return r && r.rating >= 1 && r.rating <= 5; }); if (rs.length < 3) return null;
       avg = rs.reduce(function (a, r) { return a + r.rating; }, 0) / rs.length; total = rs.length; share4 = rs.filter(function (r) { return r.rating >= 4; }).length / rs.length; share1 = rs.filter(function (r) { return r.rating <= 2; }).length / rs.length; from = 'visible reviews'; }
     if (!avg) return null;

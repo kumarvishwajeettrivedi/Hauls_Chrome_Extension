@@ -30,4 +30,25 @@ async function offFind({ asin }, doFetch = fetch, now = Date.now()) {
     const offers = offParseAod(await r.text()).sort((a, b) => a.price - b.price); offCache.set(asin, { at: now, offers }); return { offers, failed: false };
   } catch { return { offers: [], failed: true }; } finally { clearTimeout(t); }
 }
-if (typeof module !== "undefined") module.exports = { offParseAod, offBest, offFind, offCache };
+
+// Amazon seller storefront (/sp?seller=ID): rating windows, % positive and star split, all public. Parsed from the page text.
+function offParseSellerPage(html) {
+  const t = String(html || "").replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ");
+  const head = t.match(/(\d(?:\.\d)?) out of 5 stars?\s+(\d+)% positive (?:in the last (\d+) months?|lifetime) \(([\d,]+)(?: total)? ratings?\)/);
+  if (!head) return null;
+  const rev = t.slice(t.indexOf("Reviews", t.indexOf(head[0]))), win = [...rev.matchAll(/(\d(?:\.\d)?) out of 5\s+([\d,]+) ratings?/g)].slice(0, 4).map(m => ({ r: parseFloat(m[1]), n: parseInt(m[2].replace(/,/g, ""), 10) }));
+  const dist = {}; for (const m of rev.slice(0, 600).matchAll(/([1-5]) star (\d+)%/g)) dist[m[1]] = +m[2];
+  const total = parseInt(head[4].replace(/,/g, ""), 10);
+  return { stars: parseFloat(head[1]), positive: +head[2], months: head[3] ? +head[3] : 0, n: total, m1: win[0] || null, m3: win[1] || null, m12: win[2] || null, life: win[3] || null, dist: Object.keys(dist).length === 5 ? dist : null };
+}
+const offSellerCache = new Map();
+async function offSeller({ sid }, doFetch = fetch, now = Date.now()) {
+  if (!/^[A-Z0-9]{8,16}$/.test(sid || "")) return { failed: true };
+  const mem = offSellerCache.get(sid); if (mem && now - mem.at < 24 * 3600e3) return { data: mem.data };
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), OFF_TIMEOUT);
+  try {
+    const r = await doFetch(`https://www.amazon.in/sp?seller=${sid}`, { credentials: "include", signal: ctl.signal }); if (!r.ok) throw new Error("http " + r.status);
+    const data = offParseSellerPage((await r.text()).slice(0, 2e6)); if (!data) return { failed: true, reason: "unreadable" }; offSellerCache.set(sid, { at: now, data }); return { data };
+  } catch { return { failed: true }; } finally { clearTimeout(t); }
+}
+if (typeof module !== "undefined") module.exports = { offParseSellerPage, offSeller, offSellerCache, offParseAod, offBest, offFind, offCache };

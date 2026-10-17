@@ -118,6 +118,7 @@ assert.strictEqual(hh.total, 169142); assert.ok(hh.dist[5] > 0.54 && hh.dist[5] 
   assert.ok(sm2.dislikes.includes('build quality') && sm2.dislikes.includes('stopped working'), sm2.dislikes.join());
   assert.ok(!/\b(love|daily|experience)\b/.test(all) && !/^working$|\|working\b/.test(all), all);
   assert.equal(R.reviewAnswer({ avg: 3.2, total: 10, dist: { 5: .7, 4: .2, 3: .05, 2: .02, 1: .03 } }, [], null).tone, 'good', 'a wrongly parsed avg must not override the breakdown');
+  assert.equal(R.reviewAnswer({ avg: 4.1, total: 100, dist: { 5: .6, 4: .25, 3: .08, 2: .02, 1: .05 } }, [], null).avg, 4.1, 'the page average is shown, not the rounded-percentage mean');
   var ra = R.reviewAnswer({ avg: 4.4, total: 12000, dist: { 5: .7, 4: .2, 3: .05, 2: .02, 1: .03 } }, [], { signals: [] });
   assert.equal(ra.tone, 'good'); assert.equal(ra.pos, 90); assert.equal(ra.neg, 5);
   assert.equal(R.reviewAnswer({ avg: 3.9, total: 500, dist: { 5: .4, 4: .2, 3: .1, 2: .1, 1: .2 } }, [], null).tone, 'mixed');

@@ -31,6 +31,11 @@
     return out.name || out.text ? out : null;
   }
 
+  // Best "Buy for ₹X" (with offers / + cashback) the page itself shows. Leaf text only, below the listed price, never invented.
+  function readOfferPrice(price) {
+    let best = null; for (const e of document.querySelectorAll("#ppd span, #ppd div, #centerCol span, #centerCol div")) { if (e.children.length) continue; const m = e.textContent.trim().match(/^Buy for\s*₹\s*([\d,]+(?:\.\d+)?)/i); if (!m) continue; const v = num(m[1]); if (v && v < price && v > price * 0.5 && (!best || v < best)) best = v; }
+    return best;
+  }
   // Brand of the product on this page (needed for matching: Amazon titles often omit it). Byline, spec table, JSON-LD, else the title's first word.
   function readBrand(title) {
     const t = sel => { const e = document.querySelector(sel); return e ? e.textContent.replace(/\s+/g, " ").trim() : ""; };
@@ -216,7 +221,7 @@
     if (!cur) return main.append(el("p", "empty", T.emptyProduct));
     if (cur.limited) { main.append(el("div", "vcard wait", ""), quotaRow()); main.firstChild.append(el("span", "vl", `All ${cur.limit} free lookups used this month. Saved items still update.`)); return; }
     cur.it = withStoredFlags(cur.it, safeItems((await chrome.storage.local.get("items")).items), cur.p.key);
-    const { p, it } = cur, H = cur.comm && cur.comm.length ? mergeHistory(it.hist, cur.comm) : it.hist, s = stats(H), bw = buyWait(H, p.price, p.mrp), d = bw.deal;
+    const { p, it } = cur, H = cur.comm && cur.comm.length ? mergeHistory(it.hist, cur.comm) : it.hist, s = stats(H), bw = buyWait(H, p.price, p.mrp, Date.now(), it.ref), d = bw.deal;
     // hero: price sticker + lowest tag + heart
     const hero = el("div", "hero"), sw = el("div", "st-wrap"), price = el("span", "price num"); sw.append(price);
     if (H.length > 1 && s.min === p.price) sw.append(el("span", "tag", `Lowest in ${d.w ? d.w.days : 1} days`));
@@ -231,6 +236,7 @@
     const pk = parsePack(p.title), per = pk && unitPrice(p.price, pk), bits = [];
     if (p.mrp && p.mrp > p.price) bits.push(`${Math.round((1 - p.price / p.mrp) * 100)}% off`);
     if (per) bits.push(`₹${per}/${pk.unit === "pc" ? "pc" : "100" + pk.unit}`);
+    const offerP = readOfferPrice(p.price); if (offerP) bits.push(`${fmt(offerP)} with offers`); // the page's own "Buy for ₹X" line (coupons, bank offers, cashback)
     if (bits.length) { const sub = el("div", "sub2 num", bits.join(" · ")); if (p.mrp && p.mrp > p.price) { sub.append(el("span", "mrp", fmt(p.mrp))); } main.append(sub); }
     // low / avg / high + history chart, both following the selected range
     const c3 = el("div", "chips3"), cb = el("div", "chartbox"), seg = el("div", "seg"), now = Date.now();
@@ -264,7 +270,7 @@
     const row = el("div", "row2"), mt = el("div", "meter4" + (["weak", "higher"].includes(d.badge) ? " lo" : "")), lvl = { strong: 4, normal: 3, weak: 2, higher: 1, unknown: 0 }[d.badge];
     mt.title = d.label; for (let i = 0; i < 4; i++) mt.append(el("i", i < lvl ? "on" : "")); row.append(mt);
     if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") row.append(el("span", "pill num", `${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"} usual`));
-    else row.append(el("span", "pill", d.label));
+    else row.append(el("span", "pill", bw.source === "amazon" ? `Amazon ${it.ref.days}-day range` : d.label));
     const zone = document.querySelector("#centerCol, #ppd, #dp-container, main, [role=main]") || document.body, urg = urgencySignals(zone.innerText);
     if (urg.length) { const u = el("button", "pill y"); u.append("Urgency banner"); u.style.cursor = "pointer"; u.onclick = () => openSheet("Seen on this page", [note("Observed", urg.join(". ") + "."), note("Price history says", d.badge === "unknown" ? "Not enough history to compare yet." : `This price is: ${d.label}.`)]); row.append(u); }
     main.append(row);
@@ -285,17 +291,21 @@
       // visual seller card: half-ring score + name + icon chips (text kept to a few words). fill() reruns when the offers list adds the seller's rating.
       const sb = el("button", "seller " + sl.tone), sw = it.sellerChange && Date.now() - it.sellerChange.at < 30 * 864e5 ? sellerChange(it.sellerChange.from, sl.name) : null;
       const fill = () => {
-        const known = offDone[p.key] && (offDone[p.key].offers || []).find(o => o.seller.toLowerCase() === sl.name.toLowerCase()), score = sellerScore(sl, known || null);
+        const d = spDone[sl.sid] && spDone[sl.sid].data, sg = sellerSignals(sl, d || null), compact = n => n >= 1e5 ? Math.round(n / 1e3) + "k" : n >= 1e3 ? (n / 1e3).toFixed(1).replace(".0", "") + "k" : String(n);
         const mid = el("div", "s-mid"), chips = el("div", "s-chips"), chip = (icon, text, cls) => { const c = el("span", "schip " + (cls || "")); c.append(ico(icon), text); chips.append(c); };
         mid.append(el("span", "lbl", "Seller"), el("span", "sname", sl.name), el("span", "skind", sl.kind));
         chip(sl.fba || sl.firstParty ? "shield" : "pin", sl.fba || sl.firstParty ? "Amazon ships" : "Seller ships", sl.fba || sl.firstParty ? "ok" : "warn");
-        if (known && known.rating) chip("star", `${known.rating} (${known.ratings})`, known.rating >= 4 ? "ok" : known.rating >= 3 ? "" : "warn");
+        if (d && !sg.limited) { chip("star", `${sg.r} (${compact(sg.n)})`, sg.r >= 4 ? "ok" : sg.r >= 3 ? "" : "warn"); chip("check", `${sg.pos}% positive`, sg.pos >= 85 ? "ok" : sg.pos >= 65 ? "" : "warn"); if (sg.trend <= -0.4) chip("down", "Recent dip", "warn"); }
+        else if (sg.limited) chip("info", `Limited data · ${sg.n} rating${sg.n === 1 ? "" : "s"}`, "warn");
+        else if (sl.sid && spDone[sl.sid] == null) chip("sync", "Checking seller…", "");
         if (sw) chip("swap", "Changed", "warn");
-        mid.append(chips); sb.replaceChildren(mid, gaugeEl(score, "Seller signals", 96)); sb.setAttribute("aria-label", `Seller ${sl.name}, ${sl.kind}, signals ${score} of 100. Tap for details`);
+        sb.dataset.reasons = JSON.stringify(sg.reasons || []);
+        mid.append(chips); sb.replaceChildren(mid, ...(sg.score == null ? [] : [gaugeEl(sg.score, "Seller signals", 96)])); sb.setAttribute("aria-label", `Seller ${sl.name}, ${sl.kind}${sg.score == null ? ", limited data" : ", signals " + sg.score + " of 100"}. Tap for details`);
       };
       fill(); sellerFill = fill;
-      sb.onclick = () => { const ul = el("ul"); sl.notes.forEach(n => ul.append(el("li", "", n))); if (sw) ul.append(el("li", "", sw));
-        const nodes = [ul, el("p", "meta", "Signals come from this product page and, once loaded, Amazon's seller list. HAULS does not rate or vouch for any seller.")];
+      if (sl.sid && spDone[sl.sid] === undefined) { spDone[sl.sid] = null; send({ type: "seller", sid: sl.sid }).then(r => { spDone[sl.sid] = r && r.data ? r : { failed: true }; if (cur && cur.p && cur.p.key === p.key && sellerFill) sellerFill(); }).catch(() => { spDone[sl.sid] = { failed: true }; }); }
+      sb.onclick = () => { const ul = el("ul"); sl.notes.forEach(n => ul.append(el("li", "", n))); try { JSON.parse(sb.dataset.reasons || "[]").forEach(n => ul.append(el("li", "", n))); } catch {} if (sw) ul.append(el("li", "", sw));
+        const nodes = [ul, el("p", "meta", "Signals come from this page and the seller's public Amazon storefront (ratings, % positive, volume). HAULS does not rate or vouch for any seller.")];
         if (sl.sid) { const a = el("a", "btn ghost", "Seller profile"); a.href = new URL(p.url).origin + "/sp?seller=" + sl.sid; a.target = "_blank"; a.rel = "noopener"; nodes.push(a); }
         openSheet("About this seller", nodes); };
       main.append(sb);
@@ -353,7 +363,7 @@
   }
 
   // Review quality signals + themes. Rating shape comes from the page's rating breakdown (large sample); text signals from visible reviews (+ more if the user asks).
-  let revExtra = null; const cmpDone = {}, offDone = {}; let sellerFill = null;
+  let revExtra = null; const cmpDone = {}, offDone = {}, spDone = {}; let sellerFill = null;
   function reviewsInfo() {
     if (typeof Reviews_ === "undefined") return null;
     const site = dom === "amazon.in" ? "amazon" : dom === "flipkart.com" ? "flipkart" : ""; if (!site) return null;

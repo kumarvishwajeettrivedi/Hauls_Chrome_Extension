@@ -1,38 +1,18 @@
 {
-  "at": "2026-10-17T12:18:25.573Z",
+  "at": "2026-10-17T12:32:34.110Z",
   "summary": {
-    "pass": 3,
+    "pass": 1,
     "fail": 0,
     "skip": 0
   },
   "results": [
     {
-      "id": "3",
-      "name": "panel: tabs, heart, trap price, Escape",
+      "id": "27",
+      "name": "page report: Settings button reads only price-history wording and the chart from the Amazon tab",
       "status": "PASS",
-      "ms": 7745,
+      "ms": 4353,
       "failures": [],
       "notes": [],
-      "attempts": 1
-    },
-    {
-      "id": "9",
-      "name": "mobile 390x844: bottom sheet, no overflow, tap targets >=44px",
-      "status": "PASS",
-      "ms": 3734,
-      "failures": [],
-      "notes": [],
-      "attempts": 1
-    },
-    {
-      "id": "25",
-      "name": "compare (live): one click lists the same product from other stores, lowest marked, nothing runs before the click",
-      "status": "PASS",
-      "ms": 4802,
-      "failures": [],
-      "notes": [
-        "compare: [\"Amazon (here)₹766Lowest\",\"Flipkart₹799₹33 moreSame productBrand boAtModel 141 GEN2Version StandardColour differs\"]"
-      ],
       "attempts": 1
     }
   ]

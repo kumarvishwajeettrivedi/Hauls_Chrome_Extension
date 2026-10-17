@@ -17,8 +17,8 @@ const mkT = () => ({ fails: [], notes: [],
 
 const PRODUCT_ID = "B0TESTPRD1";
 // Opens a routed synthetic product page with the panel ready.
-async function product(ctx, { id = PRODUCT_ID, price = 830, mrp = 1299, seller = null, ratings = null, title } = {}) {
-  const url = await routeProduct(ctx, { id, price, mrp, seller, ratings, ...(title ? { title } : {}) });
+async function product(ctx, { id = PRODUCT_ID, price = 830, mrp = 1299, seller = null, ratings = null, title, offerLine = 0 } = {}) {
+  const url = await routeProduct(ctx, { id, price, mrp, seller, ratings, offerLine, ...(title ? { title } : {}) });
   const r = await openPage(ctx, url); if (!r.panel || !(await r.panel.has(".knob"))) throw new Error("knob did not appear");
   return { ...r, url };
 }
@@ -367,6 +367,8 @@ test("23", "seller: row shows who sells and ships, sheet explains, a changed sel
   let { p, panel } = await product(ctx, { id, price: 900, seller: { name: "Clicktech Retail Private Ltd", ships: "Amazon", fba: true } }); await panel.open();
   t.check(await panel.has(".seller"), "seller row present");
   const row = await panel.text(".seller"); t.check(/Clicktech Retail/.test(row) && /3rd-party/.test(row) && /Amazon ships/.test(row) && /Seller signals/.test(row), "row text: " + row); t.check(await panel.has(".seller .gauge svg path") && /^\d+/.test(await panel.text(".seller .gnum")), "half-ring gauge with a score");
+  await poll(async () => /positive/.test(await panel.text(".seller")), 20000, 500);
+  const live = await panel.text(".seller"); if (/positive/.test(live)) { t.check(/\d\.\d \(\d+(\.\d)?k?\)/.test(live) && /\d+% positive/.test(live), "storefront rating + % positive chips loaded in the background: " + live); const sc = +(await panel.text(".seller .gnum")).match(/^\d+/)[0]; t.check(sc !== 62 && sc >= 5 && sc <= 98, "score comes from the seller's own data, not the old constant: " + sc); } else t.note("storefront not readable right now: " + live);
   await panel.click(".seller"); await sleep(400);
   const sheet = await panel.text(".sheet"); t.check(/independent seller/.test(sheet) && /Seller profile/.test(sheet) && !/scam|fake|fraud/i.test(sheet), "sheet text: " + sheet.slice(0, 160));
   t.check(!/changed from/.test(sheet), "no change note on first sight");
@@ -383,8 +385,13 @@ test("23b", "seller: pages without seller info show no row", t => withExt({}, as
 test("24", "reviews: visible answer card with rating split, themes and a details sheet", t => withExt({}, async ({ ctx }) => {
   const { panel } = await product(ctx, { id: "B0REVIEW01", ratings: { total: "12,345", avg: "4.4", dist: { 5: 70, 4: 20, 3: 5, 2: 2, 1: 3 } } }); await panel.open();
   t.check(await panel.has(".rev.good"), "card present with good tone");
-  const txt = await panel.text(".rev"); t.check(/mostly happy/.test(txt) && /4\.5★/.test(txt) && /90% rate it 4-5/.test(txt), "card text: " + txt);
+  const txt = await panel.text(".rev"); t.check(/mostly happy/.test(txt) && /4\.4★/.test(txt) && /90% rate it 4-5/.test(txt), "card text: " + txt);
   await panel.click(".rev"); await sleep(400); t.check(/Rating breakdown/.test(await panel.text(".sheet")), "sheet opens with rating breakdown");
+}));
+test("31", "price line: the page's own 'Buy for' offer price is shown (lowest below the price), nothing invented when absent", t => withExt({}, async ({ ctx }) => {
+  const { panel } = await product(ctx, { id: "B0OFFERPR1", price: 5000, offerLine: 4600 }); await panel.open();
+  t.check(/₹4,600 with offers/.test(await panel.text(".sub2")), "offer price shown: " + await panel.text(".sub2"));
+  const r2 = await product(ctx, { id: "B0OFFERPR2", price: 5000 }); await r2.panel.open(); t.check(!/with offers/.test(await r2.panel.text("main")), "no offer line on pages without one");
 }));
 test("24b", "reviews: polarised ratings read as divided, pages without ratings show no card", t => withExt({}, async ({ ctx }) => {
   const { panel } = await product(ctx, { id: "B0REVIEW02", ratings: { total: "800", avg: "3.6", dist: { 5: 45, 4: 10, 3: 5, 2: 5, 1: 35 } } }); await panel.open();

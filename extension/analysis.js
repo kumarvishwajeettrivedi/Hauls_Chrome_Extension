@@ -29,8 +29,13 @@ function dealStrength(hist, price, mrp, now = Date.now()) {
   return { badge, label, coverage: cov, vsAvg, adv, w };
 }
 
-function buyWait(hist, price, mrp, now = Date.now()) {
+function buyWait(hist, price, mrp, now = Date.now(), ref = null) {
   const d = dealStrength(hist, price, mrp, now), w = d.w;
+  if (d.badge === "unknown" && refUsable(ref, price, now)) { // too little own history: say what Amazon's own range says, and say that it is Amazon's range
+    const spread = Math.max(ref.high - ref.low, 1), pos = (price - ref.low) / spread, verdict = price <= ref.low * 1.01 ? "buy" : pos >= 0.8 ? "wait" : "okay", k = ref.days + "-day";
+    return { verdict, source: "amazon", title: { buy: "Good time to buy", wait: "Wait if you can", okay: "Fair price" }[verdict], short: { buy: `At Amazon's ${k} low.`, wait: `Near Amazon's ${k} high.`, okay: `Inside Amazon's ${k} range.` }[verdict],
+      reasons: [`Amazon's page shows ${inr(ref.low)} to ${inr(ref.high)} over ${ref.days} days. Today ${inr(price)}.`, "Based on Amazon's range, not on HAULS's own history yet."], deal: d };
+  }
   if (d.badge === "unknown") return { verdict: "unknown", title: "Too early to call", short: "Too early to call.", reasons: [`Only ${w ? w.n : 0} observation${w && w.n === 1 ? "" : "s"} so far. HAULS-style advice needs more history, so revisit or track this item.`], deal: d };
   const pct = Math.abs(Math.round(d.vsAvg * 100)), reasons = [];
   reasons.push(d.vsAvg > 0.005 ? `${inr(price)} is ${pct}% above the ${w.days}-day average of ${inr(w.avg)}.` : d.vsAvg < -0.005 ? `${inr(price)} is ${pct}% below the ${w.days}-day average of ${inr(w.avg)}.` : `${inr(price)} matches the ${w.days}-day average of ${inr(w.avg)}.`);
@@ -132,6 +137,19 @@ function sellerScore(sl, rt) {
   if (rt && rt.rating) { if (rt.ratings >= 20) sc += Math.round((rt.rating - 3.5) * 12); else if (rt.rating <= 2) sc -= 10; }
   return Math.max(5, Math.min(98, sc));
 }
+
+// Seller signals from the seller's own public storefront (rating windows, % positive, volume). Returns {score|null, limited, r, pos, n, trend, reasons}.
+// A seller with fewer than 30 ratings is "limited data": no number, no gauge. First-party/brand-store sellers keep their page-based score.
+function sellerSignals(sl, d) {
+  if (!sl) return null;
+  const base = sellerScore(sl, null);
+  if (!d || sl.firstParty) return { score: base, limited: false, source: "page", reasons: [] };
+  if (d.n < 30) return { score: null, limited: true, n: d.n, r: d.stars, source: "storefront", reasons: [`Only ${d.n} rating${d.n === 1 ? "" : "s"} so far`] };
+  const r = d.m12 && d.m12.n >= 30 ? d.m12.r : d.stars, pos = d.positive, reasons = [`${r}★ from ${d.n.toLocaleString("en-IN")} ratings`, `${pos}% positive${d.months ? ` (last ${d.months} months)` : " (lifetime)"}`];
+  let trend = 0; if (d.m3 && d.life && d.m3.n >= 100 && d.life.n >= 500) { trend = Math.max(-10, Math.min(5, (d.m3.r - d.life.r) * 8)); if (d.m3.r - d.life.r <= -0.4) reasons.push(`Last 3 months ${d.m3.r}★, lifetime ${d.life.r}★`); }
+  const score = Math.max(5, Math.min(98, Math.round(((r - 1) / 4) * 45 + pos * 0.25 + Math.min(15, Math.log10(d.n + 1) * 3) + trend + (sl.fba ? 6 : 0))));
+  return { score, limited: false, r, pos, n: d.n, trend: d.m3 && d.life ? +(d.m3.r - d.life.r).toFixed(1) : 0, source: "storefront", reasons };
+}
 function sellerChange(prev, cur) { return prev && cur && prev !== cur ? `Seller changed from ${prev} to ${cur} since your last visit.` : null; }
 
 // Observations only: we never claim a scarcity message is untrue.
@@ -167,4 +185,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
