@@ -3,7 +3,7 @@
 // Safety: URLs are built from stored ids on an allowlisted host; a body is only a price if the product id appears in it and the number is plausible
 // (captcha pages answer HTTP 200); a big jump or a crossing of the alert target must be seen twice before it is recorded.
 const TRK = { BATCH: 4, MIN_MS: 6 * 3600e3, PENDING_MS: 20 * 60e3, RECENT_N: 12, RECENT_DAYS: 30, HOLD_TTL: 2 * 3600e3, LEASE_MS: 4 * 60e3, DAY_CAP: 60, CAP_PER_ITEM: 6, FAILS: 3, PAUSE_MS: 6 * 3600e3, JUMP: 0.4, MAX_BYTES: 3e6, TIMEOUT: 10000 };
-const TRK_STORES = { "amazon.in": { name: "Amazon", host: "amazon.in" }, "flipkart.com": { name: "Flipkart", host: "flipkart.com" }, "myntra.com": { name: "Myntra", host: "myntra.com" } };
+const TRK_STORES = { "amazon.in": { name: "Amazon", host: "amazon.in" }, "flipkart.com": { name: "Flipkart", host: "flipkart.com" }, "myntra.com": { name: "Myntra", host: "myntra.com" }, "reliancedigital.in": { name: "Reliance Digital", host: "reliancedigital.in" } };
 const trkNum = v => { const n = typeof v === "number" ? v : parseFloat(String(v == null ? "" : v).replace(/[^\d.]/g, "")); return isFinite(n) && n >= 1 && n < 1e7 ? n : null; };
 const trkDomain = key => { const d = String(key || "").split(":")[0]; return TRK_STORES[d] ? d : null; };
 const trkId = key => String(key || "").slice(String(key || "").indexOf(":") + 1);
@@ -50,6 +50,17 @@ function trkParseMyntra(html, id) {
   return { ok: true, price: p, mrp: mrp && mrp > p ? mrp : null };
 }
 
+function trkParseReliance(html, id) { // Fynd storefront state: productDetailsPage.product.uid is the id in the URL; product_meta.price.effective is what you pay
+  const h = String(html || ""); if (!h) return { ok: false, reason: "empty" };
+  if (trkCaptcha(h)) return { ok: false, reason: "captcha" };
+  const st = typeof cmpStateJson === "function" ? cmpStateJson(h) : null, pd = st && st.productDetailsPage; if (!pd || !pd.product) return { ok: false, reason: "no-state" };
+  if (String(pd.product.uid) !== String(id)) return { ok: false, reason: "wrong-page" };
+  const m = pd.product_meta || {}, pr = m.price || {}, price = pr.effective && trkNum(pr.effective.min), mrp = pr.marked && trkNum(pr.marked.min);
+  if (m.sellable === false) return { ok: true, unavailable: true };
+  if (!price) return { ok: false, reason: "no-price" };
+  return { ok: true, price, mrp: mrp && mrp > price ? mrp : null };
+}
+
 async function trkReadCapped(r) { // stop reading at the cap even when the response is chunked (no content-length)
   if (r.body && typeof r.body.getReader === "function") { const rd = r.body.getReader(), dec = new TextDecoder(); let out = "", n = 0; for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.length; out += dec.decode(value, { stream: true }); if (n >= TRK.MAX_BYTES) { try { await rd.cancel(); } catch {} break; } } return out; }
   return (await r.text()).slice(0, TRK.MAX_BYTES);
@@ -68,7 +79,7 @@ async function trkFetch(key, it, doFetch = fetch) {
     if (!r.ok) return { ok: false, reason: "http-" + r.status };
     if (+(r.headers && r.headers.get && r.headers.get("content-length") || 0) > TRK.MAX_BYTES) return { ok: false, reason: "too-large" };
     const body = await trkReadCapped(r);
-    return dom === "amazon.in" ? trkParseAmazon(body, id) : dom === "flipkart.com" ? trkParseFlipkart(body, id) : trkParseMyntra(body, id);
+    return dom === "amazon.in" ? trkParseAmazon(body, id) : dom === "flipkart.com" ? trkParseFlipkart(body, id) : dom === "reliancedigital.in" ? trkParseReliance(body, id) : trkParseMyntra(body, id);
   } catch (e) { return { ok: false, reason: e && e.name === "AbortError" ? "timeout" : "network" }; } finally { clearTimeout(t); }
 }
 
@@ -127,4 +138,4 @@ async function trkRunInner(now, doFetch) {
   }
   await save(); return out;
 }
-if (typeof module !== "undefined") module.exports = { trkParseAmazon, trkParseFlipkart, trkParseMyntra, trkFetch, TRK };
+if (typeof module !== "undefined") module.exports = { trkParseAmazon, trkParseFlipkart, trkParseMyntra, trkParseReliance, trkFetch, TRK };

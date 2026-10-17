@@ -36,7 +36,7 @@ const showPin = pin => { $("pinval").textContent = pin || "not set"; };
 chrome.storage.local.get("pin").then(v => showPin(v.pin)); chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.pin) showPin(ch.pin.newValue); });
 
 // Is the background (service worker) the same build as this page? A stale one rejects the unknown message.
-const PAGE_BUILD = "2026-10-17.r24";
+const PAGE_BUILD = "2026-10-17.r25";
 chrome.runtime.sendMessage({ type: "t2-version" }).then(r => { const ok = r && r.build === PAGE_BUILD; $("ver").textContent = "HAULS " + chrome.runtime.getManifest().version + (ok ? " · up to date" : ""); $("stale").hidden = !!ok; }).catch(() => { $("stale").hidden = false; });
 $("reload").onclick = () => chrome.runtime.reload();
 
@@ -65,7 +65,7 @@ async function paintTrk() {
   const { trk, items } = await chrome.storage.local.get(["trk", "items"]), box = $("trk"); box.replaceChildren();
   const watched = Object.entries(items || {}).filter(([k, i]) => i && (i.target || i.wish)).length, H = (trk && trk.health) || {};
   const head = document.createElement("p"); head.className = "meta"; head.textContent = `${watched} item${watched === 1 ? "" : "s"} watched.`; box.append(head);
-  for (const [dom, name] of [["amazon.in", "Amazon"], ["flipkart.com", "Flipkart"], ["myntra.com", "Myntra"]]) {
+  for (const [dom, name] of [["amazon.in", "Amazon"], ["flipkart.com", "Flipkart"], ["myntra.com", "Myntra"], ["reliancedigital.in", "Reliance Digital"]]) {
     const h = H[dom], row = document.createElement("div"), b = document.createElement("b"), pill = document.createElement("span"); row.className = "srow"; b.textContent = name;
     const paused = trk && trk.pause && trk.pause[dom] > Date.now(), bad = h && h.fail > h.ok;
     pill.className = "pill" + (h && h.ok && !bad && !paused ? " on" : ""); pill.textContent = paused ? "Paused (blocked)" : !h ? "Not checked yet" : `${h.ok} ok · ${h.fail} failed`;

@@ -520,13 +520,13 @@ test("36", "chart reader: health counters tick (read/stored/refused), Settings s
   let h = (await store(sw, "chartHealth")).chartHealth || {}; t.check(h.refused >= 1 && (h.reasons.unreadable || h.reasons["other-product"]) >= 1 && !h.stored, "a chart for another price is counted as refused: " + JSON.stringify(h));
   await add(p, svg); await poll(async () => ((await store(sw, "chartHealth")).chartHealth || {}).stored, 8000, 300);
   h = (await store(sw, "chartHealth")).chartHealth || {}; t.check(h.read >= 1 && h.stored === 1, "good chart counted read + stored: " + JSON.stringify(h));
-  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await o.waitForSelector("#trk .srow:nth-child(5)");
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await o.waitForSelector("#trk .srow:last-child");
   t.check(/Amazon chart.*1 saved/.test(await o.$eval("#trk", e => e.textContent)), "Settings shows the chart reader count: " + (await o.$eval("#trk", e => e.textContent)).slice(-80));
   await seed(sw, { flags: { disabled_features: ["chart-read"] } });
   const { p: p2, panel: pn2 } = await product(ctx, { id: "B0AMZKILL01", price: 4499, mrp: 5999 }); await pn2.open(); await sleep(600);
   await add(p2, svg); await sleep(2500);
   t.check(!Object.entries((await store(sw, "items")).items || {}).some(([k, i]) => /B0AMZKILL01/.test(k + (i.url || "")) && i.ahist), "kill switch: chart on a product is not read while chart-read is disabled");
-  await o.reload(); await o.waitForSelector("#trk .srow:nth-child(5)"); t.check(/Paused by HAULS/.test(await o.$eval("#trk", e => e.textContent)), "Settings says the reader is paused");
+  await o.reload(); await o.waitForSelector("#trk .srow:last-child"); t.check(/Paused by HAULS/.test(await o.$eval("#trk", e => e.textContent)), "Settings says the reader is paused");
 }));
 
 test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy to Wait, saves the choice, and offers an alert price", t => withExt({}, async ({ ctx, sw }) => {

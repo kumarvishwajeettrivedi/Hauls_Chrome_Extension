@@ -12,6 +12,12 @@ ok(T.trkParseAmazon("", "B0F8BVSK21").reason === "empty", "empty");
 ok(T.trkParseAmazon('<div data-asin="B0F8BVSK21">Currently unavailable.</div>', "B0F8BVSK21").unavailable === true, "unavailable is ok:true, not a failure");
 ok(T.trkParseAmazon('<div id="aod-pinned-offer" data-asin="B0F8BVSK21"><div id="aod-offer-heading"><span class="a-text-bold"> Used - Good </span></div><span class="apex-pricetopay-accessibility-label"> ₹500.00 with 10 percent</span></div>', "B0F8BVSK21").neutral === "not-new", "used offer is never the tracked price (neutral, not a failure)");
 ok(T.trkParseAmazon("<div data-asin=\"B0F8BVSK21\">Some page without an offer box</div>", "B0F8BVSK21").neutral === "no-offer", "no offer box: neutral, must not count as a store failure");
+// Reliance Digital (Fynd state)
+r = T.trkParseReliance(fx("track", "reliance-pdp.html"), "8842028"); ok(r.ok && r.price === 999 && r.mrp === 6990, "reliance: " + JSON.stringify(r));
+ok(T.trkParseReliance(fx("track", "reliance-pdp.html"), "1234567").reason === "wrong-page", "reliance other product");
+ok(!T.trkParseReliance("<html>no state</html>", "1").ok && T.trkParseReliance("<html>Access Denied</html>", "1").reason === "captcha", "reliance garbage / blocked");
+ok(T.trkParseReliance('<script>window.__INITIAL_STATE__ = {"productDetailsPage":{"product":{"uid":5},"product_meta":{"sellable":false,"price":{"effective":{"min":10}}}}};</script>', "5").unavailable === true, "reliance not sellable = unavailable, not a price");
+ok(T.trkParseReliance('<script>window.__INITIAL_STATE__ = {"productDetailsPage":{"product":{"uid":5},"product_meta":{"sellable":true,"price":{"effective":{"min":0}}}}};</script>', "5").reason === "no-price", "reliance zero price refused");
 // Flipkart
 r = T.trkParseFlipkart(fx("track", "flipkart-pdp.html"), "ACCHGG7ND9BRXRGZ"); ok(r.ok && r.price === 766 && r.mrp === 3990, "flipkart: " + JSON.stringify(r));
 ok(T.trkParseFlipkart(fx("track", "flipkart-pdp.html"), "ACCOTHEROTHER0000").reason === "wrong-page", "flipkart other pid");

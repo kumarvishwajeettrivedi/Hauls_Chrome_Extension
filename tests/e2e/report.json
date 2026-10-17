@@ -1,20 +1,26 @@
 {
-  "at": "2026-10-17T14:40:53.868Z",
+  "at": "2026-10-17T14:46:55.206Z",
   "summary": {
-    "pass": 0,
-    "fail": 1,
+    "pass": 2,
+    "fail": 0,
     "skip": 0
   },
   "results": [
     {
-      "id": "35",
-      "name": "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader",
-      "status": "FAIL",
-      "ms": 13206,
-      "failures": [
-        "a series with fewer than 6 points is not drawn",
-        "a series whose newest point is older than 14 days is not drawn"
-      ],
+      "id": "30",
+      "name": "settings: background price check card shows per-store health and runs on demand (admin message accepted from the extension page)",
+      "status": "PASS",
+      "ms": 1648,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "36",
+      "name": "chart reader: health counters tick (read/stored/refused), Settings shows them, and a remote disabled_features flag stops reading",
+      "status": "PASS",
+      "ms": 8054,
+      "failures": [],
       "notes": [],
       "attempts": 1
     }
