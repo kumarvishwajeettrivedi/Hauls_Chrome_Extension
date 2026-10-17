@@ -412,13 +412,13 @@ test("26", "Amazon history: the range Amazon shows in the page is remembered and
   const id = "B0AMZHIST1", now = Date.now();
   const { p, panel } = await product(ctx, { id, price: 499, mrp: 1599 }); await panel.open(); await sleep(800);
   t.check(/Not enough history|Keep browsing/.test(await panel.text(".scan")), "scanner starts without data: " + await panel.text(".scan"));
-  await p.evaluate(() => { const d = document.createElement("div"); d.id = "rufus-answer"; d.textContent = "Over the past 30 days, the price of Portronics Clean G 20-in-1 Cleaning Kit has ranged from ₹499 to ₹579. The current price is ₹499, the lowest in the past 30 days."; document.body.append(d); });
+  await p.evaluate(() => { const d = document.createElement("div"); d.id = "rufus-answer"; d.textContent = "Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹499 to ₹579. The current price is ₹499, the lowest in the past 30 days."; document.body.append(d); });
   const ok = await poll(async () => (await store(sw, "items")).items && Object.values((await store(sw, "items")).items).some(i => i.ref), 8000, 300);
   t.check(!!ok, "reference stored");
   const it = Object.values((await store(sw, "items")).items).find(i => i.ref); t.check(it && it.ref.low === 499 && it.ref.high === 579 && it.ref.days === 30, "ref values " + JSON.stringify(it && it.ref));
   await poll(async () => /Amazon's 30-day low/.test(await panel.text(".scan")), 6000, 300);
-  const sc = await panel.text(".scan"); t.check(/At Amazon's 30-day low/.test(sc) && /Real Deal|Fair Deal/.test(sc) && /range Amazon itself showed/.test(sc), "scanner uses Amazon's range: " + sc.slice(0, 200));
-  await p.evaluate(() => { const d = document.createElement("div"); d.textContent = "The price of Y has ranged from ₹900 to ₹100 over time"; document.body.append(d); }); await sleep(1500);
+  const sc = await panel.text(".scan"); t.check(/At Amazon's 30-day low/.test(sc) && /Real Deal|Fair Deal/.test(sc) && /price range this page showed/.test(sc), "scanner uses Amazon's range: " + sc.slice(0, 200));
+  await p.evaluate(() => { const r = document.createElement("div"); r.id = "reviewsMedley"; r.textContent = "Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹10 to ₹20. The current price is ₹499."; document.body.append(r); const q = document.createElement("div"); q.textContent = "Over the past 30 days, the price of some other gadget has ranged from ₹30 to ₹40. The current price is ₹499."; document.body.append(q); const d = document.createElement("div"); d.textContent = "The price of Y has ranged from ₹900 to ₹100 over time"; document.body.append(d); }); await sleep(1500);
   t.check((await store(sw, "items")) && Object.values((await store(sw, "items")).items).every(i => !i.ref || i.ref.low === 499), "nonsense text is ignored");
 }));
 

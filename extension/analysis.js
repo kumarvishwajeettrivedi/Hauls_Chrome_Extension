@@ -48,12 +48,19 @@ function buyWait(hist, price, mrp, now = Date.now()) {
 // Text only; we never call Amazon's endpoint. Returns {days, low, high, now} or null.
 function parseAmazonHistoryText(text) {
   const t = String(text || "").replace(/\s+/g, " ").slice(0, 2000);
-  const m = t.match(/(?:over|in|during) the (?:past|last) (\d+|year|month)\s*(days?|months?|years?)?[^.]{0,200}?ranged from ₹\s?([\d,]+(?:\.\d+)?) to ₹\s?([\d,]+(?:\.\d+)?)/i);
+  const m = t.match(/(?:over|in|during) the (?:past|last) (\d+|year|month)\s*(days?|months?|years?)?,?\s*the price of (.{3,200}?) has ranged from ₹\s?([\d,]+(?:\.\d+)?) to ₹\s?([\d,]+(?:\.\d+)?)/i);
   if (!m) return null;
   const n = /^\d+$/.test(m[1]) ? +m[1] : 1, unit = (m[2] || m[1]).toLowerCase(), days = n * (unit.startsWith("year") ? 365 : unit.startsWith("month") ? 30 : 1);
-  const low = parseFloat(m[3].replace(/,/g, "")), high = parseFloat(m[4].replace(/,/g, "")), cur = t.match(/current price is ₹\s?([\d,]+(?:\.\d+)?)/i), now = cur ? parseFloat(cur[1].replace(/,/g, "")) : null;
+  const low = parseFloat(m[4].replace(/,/g, "")), high = parseFloat(m[5].replace(/,/g, "")), cur = t.match(/current price is ₹\s?([\d,]+(?:\.\d+)?)/i), now = cur ? parseFloat(cur[1].replace(/,/g, "")) : null;
   if (!(days >= 7 && days <= 400) || !(low > 0) || !(high >= low) || high > low * 20) return null;
-  return { days, low, high, now };
+  return { days, low, high, now, title: m[3].trim() };
+}
+// Provenance: the sentence must be about THIS product (title words overlap), quote the same current price the page shows, and not sit inside user-written areas.
+const HISTORY_UNTRUSTED = '[data-hook="review"], [data-hook="review-collection-footer"], #reviewsMedley, #cr-medley, #customer_review_foreign, #aplus, #productDescription, #feature-bullets, #ask-btf-container, #ask_lazy_load_div, .askTeaserQuestions, #important-information, [id^="question"], [id^="answer"]';
+function historyTextTrusted(parsed, product) {
+  if (!parsed || !product || !(parsed.now > 0) || Math.abs(parsed.now - product.price) > 1) return false;
+  const w = s => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter(x => x.length > 2), a = w(parsed.title).slice(0, 8), b = new Set(w(product.title));
+  return a.length >= 2 && a.filter(x => b.has(x)).length >= Math.ceil(a.length / 2);
 }
 // A reference is only trusted when it agrees with the price on the page (within 40% either side) and is under two weeks old.
 const refUsable = (ref, price, now = Date.now()) => !!(ref && ref.low > 0 && ref.high >= ref.low && now - ref.at < 14 * DAY && price >= ref.low * 0.6 && price <= ref.high * 1.4);
@@ -143,4 +150,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };

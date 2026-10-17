@@ -64,9 +64,9 @@ console.log("seller ok");
 
 // Amazon's own history text
 let ah = A.parseAmazonHistoryText("Over the past 30 days, the price of Portronics Clean G 20-in-1 Cleaning Kit has ranged from ₹499 to ₹579. The current price is ₹499, the lowest in the past 30 days.");
-assert.deepEqual(ah, { days: 30, low: 499, high: 579, now: 499 });
-assert.equal(A.parseAmazonHistoryText("Over the past 3 months, the price of X has ranged from ₹1,499 to ₹1,999. The current price is ₹1,599.").days, 90);
-assert.equal(A.parseAmazonHistoryText("In the last year, the price of X has ranged from ₹10 to ₹20.").days, 365);
+assert.deepEqual({ ...ah, title: 0 }, { days: 30, low: 499, high: 579, now: 499, title: 0 });
+assert.equal(A.parseAmazonHistoryText("Over the past 3 months, the price of Gadget X has ranged from ₹1,499 to ₹1,999. The current price is ₹1,599.").days, 90);
+assert.equal(A.parseAmazonHistoryText("In the last year, the price of Xyz has ranged from ₹10 to ₹20.").days, 365);
 assert.equal(A.parseAmazonHistoryText("The price of X has ranged from ₹5 to ₹9"), null); assert.equal(A.parseAmazonHistoryText("Over the past 30 days ranged from ₹900 to ₹100"), null); assert.equal(A.parseAmazonHistoryText(""), null);
 const ref = { days: 30, low: 499, high: 579, at: NOW };
 assert.equal(A.refUsable(ref, 499, NOW), true); assert.equal(A.refUsable(ref, 5000, NOW), false); assert.equal(A.refUsable({ ...ref, at: NOW - 20*D }, 499, NOW), false); assert.equal(A.refUsable(null, 499, NOW), false);
@@ -74,6 +74,13 @@ let rs = A.dealScan([[NOW - D, 499]], 499, 1599, NOW, ref); assert.equal(rs.sour
 rs = A.dealScan([[NOW - D, 579]], 579, 1599, NOW, ref); assert.equal(rs.headline, "Near Amazon's 30-day high"); assert.ok(rs.score < 30, "top of the range scores low: " + rs.score);
 assert.equal(A.dealScan([[NOW - D, 499]], 499, 0, NOW, { ...ref, at: NOW - 30*D }).score, null, "stale reference ignored");
 assert.equal(A.dealScan(real, 1200, 1800, NOW, ref).source, undefined, "enough own history wins over the reference");
+const real1 = A.parseAmazonHistoryText("Over the past 30 days, the price of Portronics Clean G 20-in-1 Cleaning Kit has ranged from ₹499 to ₹579. The current price is ₹499, the lowest in the past 30 days.");
+const prod = { price: 499, title: "Portronics Clean 1 Multipurpose Device Cleaner Cleaning Kit for Laptops" };
+assert.equal(A.historyTextTrusted(real1, prod), true);
+assert.equal(A.historyTextTrusted(real1, { ...prod, price: 899 }), false, "current price in the sentence must match the page");
+assert.equal(A.historyTextTrusted(real1, { price: 499, title: "boAt Airdopes 141 Bluetooth Earbuds" }), false, "sentence about another product is rejected");
+assert.equal(A.historyTextTrusted(A.parseAmazonHistoryText("Over the past 30 days, the price of Portronics Clean Kit has ranged from ₹499 to ₹579."), prod), false, "no current price in the sentence: not trusted");
+assert.equal(A.historyTextTrusted(null, prod), false);
 console.log("amazon history ok");
 let u = null; for (let i = 0; i < 50; i++) u = A.useLookup(u && u.usage, "k" + i, "free", new Date(NOW));
 assert.ok(u.allowed && u.used === 50); assert.ok(!A.useLookup(u.usage, "k51", "free", new Date(NOW)).allowed);

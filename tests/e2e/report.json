@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-17T10:57:26.517Z",
+  "at": "2026-10-17T11:00:30.931Z",
   "summary": {
     "pass": 1,
     "fail": 0,
@@ -10,7 +10,7 @@
       "id": "26",
       "name": "Amazon history: the range Amazon shows in the page is remembered and drives the scanner when HAULS has little history",
       "status": "PASS",
-      "ms": 5560,
+      "ms": 4858,
       "failures": [],
       "notes": [],
       "attempts": 1
