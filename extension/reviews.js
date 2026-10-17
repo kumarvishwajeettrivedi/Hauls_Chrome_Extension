@@ -347,7 +347,23 @@
     return { likes: top(pos, neg, 4), dislikes: top(neg, pos, 4), n: reviews.length };
   }
 
-  var api = { readReviews: readReviews, readHistogram: readHistogram, reviewSignals: reviewSignals, fetchMoreReviews: fetchMoreReviews, reviewSummary: reviewSummary, ctxFromUrl: ctxFromUrl };
+  // One plain answer from the rating breakdown (or visible reviews when there is none). Wording: what buyers say, never a verdict on anyone.
+  function reviewAnswer(hist, reviews, signals) {
+    var avg = null, total = null, share4 = null, share1 = null, from = 'ratings';
+    if (hist && hist.dist) { avg = [1, 2, 3, 4, 5].reduce(function (a, k) { return a + k * (hist.dist[k] || 0); }, 0); total = hist.total; share4 = (hist.dist[4] || 0) + (hist.dist[5] || 0); share1 = (hist.dist[1] || 0) + (hist.dist[2] || 0); }
+    else { var rs = (reviews || []).filter(function (r) { return r && r.rating >= 1 && r.rating <= 5; }); if (rs.length < 3) return null;
+      avg = rs.reduce(function (a, r) { return a + r.rating; }, 0) / rs.length; total = rs.length; share4 = rs.filter(function (r) { return r.rating >= 4; }).length / rs.length; share1 = rs.filter(function (r) { return r.rating <= 2; }).length / rs.length; from = 'visible reviews'; }
+    if (!avg) return null;
+    var a = Math.round(avg * 10) / 10, tone, headline;
+    if (share1 >= 0.2 && share4 >= 0.5 && share4 < 0.8) { tone = 'mixed'; headline = 'Buyers are divided'; }
+    else if (a >= 4.2 && share4 >= 0.75) { tone = 'good'; headline = 'Buyers are mostly happy'; }
+    else if (a >= 3.6) { tone = 'mixed'; headline = 'Mixed reviews'; }
+    else { tone = 'bad'; headline = 'Many buyers are unhappy'; }
+    var odd = signals && signals.signals ? signals.signals.filter(function (x) { return x.severity === 'watch'; }).length : 0;
+    return { tone: tone, headline: headline, avg: a, total: total, from: from, pos: Math.round(share4 * 100), neg: Math.round(share1 * 100), odd: odd };
+  }
+
+  var api = { reviewAnswer: reviewAnswer, readReviews: readReviews, readHistogram: readHistogram, reviewSignals: reviewSignals, fetchMoreReviews: fetchMoreReviews, reviewSummary: reviewSummary, ctxFromUrl: ctxFromUrl };
   root.Reviews_ = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

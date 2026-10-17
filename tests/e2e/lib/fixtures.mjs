@@ -7,11 +7,12 @@ export const key = id => `amazon.in:${id}`;
 export const seedItem = (id, hist, extra = {}) => ({ [key(id)]: { site: "Amazon", title: "boAt Airdopes 141 Bluetooth Earbuds", url: `https://www.amazon.in/dp/${id}`, hist, ...extra } });
 
 // Page the extension's Amazon extractor understands (#productTitle, #corePrice_feature_div .a-price .a-offscreen, .basisPrice).
-export async function routeProduct(ctx, { id, price, mrp, title = "boAt Airdopes 141 Bluetooth Earbuds", seller = null }) {
+export async function routeProduct(ctx, { id, price, mrp, title = "boAt Airdopes 141 Bluetooth Earbuds", seller = null, ratings = null }) {
   const html = `<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>${title}</title></head><body>
 <div id=dp-container><div id=centerCol><span id=productTitle>${title}</span>
 <div id=corePrice_feature_div><span class="a-price"><span class="a-offscreen">${inr(price)}</span><span aria-hidden=true>${inr(price)}</span></span></div>
 ${mrp ? `<span class="basisPrice"><span class="a-offscreen">${inr(mrp)}</span></span>` : ""}
+${ratings ? `<span id="acrCustomerReviewText">${ratings.total} ratings</span><span aria-label="${ratings.avg} out of 5 stars"></span>${[5, 4, 3, 2, 1].map(k => `<a aria-label="${ratings.dist[k]} percent of reviews have ${k} stars"></a>`).join("")}` : ""}
 ${seller ? `<div offer-display-feature-name="desktop-fulfiller-info"><span class="offer-display-feature-text">${seller.ships || ""}</span></div><div><a id="sellerProfileTriggerId" href="/gp/aag/main?seller=AJ6SIZC8YQDZX&isAmazonFulfilled=${seller.fba ? 1 : 0}">${seller.name}</a></div>` : ""}</div></div></body></html>`;
   await ctx.route(`https://www.amazon.in/dp/${id}*`, r => r.fulfill({ status: 200, contentType: "text/html", body: html }));
   return `https://www.amazon.in/dp/${id}`;

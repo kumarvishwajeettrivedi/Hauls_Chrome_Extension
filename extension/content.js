@@ -238,6 +238,16 @@
     if (urg.length) { const u = el("button", "pill y"); u.append("Urgency banner"); u.style.cursor = "pointer"; u.onclick = () => openSheet("Seen on this page", [note("Observed", urg.join(". ") + "."), note("Price history says", d.badge === "unknown" ? "Not enough history to compare yet." : `This price is: ${d.label}.`)]); row.append(u); }
     main.append(row);
     main.append(trapEditor(p, it));
+    // what buyers say (from the rating breakdown or visible reviews)
+    const rc = reviewsInfo();
+    if (rc && rc.ans) {
+      const a = rc.ans, rv = el("button", "rev " + a.tone), rh = el("div", "rev-h"), chips = el("div", "rev-chips");
+      rh.append(el("b", "", a.headline), el("span", "num rev-avg", `${a.avg}★`));
+      rv.append(el("span", "lbl", "Reviews say"), rh, el("span", "meta num", `${a.pos}% rate it 4-5★, ${a.neg}% 1-2★ · ${a.total ? a.total.toLocaleString("en-IN") : ""} ${a.from}${a.odd ? ` · ${a.odd} pattern${a.odd > 1 ? "s" : ""} to note` : ""}`));
+      (rc.sm.likes || []).slice(0, 3).forEach(x => chips.append(el("span", "rchip up", x))); (rc.sm.dislikes || []).slice(0, 3).forEach(x => chips.append(el("span", "rchip dn", x)));
+      if (chips.children.length) rv.append(chips);
+      rv.onclick = () => openSheet("Review signals", rc.nodes()); rv.setAttribute("aria-label", `${a.headline}. Tap for review details`); main.append(rv);
+    }
     // seller
     const sl = sellerInfo(p.seller, p.title);
     if (sl) {
@@ -258,7 +268,7 @@
     if (links.length > SHOW) { const more = el("button", "more", `+${links.length - SHOW} more`); more.onclick = () => { st.classList.add("wrap"); more.remove(); links.slice(SHOW).forEach(l => st.append(mk(l))); }; st.append(more); }
     sec.append(st); main.append(sec);
     // reviews + trust (details live in sheets)
-    const r2 = el("div", "row2"), rc = reviewsInfo(); const pc = priceConfidence(p.src, p.price, p.mrp);
+    const r2 = el("div", "row2"); const pc = priceConfidence(p.src, p.price, p.mrp);
     const trust = el("button", "pill"); trust.append(ico("shield"), pc.level + " confidence"); trust.style.cursor = "pointer";
     trust.onclick = () => { const ul = el("ul"); [pc.note, `Last seen ${new Date(it.hist[it.hist.length - 1][0]).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}.`,
       `${it.hist.length} of your own observation${it.hist.length === 1 ? "" : "s"}${cur.comm && cur.comm.length ? ` plus community prices for ${cur.comm.length} days` : ""}.`, "Prices exclude coupons and bank offers.", "Observed data, not seller-verified."].forEach(t => ul.append(el("li", "", t)));
@@ -290,7 +300,7 @@
         openSheet("Review signals", [...nodes(), el("p", "meta", n)]); draw(); };
       out.push(more); return out;
     };
-    return { label, nodes };
+    return { label, nodes, ans: Reviews_.reviewAnswer(hist, all(), sg), sm: compute().sm };
   }
 
   // ---- account sheet: Google sign-in, consent toggle, sync status ----

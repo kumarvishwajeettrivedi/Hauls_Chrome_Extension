@@ -9,6 +9,7 @@ console.log("ok");
 const { parsePack, unitPrice } = require("./lib.js"), { rank } = (global.num = require("./lib.js").num, require("./grocery.js"));
 assert.deepEqual(parsePack("2 x 500 ml"), { amt: 1000, unit: "ml" }); assert.deepEqual(parsePack("1 kg"), { amt: 1000, unit: "g" });
 assert.equal(unitPrice(29, parsePack("1 kg")), 2.9);
+assert.equal(parsePack("Apple iPhone 16 128 GB: 5G Mobile Phone"), null, "5G network and GB storage are not pack sizes"); assert.deepEqual(parsePack("Atta 5 kg"), { amt: 5000, unit: "g" });
 global.parsePack = parsePack; global.unitPrice = unitPrice;
 const r = rank([{ name: "Salt A", pack: "1 kg", price: 30, inStock: true }, { name: "Salt B", pack: "500 g", price: 20, inStock: true }, { name: "Salt C", pack: "1 kg", price: 10, inStock: false }, { name: "Soap", pack: "1 kg", price: 1, inStock: true }], "salt 1kg");
 assert.deepEqual(r.map(x => x.name), ["Salt A", "Salt B", "Salt C"]);

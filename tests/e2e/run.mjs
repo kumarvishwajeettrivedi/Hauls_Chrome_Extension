@@ -17,8 +17,8 @@ const mkT = () => ({ fails: [], notes: [],
 
 const PRODUCT_ID = "B0TESTPRD1";
 // Opens a routed synthetic product page with the panel ready.
-async function product(ctx, { id = PRODUCT_ID, price = 830, mrp = 1299, seller = null } = {}) {
-  const url = await routeProduct(ctx, { id, price, mrp, seller });
+async function product(ctx, { id = PRODUCT_ID, price = 830, mrp = 1299, seller = null, ratings = null } = {}) {
+  const url = await routeProduct(ctx, { id, price, mrp, seller, ratings });
   const r = await openPage(ctx, url); if (!r.panel || !(await r.panel.has(".knob"))) throw new Error("knob did not appear");
   return { ...r, url };
 }
@@ -378,6 +378,18 @@ test("23", "seller: row shows who sells and ships, sheet explains, a changed sel
 }));
 test("23b", "seller: pages without seller info show no row", t => withExt({}, async ({ ctx }) => {
   const { panel } = await product(ctx); await panel.open(); t.check(!(await panel.has(".seller")), "no seller row");
+}));
+
+test("24", "reviews: visible answer card with rating split, themes and a details sheet", t => withExt({}, async ({ ctx }) => {
+  const { panel } = await product(ctx, { id: "B0REVIEW01", ratings: { total: "12,345", avg: "4.4", dist: { 5: 70, 4: 20, 3: 5, 2: 2, 1: 3 } } }); await panel.open();
+  t.check(await panel.has(".rev.good"), "card present with good tone");
+  const txt = await panel.text(".rev"); t.check(/mostly happy/.test(txt) && /4\.4★/.test(txt) && /90% rate it 4-5/.test(txt), "card text: " + txt);
+  await panel.click(".rev"); await sleep(400); t.check(/Rating breakdown/.test(await panel.text(".sheet")), "sheet opens with rating breakdown");
+}));
+test("24b", "reviews: polarised ratings read as divided, pages without ratings show no card", t => withExt({}, async ({ ctx }) => {
+  const { panel } = await product(ctx, { id: "B0REVIEW02", ratings: { total: "800", avg: "3.6", dist: { 5: 45, 4: 10, 3: 5, 2: 5, 1: 35 } } }); await panel.open();
+  t.check(/divided/.test(await panel.text(".rev")), "divided: " + await panel.text(".rev"));
+  const r2 = await product(ctx, { id: "B0REVIEW03" }); await r2.panel.open(); t.check(!(await r2.panel.has(".rev")), "no card without ratings");
 }));
 
 // ---------------------------------------------------------------- 14 range selector

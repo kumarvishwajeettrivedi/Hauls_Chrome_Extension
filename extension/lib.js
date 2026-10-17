@@ -49,7 +49,7 @@ function stats(hist) {
 }
 // "500 g", "1 kg", "2 x 500 ml", "6 pcs" -> {amt, unit} in g / ml / pc
 function parsePack(t) {
-  const m = String(t || "").toLowerCase().replace(/,/g, "").match(/(?:(\d+)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*(kg|g|gm|ltr|l|ml|pcs|pc|piece|pieces|unit|units)\b/);
+  const m = String(t || "").toLowerCase().replace(/,/g, "").replace(/\b[2-6]g\b/g, " ").match(/(?:(\d+)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*(kg|g|gm|ltr|l|ml|pcs|pc|piece|pieces|unit|units)\b/);
   if (!m) return null;
   const k = { kg: ["g", 1000], g: ["g", 1], gm: ["g", 1], l: ["ml", 1000], ltr: ["ml", 1000], ml: ["ml", 1] }[m[3]] || ["pc", 1];
   return { amt: (m[1] ? +m[1] : 1) * parseFloat(m[2]) * k[1], unit: k[0] };

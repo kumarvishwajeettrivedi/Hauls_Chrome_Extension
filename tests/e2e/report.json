@@ -1,57 +1,27 @@
 {
-  "at": "2026-10-17T10:37:52.203Z",
+  "at": "2026-10-17T10:38:47.892Z",
   "summary": {
-    "pass": 4,
+    "pass": 2,
     "fail": 0,
     "skip": 0
   },
   "results": [
     {
-      "id": "7:amazon-phone",
-      "name": "extraction (live): amazon-phone",
+      "id": "24",
+      "name": "reviews: visible answer card with rating split, themes and a details sheet",
       "status": "PASS",
-      "ms": 11010,
+      "ms": 3097,
       "failures": [],
-      "notes": [
-        "https://www.amazon.in/Storage-Segments-Fastest-Processor-Smoothest/dp/ | seller=Dawntech Etel! | price=15497 mrp=27999 pagePrice=15497 struck=[27999] | REDMI A7 Pro 5G (Mist Blue, 4GB RAM,128GB Storage)",
-        "compare: Flipkart, Croma, Reliance Digital, Tata CLiQ, Snapdeal, Meesho, Vijay Sales, Google Shopping"
-      ],
+      "notes": [],
       "attempts": 1
     },
     {
-      "id": "7:amazon-phone2",
-      "name": "extraction (live): amazon-phone2",
+      "id": "24b",
+      "name": "reviews: polarised ratings read as divided, pages without ratings show no card",
       "status": "PASS",
-      "ms": 10195,
+      "ms": 2300,
       "failures": [],
-      "notes": [
-        "https://www.amazon.in/iPhone-16-128-GB-Control/dp/B0DGJ8YZDF/ref=sr_1_ | seller=Clicktech Retail Private Ltd | price=76999 mrp=89900 pagePrice=76999 struck=[89900] | Apple iPhone 16 128 GB: 5G Mobile Phone with Camer",
-        "compare: Flipkart, Croma, Reliance Digital, Vijay Sales, Tata CLiQ, Snapdeal, Meesho, Google Shopping"
-      ],
-      "attempts": 1
-    },
-    {
-      "id": "7:amazon-laptop",
-      "name": "extraction (live): amazon-laptop",
-      "status": "PASS",
-      "ms": 10286,
-      "failures": [],
-      "notes": [
-        "https://www.amazon.in/HP-255-Laptop-i5-1135G7-Windows/dp/B0DCSYTVDD/re | seller=FESTIVE BAWAAL | price=57690 mrp=99990 pagePrice=57690 struck=[99990] | HP 255 G10 Laptop for Home or Work, 16GB RAM DDR5,",
-        "compare: Flipkart, Croma, Reliance Digital, Vijay Sales, Tata CLiQ, Snapdeal, Meesho, Google Shopping"
-      ],
-      "attempts": 1
-    },
-    {
-      "id": "7:amazon-kitchen",
-      "name": "extraction (live): amazon-kitchen",
-      "status": "PASS",
-      "ms": 10126,
-      "failures": [],
-      "notes": [
-        "https://www.amazon.in/Lifelong-LLMG23-500-Watt-Liquidizing-Stainless/d | seller=RetailEZ Pvt Ltd | price=999 mrp=3500 pagePrice=999 struck=[3500] | Lifelong LLMG23 Power Pro 500-Watt Mixer Grinder w",
-        "compare: Flipkart, Croma, Reliance Digital, Vijay Sales, Tata CLiQ, Pepperfry, IKEA, Snapdeal, Google Shopping"
-      ],
+      "notes": [],
       "attempts": 1
     }
   ]

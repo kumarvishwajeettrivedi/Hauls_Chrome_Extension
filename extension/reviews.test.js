@@ -117,5 +117,13 @@ assert.strictEqual(hh.total, 169142); assert.ok(hh.dist[5] > 0.54 && hh.dist[5] 
   assert.ok(sm2.likes.includes('battery backup') && sm2.likes.includes('sound quality'), sm2.likes.join());
   assert.ok(sm2.dislikes.includes('build quality') && sm2.dislikes.includes('stopped working'), sm2.dislikes.join());
   assert.ok(!/\b(love|daily|experience)\b/.test(all) && !/^working$|\|working\b/.test(all), all);
+  assert.equal(R.reviewAnswer({ avg: 3.2, total: 10, dist: { 5: .7, 4: .2, 3: .05, 2: .02, 1: .03 } }, [], null).tone, 'good', 'a wrongly parsed avg must not override the breakdown');
+  var ra = R.reviewAnswer({ avg: 4.4, total: 12000, dist: { 5: .7, 4: .2, 3: .05, 2: .02, 1: .03 } }, [], { signals: [] });
+  assert.equal(ra.tone, 'good'); assert.equal(ra.pos, 90); assert.equal(ra.neg, 5);
+  assert.equal(R.reviewAnswer({ avg: 3.9, total: 500, dist: { 5: .4, 4: .2, 3: .1, 2: .1, 1: .2 } }, [], null).tone, 'mixed');
+  assert.equal(R.reviewAnswer({ avg: 2.8, total: 500, dist: { 5: .2, 4: .1, 3: .1, 2: .2, 1: .4 } }, [], null).tone, 'bad');
+  assert.equal(R.reviewAnswer(null, [{ rating: 5 }, { rating: 4 }, { rating: 5 }, { rating: 5 }], null).from, 'visible reviews');
+  assert.equal(R.reviewAnswer(null, [{ rating: 5 }], null), null); assert.equal(R.reviewAnswer(null, [], null), null);
+  assert.equal(R.reviewAnswer({ avg: 4.4, total: 1, dist: { 5: 1 } }, [], { signals: [{ severity: 'watch' }, { severity: 'info' }] }).odd, 1);
   console.log('reviews.test.js ok');
 })().catch((e) => { console.error(e); process.exit(1); });
