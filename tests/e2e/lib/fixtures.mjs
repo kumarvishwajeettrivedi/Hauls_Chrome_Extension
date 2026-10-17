@@ -9,7 +9,7 @@ export const seedItem = (id, hist, extra = {}) => ({ [key(id)]: { site: "Amazon"
 // Page the extension's Amazon extractor understands (#productTitle, #corePrice_feature_div .a-price .a-offscreen, .basisPrice).
 export async function routeProduct(ctx, { id, price, mrp, title = "boAt Airdopes 141 Bluetooth Earbuds", seller = null, ratings = null }) {
   const html = `<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>${title}</title></head><body>
-<div id=dp-container><div id=centerCol><span id=productTitle>${title}</span>
+<div id=dp-container><div id=centerCol><span id=productTitle>${title}</span><a id="bylineInfo" href="/stores/x">Visit the ${(title.split(" ")[0] || "Brand")} Store</a>
 <div id=corePrice_feature_div><span class="a-price"><span class="a-offscreen">${inr(price)}</span><span aria-hidden=true>${inr(price)}</span></span></div>
 ${mrp ? `<span class="basisPrice"><span class="a-offscreen">${inr(mrp)}</span></span>` : ""}
 ${ratings ? `<span id="acrCustomerReviewText">${ratings.total} ratings</span><span aria-label="${ratings.avg} out of 5 stars"></span>${[5, 4, 3, 2, 1].map(k => `<a aria-label="${ratings.dist[k]} percent of reviews have ${k} stars"></a>`).join("")}` : ""}

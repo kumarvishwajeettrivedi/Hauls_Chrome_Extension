@@ -31,6 +31,17 @@
     return out.name || out.text ? out : null;
   }
 
+  // Brand of the product on this page (needed for matching: Amazon titles often omit it). Byline, spec table, JSON-LD, else the title's first word.
+  function readBrand(title) {
+    const t = sel => { const e = document.querySelector(sel); return e ? e.textContent.replace(/\s+/g, " ").trim() : ""; };
+    let b = ""; const by = t("#bylineInfo, #brand, a#bylineInfo");
+    b = (by.match(/Visit the (.+?) Store/i) || by.match(/Brand:\s*(.+)/i) || [])[1] || "";
+    if (!b) for (const tr of document.querySelectorAll("#productDetails_techSpec_section_1 tr, #productDetails_detailBullets_sections1 tr, .prodDetTable tr, #detailBullets_feature_div li")) { const m = tr.textContent.replace(/\s+/g, " ").trim().match(/^Brand(?: Name)?\s*[:‎‏]?\s*(.{1,40})$/i); if (m) { b = m[1]; break; } }
+    if (!b) for (const s of document.querySelectorAll('script[type="application/ld+json"]')) { const m = s.textContent.match(/"brand"\s*:\s*(?:\{[^}]*?"name"\s*:\s*"([^"]{1,60})"|"([^"]{1,60})")/); if (m) { b = m[1] || m[2]; break; } }
+    if (!b && dom !== "amazon.in") b = String(title || "").trim().split(/\s+/)[0] || "";
+    return b.replace(/[‎‏]/g, "").slice(0, 60);
+  }
+
   function extract() {
     const u = new URL(location.href), id = S && S.id(u);
     if (!id) return null;
@@ -39,7 +50,7 @@
     if (!price) { price = num(meta("product:price:amount") || meta("og:price:amount")); src = "meta"; }
     if (!price) return null;
     return { key: `${dom}:${id}`, site: S.name, url: u.origin + u.pathname + (dom === "flipkart.com" ? `?pid=${id}` : ""),
-      title: title || meta("og:title") || document.title, image: image || meta("og:image"), price, mrp: num(q(S.mrp)) || (ldMrp > price ? ldMrp : null) || strikePrice(price), src, seller: readSeller() };
+      title: title || meta("og:title") || document.title, image: image || meta("og:image"), price, mrp: num(q(S.mrp)) || (ldMrp > price ? ldMrp : null) || strikePrice(price), src, seller: readSeller(), brand: readBrand(title || meta("og:title") || document.title) };
   }
 
 
@@ -314,7 +325,7 @@
       if (r.failed.length) cbox.append(el("p", "meta", `Couldn't check: ${r.failed.join(", ")}.`));
       cbox.append(el("p", "meta", "Prices come from each store's search page. Offers, shipping and seller may differ."));
     };
-    cbtn.onclick = async () => { cbtn.disabled = true; cbtn.textContent = "Checking other stores…"; const r = await send({ type: "compare", title: p.title, site: p.site, price: p.price }).catch(() => ({ error: "x" })); cmpDone[p.key] = r || { error: "x" }; if (cur && cur.p && cur.p.key === p.key) paintCmp(cmpDone[p.key]); };
+    cbtn.onclick = async () => { cbtn.disabled = true; cbtn.textContent = "Checking other stores…"; const r = await send({ type: "compare", title: p.title, brand: p.brand || undefined, site: p.site, price: p.price }).catch(() => ({ error: "x" })); cmpDone[p.key] = r || { error: "x" }; if (cur && cur.p && cur.p.key === p.key) paintCmp(cmpDone[p.key]); };
     if (cmpDone[p.key]) paintCmp(cmpDone[p.key]); else cbox.append(cbtn);
     sec.append(cbox);
     const mk = ([n, h, col]) => { const a = el("a", "store"); a.href = h; a.target = "_blank"; a.rel = "noopener"; a.style.setProperty("--c", STORE_C(col)); a.append(el("i"), n); return a; };

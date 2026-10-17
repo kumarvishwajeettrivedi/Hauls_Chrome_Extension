@@ -130,7 +130,7 @@ function cleanProduct(p) {
   const https = s => typeof s === "string" && s.length <= 2000 && /^https:\/\//i.test(s) ? s : null;
   const price = Number(p.price), mrp = Number(p.mrp), key = txt(p.key, 200), url = https(p.url);
   if (!key || !url || !isFinite(price) || price <= 0 || price >= 1e7) return null;
-  return { key, site: txt(p.site, 60), url, title: txt(p.title, 500), image: https(p.image), price, mrp: isFinite(mrp) && mrp > price && mrp < 1e7 ? mrp : null, src: ["jsonld", "dom", "meta"].includes(p.src) ? p.src : "dom", seller: p.seller && typeof p.seller === "object" && txt(p.seller.name, 80) ? { name: txt(p.seller.name, 80), ships: txt(p.seller.ships, 60), text: txt(p.seller.text, 200), href: txt(p.seller.href, 300) } : null };
+  return { key, site: txt(p.site, 60), url, title: txt(p.title, 500), image: https(p.image), price, mrp: isFinite(mrp) && mrp > price && mrp < 1e7 ? mrp : null, src: ["jsonld", "dom", "meta"].includes(p.src) ? p.src : "dom", brand: txt(p.brand, 60) || undefined, seller: p.seller && typeof p.seller === "object" && txt(p.seller.name, 80) ? { name: txt(p.seller.name, 80), ships: txt(p.seller.ships, 60), text: txt(p.seller.text, 200), href: txt(p.seller.href, 300) } : null };
 }
 // ---- S3 safe readers: persisted data may be old, hand-edited or corrupted. They repair on read and never throw. Unknown fields are preserved. ----
 const _uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now());

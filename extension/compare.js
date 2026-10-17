@@ -23,10 +23,10 @@ function cmpParseFlipkart(html) {
   for (const o of cmpWalk(st)) {
     if (!o.titles || !o.pricing || !o.baseUrl || !Array.isArray(o.pricing.prices)) continue;
     const live = o.pricing.prices.filter(p => p && !p.strikeOff).map(p => cmpNum(p.value)).filter(Boolean), price = live.length ? live[live.length - 1] : null;
-    const title = [o.titles.title, o.titles.subtitle].filter(Boolean).join(" "), url = "https://www.flipkart.com" + o.baseUrl;
+    const title = [o.titles.title, o.titles.subtitle].filter(Boolean).join(" "), brand = String(o.titles.superTitle || "").slice(0, 60), url = "https://www.flipkart.com" + o.baseUrl;
     if (!price || !title || !/^\/[^/]/.test(o.baseUrl)) continue;
     const pid = (o.baseUrl.match(/pid=([A-Z0-9]+)/) || [])[1] || o.baseUrl, prev = out.get(pid);
-    if (!prev || price < prev.price) out.set(pid, { title, price, url });
+    if (!prev || price < prev.price) out.set(pid, { title, price, url, brand });
   }
   return [...out.values()];
 }
@@ -35,7 +35,7 @@ function cmpParseReliance(html) {
   for (const o of cmpWalk(st)) {
     const eff = o && o.price && o.price.effective, price = eff && cmpNum(eff.min);
     if (!price || !o.name || !o.slug || !/^[a-z0-9-]+$/i.test(o.slug)) continue;
-    out.push({ title: cmpEnt(o.name), price, url: "https://www.reliancedigital.in/product/" + o.slug + "/" });
+    out.push({ title: cmpEnt(o.name), price, url: "https://www.reliancedigital.in/product/" + o.slug + "/", brand: cmpEnt((o.brand && o.brand.name) || "").slice(0, 60) });
   }
   return out;
 }
@@ -46,35 +46,16 @@ function cmpParseAmazon(html) {
     const chunk = html.slice(s.i, k + 1 < starts.length ? starts[k + 1].i : s.i + 30000);
     if (/puis-sponsored-label|>\s*Sponsored\s*</i.test(chunk)) return null;
     const t = chunk.match(/<h2[^>]*aria-label="([^"]+)"/) || chunk.match(/<h2[^>]*>\s*<span[^>]*>([^<]{12,})</), p = chunk.match(/class="a-price"[^>]*>\s*<span class="a-offscreen">₹\s?([\d,]+(?:\.\d+)?)</) || chunk.match(/class="a-price-whole">([\d,]+)/);
-    const title = t && cmpEnt(t[1]).trim(), price = p && cmpNum(p[1]);
-    return title && price ? { title, price, url: "https://www.amazon.in/dp/" + s.asin } : null;
+    const title = t && cmpEnt(t[1]).trim(), price = p && cmpNum(p[1]), bm = chunk.match(/<h2[^>]*class="[^"]*a-size-mini[^"]*"[^>]*>\s*<span[^>]*>([^<]{1,60})</), brand = bm ? cmpEnt(bm[1]).trim() : "";
+    return title && price ? { title, price, url: "https://www.amazon.in/dp/" + s.asin, brand } : null;
   }).filter(Boolean);
 }
 
 // ---- matching ----
-const CMP_STOP = new Set("the a an and or with for of in on to by from new latest buy online india pack set combo mobile phone smartphone camera control wireless bluetooth mic tws ear buds earbuds earphones headphones headset 3g 4g 5g".split(" "));
-const cmpTokens = t => String(t || "").toLowerCase().replace(/[™®©]/g, "").replace(/(\d)\s*(gb|tb|mb|mah|hrs?|hours?|w|mm|db|ms|inch|in|cm|kg|ml|ltr|l)\b/g, "$1$2").replace(/\bhours?\b|\bhrs?\b/g, "h").split(/[^a-z0-9]+/).filter(x => x && !CMP_STOP.has(x));
-const cmpStorage = toks => new Set(toks.filter(x => /^\d+(gb|tb)$/.test(x)));
-// Identity = the model name only: cut at the first spec separator (": , ( | -  with"), then add the storage size found anywhere in the first 140 chars.
-const cmpHead = title => String(title || "").split(/[:,(|;]|\s[-–—]\s|\swith\s/i)[0];
-function cmpIdentity(title) {
-  const head = cmpTokens(cmpHead(title)).slice(0, 8), st = [...cmpStorage(cmpTokens(String(title || "").slice(0, 140)))][0], toks = st && !head.includes(st) ? [...head, st] : head;
-  return { toks, brand: toks[0] || "", nums: toks.filter(x => /\d/.test(x)), storage: cmpStorage(toks) };
-}
-function cmpMatch(id, cand) {
-  const ct = cmpTokens(cand.title), cs = new Set(ct), shared = id.toks.filter(x => cs.has(x)).length, cover = shared / Math.max(1, id.toks.length);
-  if (cmpVariants(id.toks) !== cmpVariants(ct.slice(0, 14))) return null;
-  const cst = cmpStorage(ct); if (id.storage.size && cst.size && ![...id.storage].some(x => cst.has(x))) return null; // 128GB is not 256GB
-  const nums = id.nums, hit = nums.filter(x => cs.has(x)).length, numCover = nums.length ? hit / nums.length : 1;
-  const core = id.toks.slice(0, 6).filter(x => /\d/.test(x)), coreOk = core.every(x => cs.has(x));
-  const brandOk = cmpEnt(cand.title).toLowerCase().includes(id.brand); // some stores keep the brand outside the title, then the model must match fully
-  if (!brandOk && !(cover >= 0.6 && numCover === 1)) return null;
-  let label = null; if (coreOk && numCover >= 0.7 && cover >= 0.5) label = "Exact"; else if (coreOk && numCover >= 0.6 && cover >= 0.35) label = "Likely"; else if (cover >= 0.45 && numCover >= 0.4) label = "Maybe";
-  return label ? { label, score: cover + numCover } : null;
-}
-const CMP_VARIANT = new Set("plus pro max ultra mini lite fe se air go neo anc elite".split(" ")); // same number, different product
-const cmpVariants = toks => [...new Set(toks.filter(x => CMP_VARIANT.has(x)))].sort().join();
-const CMP_RANK = { Exact: 3, Likely: 2, Maybe: 1 };
+// Identity and matching live in match.js (mtFacts / mtCompare): brand + model + every known spec must agree, conflicts reject.
+function cmpIdentity(title, brand) { const f = mtFacts(title, brand), st = [...f.storage][0]; return { f, brand: f.brand, title, toks: [mtAlnum(brand), ...f.series.slice(0, 3), ...f.model, ...(st ? [st] : [])].filter(Boolean) }; }
+function cmpMatch(id, cand) { const r = mtCompare(id.f, cand); return r.verdict ? { label: r.verdict === "exact" ? "Exact" : "Likely", score: r.verdict === "exact" ? 2 : 1 } : null; }
+const CMP_RANK = { Exact: 3, Likely: 2 };
 // Best candidate per store: highest confidence first, then lowest price. Prices far from the reference are dropped as a different product.
 function cmpPick(id, cands, refPrice) {
   let best = null;
@@ -88,18 +69,17 @@ function cmpPick(id, cands, refPrice) {
 }
 
 
-// Why the best-looking candidate was rejected, so an empty result is explainable instead of silent.
+// Why the nearest same-brand candidate was rejected, so an empty result is explainable instead of silent.
 function cmpClosest(id, cands, refPrice) {
   let best = null;
   for (const c of cands) {
     if (refPrice && (c.price < refPrice * 0.3 || c.price > refPrice * 4)) continue;
-    const ct = cmpTokens(c.title), cs = new Set(ct), cover = id.toks.filter(x => cs.has(x)).length / Math.max(1, id.toks.length);
-    if (!best || cover > best.cover) best = { c, ct, cover };
+    const r = mtCompare(id.f, c); if (r.verdict || r.conflicts.includes("brand") || !r.conflicts.length) continue;
+    if (!best || r.conflicts.length < best.r.conflicts.length) best = { c, r };
   }
-  if (!best || best.cover < 0.4) return null;
-  const { c, ct } = best, cst = cmpStorage(ct);
-  const why = cmpVariants(id.toks) !== cmpVariants(ct.slice(0, 14)) ? "different version" : id.storage.size && cst.size && ![...id.storage].some(x => cst.has(x)) ? "different storage" : "different model";
-  return { title: c.title, price: c.price, url: c.url, why };
+  if (!best) return null;
+  const k = best.r.conflicts[0], why = /^model/.test(k) ? "different model" : k === "version" ? "different version" : k === "name" ? "different product" : "different " + k;
+  return { title: best.c.title, price: best.c.price, url: best.c.url, why };
 }
 
 const CMP_STORES = {
@@ -107,7 +87,7 @@ const CMP_STORES = {
   Flipkart: { host: "flipkart.com", search: q => "https://www.flipkart.com/search?q=" + encodeURIComponent(q), parse: cmpParseFlipkart },
   "Reliance Digital": { host: "reliancedigital.in", search: q => "https://www.reliancedigital.in/products?q=" + encodeURIComponent(q), parse: cmpParseReliance },
 };
-const cmpQuery = title => cmpIdentity(title).toks.join(" ");
+const cmpQuery = (title, brand) => cmpIdentity(title, brand).toks.join(" ");
 const cmpCache = new Map();
 
 async function cmpFetch(url, doFetch = fetch) {
@@ -115,8 +95,8 @@ async function cmpFetch(url, doFetch = fetch) {
   try { const r = await doFetch(url, { credentials: "include", signal: ctl.signal, redirect: "follow" }); if (!r.ok) throw new Error("http " + r.status); return await r.text(); } finally { clearTimeout(timer); }
 }
 // -> { results: [{store,title,price,url,confidence}], failed: [store], here }
-async function cmpFind({ title, site, price }, doFetch = fetch, now = Date.now()) {
-  const id = cmpIdentity(title), q = cmpQuery(title); if (!q) return { results: [], failed: [], here: site };
+async function cmpFind({ title, brand, site, price }, doFetch = fetch, now = Date.now()) {
+  const id = cmpIdentity(title, brand), q = cmpQuery(title, brand); if (!q) return { results: [], failed: [], here: site };
   const stores = Object.entries(CMP_STORES).filter(([n]) => n !== site), results = [], failed = [], near = [], seen = {};
   await Promise.all(stores.map(async ([name, s]) => {
     const key = name + "|" + q, hit = cmpCache.get(key);
@@ -126,4 +106,4 @@ async function cmpFind({ title, site, price }, doFetch = fetch, now = Date.now()
   results.sort((a, b) => a.price - b.price);
   return { results, failed, here: site, near, seen };
 }
-if (typeof module !== "undefined") module.exports = { cmpClosest, cmpParseFlipkart, cmpParseReliance, cmpParseAmazon, cmpIdentity, cmpMatch, cmpPick, cmpFind, cmpStateJson, cmpTokens, CMP_STORES, cmpCache };
+if (typeof module !== "undefined") module.exports = { cmpClosest, cmpParseFlipkart, cmpParseReliance, cmpParseAmazon, cmpIdentity, cmpMatch, cmpPick, cmpFind, cmpStateJson, CMP_STORES, cmpCache };

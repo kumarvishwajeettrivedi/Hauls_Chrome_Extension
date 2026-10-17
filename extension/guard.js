@@ -7,10 +7,10 @@ const num = (v, lo, hi) => typeof v === "number" && Number.isFinite(v) && v > lo
 const https = (v, max) => str(v, 1, max) && /^https:\/\//i.test(v);
 const pin = v => typeof v === "string" && /^\d{6}$/.test(v);
 const key = v => str(v, 1, 200);
-const PK = ["key", "site", "url", "title", "image", "price", "mrp", "src", "seller"];
+const PK = ["key", "site", "url", "title", "image", "price", "mrp", "src", "seller", "brand"];
 const SELLER_MAX = { name: 80, ships: 60, text: 200, href: 300 };
 const seller = v => v === undefined || v === null || (isObj(v) && Object.keys(v).every(k => k in SELLER_MAX && str(v[k], 0, SELLER_MAX[k])));
-const product = p => isObj(p) && Object.keys(p).every(k => PK.includes(k)) && key(p.key) && str(p.site, 0, 60) && https(p.url, 2000) && str(p.title, 0, 500) && (p.image === null || https(p.image, 2000)) && num(p.price, 0, 1e7) && (p.mrp === null || num(p.mrp, 0, 1e7)) && ["jsonld", "dom", "meta"].includes(p.src) && seller(p.seller);
+const product = p => isObj(p) && Object.keys(p).every(k => PK.includes(k)) && key(p.key) && str(p.site, 0, 60) && https(p.url, 2000) && str(p.title, 0, 500) && (p.image === null || https(p.image, 2000)) && num(p.price, 0, 1e7) && (p.mrp === null || num(p.mrp, 0, 1e7)) && ["jsonld", "dom", "meta"].includes(p.src) && seller(p.seller) && (p.brand === undefined || str(p.brand, 0, 60));
 const loc = l => isObj(l) && Object.keys(l).every(k => ["lat", "lon", "pin"].includes(k)) && num(l.lat, -91, 91) && num(l.lon, -181, 181) && (l.pin === undefined || pin(l.pin));
 // per type: allowed extra keys -> validator. Missing optional keys are only allowed where the validator tolerates undefined.
 const S = {
@@ -18,7 +18,7 @@ const S = {
   "history-ref": { key, days: v => num(v, 6, 401), low: v => num(v, 0, 1e7), high: v => num(v, 0, 1e7) },
   "trk-run": {},
   offers: { asin: v => typeof v === "string" && /^[A-Z0-9]{10}$/.test(v) },
-  compare: { title: v => str(v, 3, 500), site: v => str(v, 1, 60), price: v => num(v, 0, 1e7) },
+  compare: { title: v => str(v, 3, 500), brand: v => v === undefined || str(v, 0, 60), site: v => str(v, 1, 60), price: v => num(v, 0, 1e7) },
   grocery: { q: v => str(v, 1, 120), loc, more: v => v === undefined || typeof v === "boolean" }, geocode: { pin }, reverse: { lat: v => num(v, -91, 91), lon: v => num(v, -181, 181) },
   iplocate: {}, whoami: {}, invalidate: { reason: v => v === "user-clear-cache" },  "forget-shared": {}, disableShopify: {}, "open-options": {}, account: {}, signin: {}, signout: { clear: v => v === undefined || typeof v === "boolean" }, "resolve-switch": { choice: v => ["clear", "merge", "cancel"].includes(v) }, sync: {}, waitlist: {}, "delete-data": {}, "export-data": {}, enableShopify: {},
   "t2-capture": { url: v => str(v, 1, 500), method: v => str(v, 1, 10), status: v => typeof v === "number" && v >= 0 && v < 1000, body: v => str(v, 0, 700000), hdr: isObj },
