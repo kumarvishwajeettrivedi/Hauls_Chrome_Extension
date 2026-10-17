@@ -1,0 +1,16 @@
+{
+ "asin": "B0C37MM6Y1",
+ "cue": "CAROUSEL-TIMER",
+ "note": "Real Amazon.in page captured 2026-10-17. 'Ends in HH:MM:SS' ticks live, but it sits in a recommended-product tile (_cDEzb_ carousel classes), not in the product's own deal zone, so Impulse Check must ignore it. The product's own deal badge only says 'Great Indian Festival'.",
+ "sample1": "Ends in 23:08:24",
+ "sample2": "Ends in 23:08:20",
+ "zone": "other",
+ "ancestors": [
+  "SPAN#.a-size-small",
+  "DIV#._cDEzb_savingsRioCompliantBadgeLabel_6EU5w",
+  "DIV#._cDEzb_savingsRioCompliantBadgeWrapper_3Yv6K",
+  "DIV#.a-row",
+  "DIV#.a-section",
+  "DIV#.a-row"
+ ]
+}

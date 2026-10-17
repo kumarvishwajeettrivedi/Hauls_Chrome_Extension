@@ -546,10 +546,10 @@ test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy 
   await panel.click(".btn.ghost.full"); await sleep(600); const it = Object.values((await store(sw, "items")).items).find(i => i.target); t.check(it && it.target > 1000 && it.target < 1050, "alert target stored: " + (it && it.target));
 }));
 
-test("34", "auto-read (opt-in): only inside the small background window (#hauls-read) it clicks Amazon's Price-history button, reads the chart, closes the panel; never in your own tab; off by default", t => withExt({}, async ({ ctx, sw }) => {
+test("34", "auto-read (opt-in): clicks Amazon's own Price-history button in the tab you are on, reads the chart (1M, 3M, 1Y), closes the panel; off by default", t => withExt({}, async ({ ctx, sw }) => {
   const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
   const install = async p => p.evaluate(h => { window.__clicked = 0; window.__closed = 0; const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; document.body.append(d);
-    d.querySelector(".a-declarative").addEventListener("click", () => { window.__clicked++; setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; f.innerHTML = '<div id="rufus-panel-header-container"><button aria-label="Close panel"></button></div><div id="rufus-react-renderer"><span class="rufus-pricing-chart-container">' + h + '</span></div>'; document.body.append(f); f.querySelector("button").addEventListener("click", () => { window.__closed++; f.remove(); }); window.__hiddenSeen = !!document.getElementById("hauls-ah-hide"); }, 300); }); }, svg);
+    d.querySelector(".a-declarative").addEventListener("click", () => { window.__clicked++; setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><span class="rufus-pricing-chart-container">' + h + '</span></div>'; document.body.append(f); f.querySelector("#rufus-panel-header-close").addEventListener("pointerup", () => { window.__closed++; f.remove(); }); /* like Amazon: a bare click() does nothing, a real press closes it */ window.__hiddenSeen = !!document.getElementById("hauls-ah-hide"); }, 300); }); }, svg);
   // default OFF: nothing is clicked
   let r = await product(ctx, { id: "B0AUTOOFF1", price: 4499, mrp: 5999 }); await install(r.p); await sleep(3500);
   t.check((await r.p.evaluate(() => window.__clicked)) === 0, "off by default: the Price history button is never touched");
@@ -557,21 +557,19 @@ test("34", "auto-read (opt-in): only inside the small background window (#hauls-
   await seed(sw, { ahAuto: true });
   r = await product(ctx, { id: "B0AUTOON01", price: 4499, mrp: 5999 }); await install(r.p);
   // the content script ran its check before the button existed; trigger a new lookup the way a page change would
-  await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); }); await sleep(4500);
-  t.check((await r.p.evaluate(() => window.__clicked)) === 0, "switched ON but in your own tab: Amazon's panel is never opened (it docks left and shifts the whole page)");
-  await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=2#hauls-read"); }); // what the small background window loads
+  await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
   const ok = await poll(async () => Object.values((await store(sw, "items")).items || {}).some(i => i.key !== undefined || (i.ahist && Object.keys(i.ahist.ranges || {}).length)), 12000, 400);
   const got = Object.values((await store(sw, "items")).items || {}).find(i => i.ahist && i.ahist.ranges && i.ahist.ranges["1M"]);
   t.check(!!got, "chart stored after the auto-read (panel removed right after it appeared): clicked=" + await r.p.evaluate(() => window.__clicked));
   t.check((await r.p.evaluate(() => window.__clicked)) >= 1, "button clicked"); t.check(got.ahist.ranges["1M"].points[0][1] === 5499, "chart read");
-  t.check((await r.p.evaluate(() => window.__closed)) >= 1 && !(await r.p.evaluate(() => document.getElementById("hauls-ah-hide"))), "panel closed and the hiding style removed");
+  await poll(async () => (await r.p.evaluate(() => window.__closed)) >= 1 && !(await r.p.evaluate(() => document.getElementById("hauls-ah-hide"))), 8000, 300); t.check((await r.p.evaluate(() => window.__closed)) >= 1 && !(await r.p.evaluate(() => document.getElementById("hauls-ah-hide"))), "panel closed and the hiding style removed");
   t.check(!!got.ahist.tried, "attempt recorded (no repeat within 12 h)");
 }));
 
 test("37", "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in", t => withExt({}, async ({ ctx, sw, extId }) => {
   const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8"), id = "B0AMZBGRD1", now = Date.now();
   await ctx.addInitScript(h => { if (!/B0AMZBGRD1/.test(location.pathname)) return; document.addEventListener("DOMContentLoaded", () => { const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; document.body.append(d);
-    d.querySelector(".a-declarative").addEventListener("click", () => setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; f.innerHTML = '<div id="rufus-panel-header-container"><button aria-label="Close panel"></button></div><div id="rufus-react-renderer"><span class="rufus-pricing-chart-container">' + h + '</span></div>'; document.body.append(f); f.querySelector("button").addEventListener("click", () => f.remove()); }, 300)); }); }, svg);
+    d.querySelector(".a-declarative").addEventListener("click", () => setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><span class="rufus-pricing-chart-container">' + h + '</span></div>'; document.body.append(f); f.querySelector("button").addEventListener("click", () => f.remove()); }, 300)); }); }, svg);
   await routeProduct(ctx, { id, price: 4499, mrp: 5999 });
   await seed(sw, { items: seedItem(id, [[now - 5 * D, 4499], [now - 3600e3, 4499]], { wish: true, seenAt: now - 3600e3 }) });
   const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`);
@@ -617,8 +615,8 @@ test("39", "Impulse Check (Amazon): real page markup -> stock/deal/popularity cu
   // 2. a sale-event label page
   r = await open("B0H1WY55ZL", "B0H1WY55ZL.bought"); txt = await r.panel.text(".impulse"); t.check(/Sale event label/.test(txt), "sale event label shown: " + txt.slice(0, 100));
   // 3. a real page whose main product is 'In stock' but whose carousel says 'Only 1 left in stock': the carousel must not count
-  r = await open("B0G319XS3M", "B0G319XS3M.bought", { extra: '<ul id="similar"><li><div>Only 1 left in stock.</div></li></ul><div id="customerReviews">Only 3 left! 47 people are viewing this</div>' }); txt = (await r.panel.has(".impulse")) ? await r.panel.text(".impulse") : "";
-  t.check(!/Only \d left|people viewing/.test(txt), "carousel and review text are ignored: " + txt.slice(0, 120));
+  r = await open("B0G319XS3M", "B0G319XS3M.bought", { extra: '<ul id="similar"><li><div>Only 1 left in stock.</div></li><li><div class="a-row"><div class="_cDEzb_savingsRioCompliantBadgeLabel_6EU5w"><span class="a-size-small">Ends in 23:08:24</span></div></div></li></ul><div id="customerReviews">Only 3 left! 47 people are viewing this</div>' }); txt = (await r.panel.has(".impulse")) ? await r.panel.text(".impulse") : "";
+  t.check(!/Only \d left|people viewing|Countdown timer/.test(txt), "carousel (stock and a live countdown, as captured on real Amazon) and review text are ignored: " + txt.slice(0, 120));
   // 4. a page with nothing urgent: no card at all
   r = await open("B0F7XWCCY3", "B0F7XWCCY3.bought", {}); t.check(await r.panel.has(".impulse") && !/Limited|Sale event/.test(await r.panel.text(".impulse")), "popularity only: card lists it, no deal/stock claim");
   r = await open("B0NOCUES01", "B0F7XWCCY3.bought", { noSocial: true }); t.check(!(await r.panel.has(".impulse")), "no urgency message: no card (never an empty 'all clear')");
@@ -701,7 +699,7 @@ test("43", "Seller Intel v2a: the seller card shows one neutral tier (Looks fine
 test("44", "header Settings icon: sits between account and close, is a 44px target on a phone, and opens the Settings page in one click", t => withExt({}, async ({ ctx, extId }) => {
   const { panel } = await product(ctx); await panel.open();
   t.check(await panel.has('header button[aria-label="Settings"]'), "gear button in the header");
-  const order = await panel.ev(function () { return [...this.querySelectorAll("header .hd .r > *")].map(e => e.getAttribute("aria-label") || e.className); }); t.check(order.indexOf("Account") >= 0 && order.indexOf("Settings") === order.indexOf("Account") + 1 && order.indexOf("Close") === order.indexOf("Settings") + 1, "order: account, settings, close: " + order.join(" | "));
+  const order = await panel.ev(function () { return [...this.querySelectorAll("header .hd .r > *")].map(e => e.getAttribute("aria-label") || e.className); }); t.check(order.indexOf("Account") >= 0 && order.indexOf("Settings") === order.indexOf("Account") + 1, "order: account, settings: " + order.join(" | ")); t.check(!(await panel.run("header .x.cl", function () { return getComputedStyle(this).display !== "none"; })), "no cross on desktop: the side handle closes the panel");
   const opened = ctx.waitForEvent("page", { timeout: 8000 }).catch(() => null); await panel.click('header button[aria-label="Settings"]'); const pg = await opened;
   t.check(!!pg && /options\.html/.test(pg.url() || ""), "Settings page opened: " + (pg && pg.url()));
 }));
@@ -776,6 +774,40 @@ test("49", "Settings: first install opens the guided tour; Amazon history is the
   await o.click(".sw"); await sleep(300); t.check((await store(sw, "ahAuto")).ahAuto === false && /Off/.test(await o.evaluate(() => getComputedStyle(document.querySelector(".onoff"), "::after").content)), "clicking the switch turns it off and it says Off");
   t.check(/\d of 3/.test(await o.textContent("#startcount")), "Get started shows progress: " + await o.textContent("#startcount"));
   await seed(sw, { ahAuto: true, items: seedItem("B0TOURTEST", [[Date.now() - 36e5, 500]], { wish: true }) }); await sleep(500); const hidden = await o.$eval("#start", e => e.hidden); t.check(hidden && /3 of 3/.test(await o.textContent("#startcount")), "all three steps done: the card hides itself");
+}));
+
+test("50", "Impulse Check samples a timer twice: one that counts down is reported as live, one whose text never changes as unchanged", t => withExt({}, async ({ ctx }) => {
+  const ld = (title, price) => `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "Product", name: title, image: "https://example.com/i.jpg", offers: { "@type": "Offer", price: String(price), priceCurrency: "INR" } })}</script>`;
+  const page = (title, timerJs) => `<!doctype html><html><head><meta charset=utf-8><title>${title}</title>${ld(title, 999)}</head><body><div id="root"><h1>${title}</h1><div class="price">₹999</div><div><span id="tm">Ends in 02:00:00</span></div></div>${timerJs}</body></html>`;
+  await ctx.route("https://www.flipkart.com/live-timer/p/itm1*", r => r.fulfill({ status: 200, contentType: "text/html", body: page("Live Timer Gadget", '<script>let s=7200;setInterval(()=>{s--;const h=String(Math.floor(s/3600)).padStart(2,"0"),m=String(Math.floor(s%3600/60)).padStart(2,"0"),x=String(s%60).padStart(2,"0");document.getElementById("tm").textContent="Ends in "+h+":"+m+":"+x},1000)</script>') }));
+  await ctx.route("https://www.flipkart.com/static-timer/p/itm1*", r => r.fulfill({ status: 200, contentType: "text/html", body: page("Static Timer Gadget", "") }));
+  let r = await openPage(ctx, "https://www.flipkart.com/live-timer/p/itm1?pid=LIVETIMER0000001"); await r.panel.open(); await sleep(7500); let txt = await r.panel.text(".impulse"); t.check(/Countdown timer/.test(txt) && /counts down live/.test(txt), "a live timer: " + txt.slice(0, 160));
+  r = await openPage(ctx, "https://www.flipkart.com/static-timer/p/itm1?pid=STATICTIMER000001"); await r.panel.open(); await sleep(7500); txt = await r.panel.text(".impulse"); t.check(/Countdown timer/.test(txt) && /did not change over 5 seconds/.test(txt) && !/fake|scam/i.test(txt), "a static timer: " + txt.slice(0, 160));
+}));
+
+test("51", "compare card: a one-line answer first (cheaper elsewhere / lowest here), rows sorted by price with a bar, confirmed matches carry no spec chips, likely matches do", t => withExt({}, async ({ ctx, sw }) => {
+  const mock = res => sw.evaluate(r => { globalThis.cmpFind = async () => r; }, res);
+  const chk = [{ k: "Brand", v: "boAt", ok: true }, { k: "Storage", v: "", ok: null }];
+  await mock({ results: [{ store: "Reliance Digital", title: "x", price: 7499, url: "https://www.reliancedigital.in/product/x/", confidence: "Exact", checks: [] }, { store: "Flipkart", title: "x", price: 6490, url: "https://www.flipkart.com/x/p/itm1", confidence: "Exact", checks: [] }, { store: "Croma", title: "x", price: 6890, url: "https://www.croma.com/x/p/1", confidence: "Likely", checks: chk }], failed: [], why: {}, near: [], here: "Amazon", seen: {} });
+  const { panel } = await product(ctx, { id: "B0CMPCARD1", price: 6999, mrp: 9999 }); await panel.open(); await sleep(700);
+  await panel.click(".cmp .btn"); await poll(async () => (await panel.count(".cmp .cmp-r")) >= 4, 8000, 300);
+  const sum = await panel.text(".cmp-sum"); t.check(/Cheaper elsewhere/.test(sum) && /₹6,490/.test(sum) && /Flipkart/.test(sum) && /₹509 less/.test(sum), "one-line answer: " + sum);
+  const rows = await panel.ev(function () { return [...this.querySelectorAll(".cmp .cmp-r")].map(r => (r.querySelector(".sn") || {}).textContent + "|" + (r.querySelector(".num") || {}).textContent); }); t.check(rows.join(",") === "Amazon (here)|₹6,999,Flipkart|₹6,490,Croma|₹6,890,Reliance Digital|₹7,499", "here first, then cheapest to dearest: " + rows.join(","));
+  t.check(await panel.count(".cmp .pbar i") === 4, "a price bar per row"); t.check(await panel.has(".cmp-r.low") && /Flipkart/.test(await panel.text(".cmp-r.low")), "the lowest confirmed row is highlighted");
+  const fk = await panel.ev(function () { return [...this.querySelectorAll(".cmp .cmp-r")].find(r => /Flipkart/.test(r.textContent)).querySelectorAll(".chk").length; }), cr = await panel.ev(function () { return [...this.querySelectorAll(".cmp .cmp-r")].find(r => /Croma/.test(r.textContent)).querySelectorAll(".chk").length; });
+  t.check(fk === 0 && cr === 2, "a confirmed match shows no spec chips, a likely match shows them: " + fk + " / " + cr);
+  t.check(/Same product/.test(await panel.text(".cmp")) && /Likely the same/.test(await panel.text(".cmp")), "confidence badges");
+  await mock({ results: [{ store: "Flipkart", title: "x", price: 7200, url: "https://www.flipkart.com/x/p/itm1", confidence: "Exact", checks: [] }], failed: [], why: {}, near: [], here: "Amazon", seen: {} });
+  const { panel: p2 } = await product(ctx, { id: "B0CMPCARD2", price: 6999, mrp: 9999 }); await p2.open(); await sleep(600); await p2.click(".cmp .btn"); await poll(async () => (await p2.count(".cmp-sum")) > 0, 8000, 300);
+  t.check(/Lowest price here/.test(await p2.text(".cmp-sum")) && await p2.has(".cmp-r.low"), "when you already have the lowest price the card says so");
+}));
+
+test("52", "panel header: nothing overlaps the HAULS title (desktop and phone), and the cross exists only in the phone layout", t => withExt({ viewport: { width: 1280, height: 900 } }, async ({ ctx, sw }) => {
+  await seed(sw, { pin: "560001" });
+  const geo = async panel => panel.ev(function () { const l = this.querySelector("header .hd > div:first-child").getBoundingClientRect(), r = this.querySelector("header .hd .r").getBoundingClientRect(), h1 = this.querySelector("header .hd h1").getBoundingClientRect(), txt = el => { const g = document.createRange(); g.selectNodeContents(el); return g.getBoundingClientRect(); }, tr = Math.max(txt(this.querySelector("header .hd h1")).right, txt(this.querySelector("header .hd .sub")).right), vis = el => { const c = el.getBoundingClientRect(); return Math.min(txt(el).right, c.right); }; return { overlap: l.right > r.left + 0.5 || vis(this.querySelector("header .hd h1")) > r.left + 0.5 || vis(this.querySelector("header .hd .sub")) > r.left + 0.5 || (tr > r.left + 0.5 && getComputedStyle(this.querySelector("header .hd > div:first-child")).overflow !== "hidden"), titleVisible: h1.width > 30, rightWithin: r.right <= this.querySelector("header").getBoundingClientRect().right + 1, rowTop: Math.round(l.top) === Math.round(r.top) || Math.abs(l.top - r.top) < 40 }; });
+  let { p, panel } = await product(ctx); await panel.open(); await sleep(500); let g = await geo(panel); t.check(!g.overlap && g.titleVisible && g.rightWithin && g.rowTop, "desktop: no overlap: " + JSON.stringify(g));
+  await p.setViewportSize({ width: 390, height: 844 }); await sleep(600); g = await geo(panel); t.check(!g.overlap && g.rightWithin && g.rowTop && await panel.run("header .hd .brand .logo", function () { return this.getBoundingClientRect().width > 20; }), "phone width: logo only, no overlap, one row: " + JSON.stringify(g));
+  t.check(await panel.run("header .x.cl", function () { return getComputedStyle(this).display !== "none"; }), "the cross is there on a phone, where the side handle is hidden");
 }));
 
 test("35", "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {

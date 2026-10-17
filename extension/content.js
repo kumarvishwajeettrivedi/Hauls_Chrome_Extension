@@ -98,7 +98,7 @@
   // All ranges Amazon's chart has shown us for this product, as one series (finer/newer ranges win on overlap).
   const ahPoints = ah => { if (!ah || !ah.ranges) return []; const pts = []; for (const k of ["1Y", "3M", "1M"]) { const r = ah.ranges[k]; if (r) for (const p of r.points) pts.push(p); } pts.sort((a, b) => a[0] - b[0]); const out = []; for (const p of pts) { const l = out[out.length - 1]; if (l && p[0] - l[0] < 12 * 3600e3) { out[out.length - 1] = p; continue; } if (!l || l[1] !== p[1] || p[0] - l[0] > 6 * 864e5) out.push(p); } return out; };
   // Impulse Check input: only the parts of the page that describe THIS product's stock, deal and popularity. Never reviews, Q&A, carousels or other sellers.
-  const urgSent = {}, IMP_ZONES = { "amazon.in": { stock: ["#availability"], deal: ["#dealBadge_feature_div", "#apex_desktop", "#corePrice_feature_div"], bought: ["#socialProofingAsinFaceout_feature_div"] } };
+  const urgSent = {}, tickSent = {}, IMP_ZONES = { "amazon.in": { stock: ["#availability"], deal: ["#dealBadge_feature_div", "#apex_desktop", "#corePrice_feature_div"], bought: ["#socialProofingAsinFaceout_feature_div"] } };
   const visText = e => { const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT), out = []; for (let n = w.nextNode(); n; n = w.nextNode()) { const pe = n.parentElement; if (pe && !pe.closest("style,script,noscript,.aok-hidden,[hidden]")) out.push(n.nodeValue); } return out.join(" "); }; // what the shopper can read: no hidden template labels
   const impCollect = () => { const z = IMP_ZONES[dom]; if (!z) return impCollectNear(document); const parts = []; for (const [zone, sels] of Object.entries(z)) for (const q2 of sels) { const e = document.querySelector(q2); if (e && !(e.closest && e.closest(HISTORY_UNTRUSTED))) parts.push({ zone, text: visText(e).slice(0, 600) }); } return parts; };
   // Same frame as the step chart for when only a range is known (no series yet): the band between Amazon's low and high, and today's price on it. Nothing in between is drawn because nothing in between is known.
@@ -136,7 +136,7 @@
   const wrap = el("div", "w"), knob = el("button", "knob"), kd = el("span", "delta num");
   { const kr = el("span", "krow"); kr.append(logoEl("mark"), el("i", "grip")); knob.append(kr, kd); } knob.title = "HAULS · drag to move"; knob.setAttribute("aria-label", T.open); knob.setAttribute("aria-expanded", "false");
   const panel = el("aside", "panel"); panel.setAttribute("aria-label", T.brand); panel.setAttribute("role", "dialog"); panel.tabIndex = -1;
-  const hdr = el("header"), hd = el("div", "hd"), tt = el("div"), rt = el("div", "r"), pinChip = el("button", "pinchip"), close = el("button", "x"); close.append(ico("x")); close.setAttribute("aria-label", T.close);
+  const hdr = el("header"), hd = el("div", "hd"), tt = el("div"), rt = el("div", "r"), pinChip = el("button", "pinchip"), close = el("button", "x cl"); close.append(ico("x")); close.setAttribute("aria-label", T.close);
   { const br = el("div", "brand"), nm = el("div"); nm.append(el("h1", "", T.brand), el("div", "sub", T.sub)); br.append(logoEl("logo"), nm); tt.append(br); } const acctBtn = el("button", "x acct"); acctBtn.setAttribute("aria-label", "Account"); acctBtn.append(ico("user")); const setBtn = el("button", "x"); setBtn.append(ico("gear")); setBtn.setAttribute("aria-label", "Settings"); setBtn.title = "Settings"; setBtn.onclick = () => { chrome.runtime.sendMessage({ type: "open-options" }).catch(() => {}); }; rt.append(pinChip, acctBtn, setBtn, close); hd.append(tt, rt);
   const tabs = el("div", "tabs"); tabs.setAttribute("role", "tablist");
   const main = el("main"); main.setAttribute("tabindex", "-1");
@@ -287,11 +287,12 @@
       main.append(bn); }
     // Impulse Check: urgency messages found in the product part of the page, with what the evidence says (observations only, never a verdict on the seller)
     { const cues = impCues(impCollect()); if (cues.length) {
-        const mem = it.urg || null, v = impVerdict(cues, mem, H, Date.now()), ic = el("button", "impulse " + v.level), top = el("div", "imp-top"), chips = el("div", "s-chips");
+        const mem = it.urg || null, v = impVerdict(cues, mem, H, Date.now(), cur.tickKey === p.key ? cur.tick : null), ic = el("button", "impulse " + v.level), top = el("div", "imp-top"), chips = el("div", "s-chips");
         top.append(el("span", "lbl", "Impulse Check"), el("b", "imp-head", v.head)); cues.slice(0, 4).forEach(c => { const x = el("span", "schip"); x.append(ico(c.kind === "timer" ? "clock" : "info"), c.text); chips.append(x); });
         ic.append(top, chips, ...v.lines.filter(l => !cues.some(c => c.text === l)).slice(0, 2).map(l => el("p", "meta", l))); ic.setAttribute("aria-label", `Impulse Check: ${v.head}. Tap for details`);
         ic.onclick = () => { const ul = el("ul"); v.lines.forEach(l => ul.append(el("li", "", l))); openSheet("Impulse Check", [ul, el("p", "meta", "HAULS does not say whether a message is true. It shows what this page displayed, what it displayed on your earlier visits, and what the price did. Stock and viewer counts cannot be checked from outside the store.")]); };
         main.append(ic);
+        const tm0 = cues.find(c => c.kind === "timer"); if (tm0 && !tickSent[p.key]) { tickSent[p.key] = 1; setTimeout(() => { const t2 = impCues(impCollect()).find(c => c.kind === "timer"); if (!t2 || !cur || !cur.p || cur.p.key !== p.key) return; const dlt = tm0.secs - t2.secs; cur.tick = dlt >= 2 && dlt <= 30 ? "ticking" : dlt === 0 ? "static" : null; cur.tickKey = p.key; if (cur.tick) idleRedraw(); }, 5000); } // is it really counting down?
         if (!urgSent[p.key]) { urgSent[p.key] = 1; send({ type: "urg", key: p.key, price: p.price, cues: cues.filter(c => c.kind === "stock" || c.kind === "timer").map(c => ({ kind: c.kind, n: c.n === undefined ? undefined : c.n, secs: c.secs, gran: c.gran, text: c.text })) }).then(m => { if (m && cur && cur.p && cur.p.key === p.key) { cur.it.urg = m; idleRedraw(); /* the verdict now includes this visit */ } }).catch(() => {}); }
       } }
     // Deal Scanner: 0-100 score with the exact points behind it
@@ -380,21 +381,30 @@
     sec.append(el("p", "lbl", "Compare"));
     // best price across stores: runs only when asked, one search page per store
     const cbox = el("div", "cmp"), cbtn = el("button", "btn ghost full", "Find the best price across stores");
+    const STORE_DOT = { Amazon: "#FF9900", Flipkart: "#2874F0", Myntra: "#FF3F6C", "Reliance Digital": "#E42529", Croma: "#00E9BF", "Vijay Sales": "#D9272E", "Tata CLiQ": "#8A2BE2", Ajio: "#2C4152", Meesho: "#F43397", Nykaa: "#FC2779" };
     const paintCmp = r => {
       cbox.replaceChildren(); const here = p.price;
       if (r.error) return void cbox.append(el("p", "meta", "Couldn't compare right now. Try again later."), cbtn);
-      const all = [...r.results.filter(x => x.confidence === "Exact").map(x => x.price), here], low = Math.min(...all); // a "lowest" badge is only earned against confirmed same-product rows
+      const exact = r.results.filter(x => x.confidence === "Exact"), low = Math.min(...exact.map(x => x.price), here); // a "lowest" badge is only earned against confirmed same-product rows
       if (!r.results.length) { cbox.append(el("p", "meta", "No confident match at other stores.")); (r.near || []).slice(0, 2).forEach(x => { const a = el("a", "cmp-r near"); a.href = x.url; a.target = "_blank"; a.rel = "noopener"; a.append(el("span", "", x.store), el("b", "num", fmt(x.price)), el("span", "tag", x.why), el("small", "", "Closest, not the same item: " + String(x.title).slice(0, 70))); cbox.append(a); }); }
-      else { const hr = el("div", "cmp-r" + (here <= low ? " low" : "")); hr.append(el("span", "", `${p.site} (here)`), el("b", "num", fmt(here)), el("span", "tag", here <= low ? "Lowest" : "")); cbox.append(hr); }
-      r.results.forEach(x => { const ex = x.confidence === "Exact", a = el("a", "cmp-r" + (ex && x.price <= low ? " low" : "")), d = x.price - here; a.href = x.url; a.target = "_blank"; a.rel = "noopener";
-        a.append(el("span", "", x.store), el("b", "num", fmt(x.price)), el("span", "tag", ex && x.price <= low ? "Lowest" : d > 0 ? `${fmt(d)} more` : d < 0 ? `${fmt(-d)} less` : "Same"));
-        const sp = el("div", "same"); sp.append(el("b", "", x.confidence === "Exact" ? "Same product" : "Likely the same"));
-        (x.checks || []).forEach(c => { const ch = el("span", "chk " + (c.ok === true ? "y" : c.ok === false ? "n" : "u")); ch.append(ico(c.ok === true ? "check" : "minus"), `${c.k} ${c.v}`); ch.title = c.ok === null ? "The listing does not say" : c.info ? "Differs; price can vary by this" : "Matches"; sp.append(ch); });
-        a.append(sp); cbox.append(a); });
+      else {
+        // one-line answer first: where is it cheapest, and by how much
+        const best = exact.length ? exact.reduce((a, x) => (x.price < a.price ? x : a), exact[0]) : null, sum = el("div", "cmp-sum " + (best && best.price < here ? "save" : "ok")), saving = best ? here - best.price : 0;
+        if (best && saving > 0) { sum.append(el("span", "cs-k", "Cheaper elsewhere"), el("b", "num", fmt(best.price)), el("span", "cs-d", `at ${best.store} · ${fmt(saving)} less`)); }
+        else { sum.append(ico("check"), el("span", "cs-k", exact.length ? "Lowest price here" : "No confirmed match yet")); }
+        cbox.append(sum);
+        const max = Math.max(...r.results.map(x => x.price), here), row = (name, price, badge, isLow, href) => { const a = el(href ? "a" : "div", "cmp-r" + (isLow ? " low" : "")); if (href) { a.href = href; a.target = "_blank"; a.rel = "noopener"; } const dot = el("i", "sdot"); dot.style.background = STORE_DOT[name] || "var(--ink)"; const nm = el("span", "sn"); nm.append(dot, name);
+          const bar = el("span", "pbar"), fill = el("i"); fill.style.width = Math.max(8, Math.round(price / max * 100)) + "%"; bar.append(fill); a.append(nm, el("b", "num", fmt(price)), badge, bar); return a; };
+        const hb = el("span", "cbadge", here <= low ? "Lowest" : "You are here"); cbox.append(row(`${p.site} (here)`, here, hb, here <= low, null));
+        [...r.results].sort((a, b) => a.price - b.price).forEach(x => { const ex = x.confidence === "Exact", d = x.price - here, isLow = ex && x.price <= low;
+          const a = row(x.store, x.price, el("span", "cbadge " + (d < 0 ? "dn" : d > 0 ? "up" : ""), isLow ? "Lowest" : d > 0 ? `${fmt(d)} more` : d < 0 ? `${fmt(-d)} less` : "Same"), isLow, x.url);
+          const sp = el("div", "same"), cf = el("b", "cf " + (ex ? "ex" : "lk")); cf.append(ico(ex ? "check" : "info"), ex ? "Same product" : "Likely the same"); sp.append(cf);
+          if (!ex) (x.checks || []).forEach(c => { const ch = el("span", "chk " + (c.ok === true ? "y" : c.ok === false ? "n" : "u")); ch.append(ico(c.ok === true ? "check" : "minus"), `${c.k} ${c.v}`); ch.title = c.ok === null ? "The listing does not say" : c.info ? "Differs; price can vary by this" : "Matches"; sp.append(ch); }); // a confirmed match needs no spec chips: they only help when the match is a likely one
+          a.append(sp); cbox.append(a); }); }
       if (r.failed.length) cbox.append(el("p", "meta", `Couldn't check: ${r.failed.map(n => n + (r.why && r.why[n] ? " (" + r.why[n] + ")" : "")).join(", ")}.`));
       cbox.append(el("p", "meta", "Prices come from each store's search page. Offers, shipping and seller may differ."));
     };
-    cbtn.onclick = async () => { cbtn.disabled = true; cbtn.textContent = "Checking other stores…"; const r = await send({ type: "compare", title: p.title, brand: p.brand || undefined, mpn: p.mpn || undefined, site: p.site, price: p.price }).catch(() => ({ error: "x" })); cmpDone[p.key] = r || { error: "x" }; if (cur && cur.p && cur.p.key === p.key) paintCmp(cmpDone[p.key]); };
+    cbtn.onclick = async () => { cbtn.disabled = true; cbtn.textContent = "Checking other stores…"; cbox.append(el("div", "skel"), el("div", "skel"), el("div", "skel")); const r = await send({ type: "compare", title: p.title, brand: p.brand || undefined, mpn: p.mpn || undefined, site: p.site, price: p.price }).catch(() => ({ error: "x" })); cmpDone[p.key] = r || { error: "x" }; if (cur && cur.p && cur.p.key === p.key) paintCmp(cmpDone[p.key]); };
     if (cmpDone[p.key]) paintCmp(cmpDone[p.key]); else cbox.append(cbtn);
     sec.append(cbox);
     const mk = ([n, h, col]) => { const a = el("a", "store"); a.href = h; a.target = "_blank"; a.rel = "noopener"; a.style.setProperty("--c", STORE_C(col)); a.append(el("i"), n); return a; };
@@ -647,7 +657,7 @@
   // Fail-safes: only with an ingress button present, once per product per 12 h, panel hidden by CSS while it runs, every step has a timeout, on any doubt it stops and stays quiet.
   let ahBusy = false;
   async function ahAutoRead() {
-    if (ahBusy || !cur || !cur.p || dom !== "amazon.in" || !/hauls-read/.test(location.hash)) return; /* only inside the small window HAULS opens for it: Amazon's panel docks on the left and pushes the whole page aside, so it is never opened in your own tab */ const dis = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features || []; if (dis.includes("chart-auto") || dis.includes("chart-read")) return; const { ahAuto } = await chrome.storage.local.get("ahAuto"); if (ahAuto !== true) return;
+    if (ahBusy || !cur || !cur.p || dom !== "amazon.in") return; const dis = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features || []; if (dis.includes("chart-auto") || dis.includes("chart-read")) return; const { ahAuto } = await chrome.storage.local.get("ahAuto"); if (ahAuto !== true) return;
     const last = cur.it && cur.it.ahist && Math.max(cur.it.ahist.at || 0, cur.it.ahist.tried || 0); if (last && Date.now() - last < 12 * 3600e3) return;
     const wait = (f, ms) => new Promise(res => { const t0 = Date.now(), iv = setInterval(() => { let v; try { v = f(); } catch { v = null; } if (v || Date.now() - t0 > ms) { clearInterval(iv); res(v || null); } }, 150); });
     ahBusy = true; let trig; try { trig = await wait(() => document.querySelector('#rufus-price-ingress-bb [data-action="show-rufus-price-ingress"], .rufus-ph-ingress-pill [data-action="show-rufus-price-ingress"]'), 10000); } finally { if (!trig) ahBusy = false; } if (!trig) return; // Amazon draws the button after the page loads
@@ -658,7 +668,9 @@
       (trig.querySelector("button, .a-button-text, a") || trig).click();
       const first = await wait(chart, 8000); if (!first) return;
       for (const label of ["3M", "1Y"]) { const tab = [...document.querySelectorAll("#rufus-react-renderer [role=tab], #rufus-react-renderer button, #rufus-react-renderer span")].find(e => e.children.length === 0 && e.textContent.trim() === label); if (!tab) continue; const before = chart() && chart().outerHTML; tab.click(); await wait(() => chart() && chart().outerHTML !== before, 4000); }
-      const close = document.querySelector('#rufus-panel-header-container [aria-label*="lose" i], #nav-flyout-rufus button[aria-label*="lose" i]'); if (close) close.click();
+      // Amazon's close button ignores a plain scripted click() (checked on the live page): it needs the whole press: pointer down, up, then click
+      const press = el => { const r = el.getBoundingClientRect(), o = { bubbles: true, cancelable: true, composed: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0, pointerId: 1, pointerType: "mouse", isPrimary: true }; el.dispatchEvent(new PointerEvent("pointerdown", { ...o, buttons: 1 })); el.dispatchEvent(new MouseEvent("mousedown", { ...o, buttons: 1 })); el.dispatchEvent(new PointerEvent("pointerup", o)); el.dispatchEvent(new MouseEvent("mouseup", o)); el.dispatchEvent(new MouseEvent("click", o)); };
+      for (let k = 0; k < 2; k++) { const close = document.getElementById("rufus-panel-header-close") || document.querySelector('#rufus-panel-header-container [aria-label*="lose" i], #nav-flyout-rufus button[aria-label*="lose" i]'); /* by id first: a tooltip's own close button comes earlier in the page */ if (!close) break; press(close); if (await wait(() => !document.body.classList.contains("rufus-docked-left"), 3500)) break; } // wait for Amazon to finish closing (a second press during the animation would re-open it); try again only if it is still docked after 3.5 s
     } finally { await new Promise(r => setTimeout(r, 400)); hide.remove(); ahBusy = false; }
   }
   setInterval(() => { if (!document.hidden && location.href !== href) { href = location.href; tries = 0; cur = null; loading = !!(S || SHOP); setBadge(); run(); } }, 1000);

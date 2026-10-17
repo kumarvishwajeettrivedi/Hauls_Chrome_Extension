@@ -46,7 +46,7 @@ function impSteady(hist, now) { // [[t, price]] -> days the price has not moved 
   return Math.max(...pts) / Math.min(...pts) <= 1.02 ? impDays(Math.min(now - h[0][0], IMP.STEADY_DAYS * 864e5)) : 0;
 }
 // -> {level: "none"|"seen"|"steady"|"repeated"|"restarted", head, lines:[string]}
-function impVerdict(cues, mem, hist, now = Date.now()) {
+function impVerdict(cues, mem, hist, now = Date.now(), tick = null) { // tick: "ticking" | "static" | null, from sampling the timer twice
   if (!cues || !cues.length) return { level: "none", head: "", lines: [] };
   const lines = cues.map(c => c.text), v = (mem && mem.v) || []; let level = "seen";
   const days = impSteady(hist, now); if (days) { level = "steady"; lines.push(`Price unchanged for ${days} days`); }
@@ -55,6 +55,7 @@ function impVerdict(cues, mem, hist, now = Date.now()) {
   if (mem && mem.restarts > 0) { level = "restarted"; lines.push(`The timer showed a later end time when you came back${mem.restarts > 1 ? ` (${mem.restarts} times)` : ""}`); }
   else if (mem && mem.daily > 0) lines.push("The timer starts again every day");
   else if (v.filter(x => x.end).length >= 2) lines.push("The timer is counting down on schedule");
+  if (tick === "ticking") lines.push("The timer counts down live"); else if (tick === "static") lines.push("The timer text did not change over 5 seconds");
   const head = { restarted: "Timer showed a new end time", repeated: "Same stock message again", steady: `Price steady for ${days} days`, seen: "Urgency message on this page" }[level];
   return { level, head, lines };
 }

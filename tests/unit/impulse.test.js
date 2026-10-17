@@ -55,5 +55,8 @@ v = I.impVerdict([{ kind: "stock", n: 2, text: "x" }], { v: [3, 3, 3].map((s, i)
 v = I.impVerdict([{ kind: "stock", n: 3, text: "x" }], { v: [{ at: NOW - 3 * DAY, stock: 5 }, { at: NOW, stock: 3 }] }, [], NOW); ok(/from 5 to 3/.test(v.lines.join("|")) && v.level === "seen", "a count that goes down is simply reported");
 v = I.impVerdict([{ kind: "timer", secs: 100, text: "Countdown timer" }], { v: [], restarts: 2, daily: 0 }, [], NOW); ok(v.level === "restarted" && /2 times/.test(v.lines.join("|")), "restarts are counted: " + v.lines);
 v = I.impVerdict([{ kind: "timer", secs: 100, text: "Countdown timer" }], { v: [{ at: 1, end: 5 }, { at: 2, end: 6 }], restarts: 0, daily: 1 }, [], NOW); ok(v.level === "seen" && /every day/.test(v.lines.join("|")), "daily timers stay neutral");
+v = I.impVerdict([{ kind: "timer", secs: 100, text: "Countdown timer" }], null, [], NOW, "ticking"); ok(/counts down live/.test(v.lines.join("|")) && v.level === "seen", "a timer that was seen counting down says so");
+v = I.impVerdict([{ kind: "timer", secs: 100, text: "Countdown timer" }], null, [], NOW, "static"); ok(/did not change over 5 seconds/.test(v.lines.join("|")), "a timer whose text never changed says so, neutrally: " + v.lines);
+ok(!/counts down|did not change/.test(I.impVerdict([{ kind: "timer", secs: 100, text: "x" }], null, [], NOW, null).lines.join("|")), "no sample, no claim");
 ok(!/fake|scam|lie|fraud|cheat/i.test(JSON.stringify([I.impVerdict([{ kind: "timer", secs: 1, text: "Countdown timer" }], { restarts: 3, v: [] }, flat, NOW), I.impVerdict([{ kind: "stock", n: 1, text: "Only 1 left" }], rep, flat, NOW)])), "wording never accuses");
 console.log(`impulse: ${n} passed, 0 failed`);

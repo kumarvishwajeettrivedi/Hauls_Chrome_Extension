@@ -88,6 +88,8 @@ function alertDecision(it, price) {
 }
 
 // Deal Scanner: a 0-100 score from observed prices only. Rows carry earned/max points so the card can show exactly why.
+// Median of the price weighted by how long each price held (a step series: each point lasts until the next, the last until `now`). The plain median of points lets a few short dips pull the 'usual' price down.
+const twMedian = (hist, from, now) => { const p = hist.filter(h => h[0] >= from); if (!p.length) return null; const segs = p.map((h, i) => [h[1], Math.max((i + 1 < p.length ? p[i + 1][0] : now) - h[0], 1)]).sort((x, y) => x[0] - y[0]), half = segs.reduce((s, x) => s + x[1], 0) / 2; let c = 0; for (const [v, w] of segs) { c += w; if (c >= half) return v; } return segs[segs.length - 1][0]; };
 const median = a => { const b = [...a].sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
 // A pump = the price was lifted 15%+ above its older baseline in the last 45 days and is now "discounted" back to that baseline.
 function pumpCheck(hist, price, now = Date.now()) {
@@ -103,7 +105,7 @@ function dealScan(hist, price, mrp, now = Date.now(), ref = null) {
     return { score, label: { real: "Real Deal", fair: "Fair Deal", meh: "Think Twice", mirage: "Deal Mirage" }[tone], tone, source: "amazon", headline: price <= ref.low * 1.01 ? `At Amazon's ${ref.days}-day low` : pos > 0.8 ? `Near Amazon's ${ref.days}-day high` : `Inside Amazon's ${ref.days}-day range`, rows: [{ label: `Place in Amazon's ${ref.days}-day range`, value: `${inr(ref.low)} to ${inr(ref.high)}`, max: 70, pts }, { label: "Range reported by Amazon", value: ref.days + " days", max: 30, pts: score - pts }], coverage: "amazon" };
   }
   if (cov === "insufficient") return { score: null, label: "Not enough history", tone: "unknown", headline: "Keep browsing, the scanner needs a few more days of prices.", rows: [] };
-  const med = median(hist.filter(h => h[0] >= now - 90 * DAY).map(h => h[1])), pump = pumpCheck(hist, price, now), adv = mrp && mrp > price ? (mrp - price) / mrp : 0;
+  const med = twMedian(hist, now - 90 * DAY, now), pump = pumpCheck(hist, price, now), adv = mrp && mrp > price ? (mrp - price) / mrp : 0;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const vsMed = clamp((med - price) / med, -0.2, 0.2), fromLow = w.min ? clamp((price - w.min) / w.min, 0, 0.3) : 0;
   const rows = [
@@ -113,9 +115,10 @@ function dealScan(hist, price, mrp, now = Date.now(), ref = null) {
     adv >= 0.25 && price >= med * 0.95 ? { label: "MRP discount looks inflated", value: Math.round(adv * 100) + "% off MRP", max: 15, pts: 0, bad: true } : { label: "Discount vs MRP", value: adv ? Math.round(adv * 100) + "% off" : "", max: 15, pts: adv ? 15 : 8 },
     { label: "Data behind this", value: `${w.n} prices, ${w.days} days`, max: 10, pts: cov === "high" ? 10 : 5 },
   ];
-  const raw = clamp(rows.reduce((a, r) => a + r.pts, 0), 0, 100), score = pump ? Math.min(raw, 20) : raw, tone = score >= 75 ? "real" : score >= 50 ? "fair" : score >= 30 ? "meh" : "mirage";
+  const yr = hist.length && hist[0][0] <= now - 150 * DAY ? twMedian(hist, now - 365 * DAY, now) : null, aboveYear = yr && price > yr * 1.08; // with at least 5 months of data: a price clearly above the year's usual is not a "real deal", however it compares with the last 90 days
+  const raw = clamp(rows.reduce((a, r) => a + r.pts, 0), 0, 100), score = pump ? Math.min(raw, 20) : aboveYear ? Math.min(raw, 74) : raw, tone = score >= 75 ? "real" : score >= 50 ? "fair" : score >= 30 ? "meh" : "mirage";
   const label = { real: "Real Deal", fair: "Fair Deal", meh: "Think Twice", mirage: "Deal Mirage" }[tone];
-  const headline = pump ? "Price pump detected" : adv >= 0.25 && price >= med * 0.95 ? "Discount looks inflated" : price <= w.min * 1.02 ? "Near its lowest" : vsMed > 0.05 ? "Below its usual price" : vsMed < -0.05 ? "Above its usual price" : "Priced as usual";
+  const headline = pump ? "Price pump detected" : aboveYear ? "Above its usual price this year" : adv >= 0.25 && price >= med * 0.95 ? "Discount looks inflated" : price <= w.min * 1.02 ? "Near its lowest" : vsMed > 0.05 ? "Below its usual price" : vsMed < -0.05 ? "Above its usual price" : "Priced as usual";
   return { score, label, tone, headline, rows, pump, coverage: cov };
 }
 
@@ -199,4 +202,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { sellerTier, HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { twMedian, sellerTier, HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, priceConfidence, useLookup, LIMITS, inr, DAY };
