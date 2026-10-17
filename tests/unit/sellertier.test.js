@@ -1,0 +1,26 @@
+// Seller Intel v2a: neutral tier from rating, % positive, trend, fulfilment and price gap. Never accusatory; limited data stays limited.
+const assert = require("assert"), A = require("../../extension/analysis.js");
+let n = 0; const ok = (c, m) => { assert.ok(c, m); n++; };
+const sg = (o = {}) => ({ score: 70, limited: false, source: "storefront", r: 4.4, pos: 92, n: 1200, trend: 0, reasons: [], ...o });
+const offer = (price, seller, o = {}) => ({ price, cond: "New", seller, ...o });
+ok(A.sellerTier(sg(), { name: "A" }, [], 1000).tier === "fine", "good rating and positive: looks fine");
+ok(A.sellerTier(sg({ limited: true, n: 5 }), { name: "A" }, [], 1000).tier === "limited" && A.sellerTier(null, { name: "A" }, [], 1000).tier === "limited", "limited data or no storefront: limited, never fine/look");
+ok(A.sellerTier(sg({ r: 3.5, pos: 68, n: 75303 }), { name: "A" }, [], 1000).tier === "look", "3.5★ and 68% positive (the real storefront we captured): worth a closer look");
+ok(A.sellerTier(sg({ r: 2.8, pos: 90 }), { name: "A" }, [], 1000).tier === "look", "one strong signal (2.8★) is enough");
+ok(A.sellerTier(sg({ r: 3.9, pos: 92 }), { name: "A" }, [], 1000).tier === "fine", "a slightly low rating alone is fine");
+ok(A.sellerTier(sg({ pos: 78 }), { name: "A" }, [], 1000).tier === "fine", "78% positive alone is fine");
+ok(A.sellerTier(sg({ r: 3.9, pos: 78 }), { name: "A" }, [], 1000).tier === "look", "two mild signals together: worth a closer look");
+ok(A.sellerTier(sg({ r: 3.9, pos: 78 }), { name: "A", fba: true }, [], 1000).tier === "fine", "platform-fulfilled lowers one step");
+ok(A.sellerTier(sg({ r: 2.8 }), { name: "A", fba: true }, [], 1000).tier === "look" && A.sellerTier(sg({ pos: 50 }), { name: "A", fba: true }, [], 1000).tier === "look", "fulfilment never clears a poor rating or a poor positive rate");
+ok(A.sellerTier(sg({ trend: -0.6 }), { name: "A" }, [], 1000).tier === "fine" && A.sellerTier(sg({ trend: -0.6, r: 3.9 }), { name: "A" }, [], 1000).tier === "look", "a recent dip needs company");
+const offs = [offer(1000, "B"), offer(1100, "C"), offer(1200, "D")];
+let t = A.sellerTier(sg(), { name: "A" }, offs, 700); ok(t.gap.pct === 36 && t.gap.others === 3 && t.flags.some(f => /below the other sellers/.test(f)) && t.tier === "fine", "much cheaper than others is a note, not a tier by itself: " + JSON.stringify(t));
+ok(A.sellerTier(sg({ r: 3.9 }), { name: "A" }, offs, 700).tier === "look", "cheaper than others plus a low-ish rating: worth a closer look");
+ok(A.sellerTier(sg({ r: 3.9 }), { name: "A" }, offs, 950).tier === "fine" && A.sellerTier(sg({ r: 3.9 }), { name: "A" }, offs, 950).gap.pct === 14, "a 14% price gap is not a flag");
+ok(A.sellerTier(sg(), { name: "A" }, [offer(1000, "B")], 700).gap === null, "one other seller is not a market");
+ok(A.sellerTier(sg(), { name: "A" }, [offer(1000, "A"), offer(1100, "B"), offer(1200, "C")], 700).gap.others === 2, "this seller's own row is not 'the others'");
+ok(A.sellerTier(sg(), { name: "A" }, [offer(1000, "B", { dormant: true }), offer(1100, "C", { cond: "Used" }), offer(500, "D", { here: true }), offer(1200, "E"), offer(1300, "F")], 700).gap.others === 2, "inactive, used and the current listing are not compared");
+ok(A.sellerTier(sg({ r: 1.5, pos: 30 }), { name: "A", firstParty: true }, [], 1000).tier === "fine", "the platform itself as seller is not rated by this");
+const out = JSON.stringify([A.sellerTier(sg({ r: 2.1, pos: 40, trend: -1 }), { name: "A" }, offs, 300), A.sellerTier(null, null, [], 0)]);
+ok(!/fake|scam|fraud|cheat|lie\b/i.test(out), "wording never accuses");
+console.log(`sellertier: ${n} passed, 0 failed`);

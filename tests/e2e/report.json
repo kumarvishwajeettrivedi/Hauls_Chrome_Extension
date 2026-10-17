@@ -1,34 +1,25 @@
 {
-  "at": "2026-10-17T16:38:46.085Z",
+  "at": "2026-10-17T17:00:48.197Z",
   "summary": {
-    "pass": 3,
+    "pass": 2,
     "fail": 0,
     "skip": 0
   },
   "results": [
     {
-      "id": "1",
-      "name": "smoke: loads, SW up, knob shows, no console errors",
+      "id": "23",
+      "name": "seller: row shows who sells and ships, sheet explains, a changed seller is flagged",
       "status": "PASS",
-      "ms": 7397,
+      "ms": 3349,
       "failures": [],
       "notes": [],
       "attempts": 1
     },
     {
-      "id": "27",
-      "name": "page report: Settings button reads only price-history wording and the chart from the Amazon tab",
+      "id": "43",
+      "name": "Seller Intel v2a: the seller card shows one neutral tier (Looks fine / Worth a closer look / Limited data) and the price gap to other sellers, with the reasons in the sheet",
       "status": "PASS",
-      "ms": 3563,
-      "failures": [],
-      "notes": [],
-      "attempts": 1
-    },
-    {
-      "id": "30",
-      "name": "settings: background price check card shows per-store health and runs on demand (admin message accepted from the extension page)",
-      "status": "PASS",
-      "ms": 1818,
+      "ms": 2343,
       "failures": [],
       "notes": [],
       "attempts": 1

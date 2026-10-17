@@ -158,6 +158,23 @@ function sellerSignals(sl, d) {
   const score = Math.max(5, Math.min(98, Math.round(((r - 1) / 4) * 45 + pos * 0.25 + Math.min(15, Math.log10(d.n + 1) * 3) + trend + (sl.fba ? 6 : 0))));
   return { score, limited: false, r, pos, n: d.n, trend: d.m3 && d.life ? +(d.m3.r - d.life.r).toFixed(1) : 0, source: "storefront", reasons };
 }
+// Seller Intel v2a: a neutral tier from rating, % positive, recent trend, fulfilment and the price compared with the other sellers' New offers.
+// No review-text or review-burst signals: those need a hand-labelled calibration set first. Wording is "worth a closer look", never an accusation.
+// -> {tier: "fine"|"look"|"limited", label, flags:[string], gap: {pct, others}|null}
+function sellerTier(sg, sl, offers, price) {
+  const label = { fine: "Looks fine", look: "Worth a closer look", limited: "Limited data" };
+  const others = (offers || []).filter(o => o && /^new/i.test(o.cond || "New") && !o.dormant && !o.here && o.price > 0 && !(sl && o.seller && sl.name && o.seller.toLowerCase() === sl.name.toLowerCase())).map(o => o.price).sort((a, b) => a - b);
+  let gap = null; if (others.length >= 2 && price > 0) { const med = others.length % 2 ? others[(others.length - 1) / 2] : (others[others.length / 2 - 1] + others[others.length / 2]) / 2; gap = { pct: Math.round((med - price) / med * 100), others: others.length }; }
+  if (sl && sl.firstParty) return { tier: "fine", label: label.fine, flags: [], gap };
+  if (!sg || sg.limited || sg.source !== "storefront") return { tier: "limited", label: label.limited, flags: sg && sg.reasons ? sg.reasons.slice(0, 1) : [], gap };
+  const flags = []; let pts = 0;
+  if (sg.r < 3) { pts += 3; flags.push(`Rated ${sg.r}★ by ${sg.n.toLocaleString("en-IN")} buyers`); } else if (sg.r <= 3.5) { pts += 2; flags.push(`Rated ${sg.r}★ by ${sg.n.toLocaleString("en-IN")} buyers`); } else if (sg.r < 4) { pts += 1; flags.push(`Rated ${sg.r}★`); }
+  if (sg.pos < 60) { pts += 3; flags.push(`Only ${sg.pos}% positive`); } else if (sg.pos < 70) { pts += 2; flags.push(`${sg.pos}% positive`); } else if (sg.pos < 85) { pts += 1; flags.push(`${sg.pos}% positive`); }
+  if (sg.trend <= -0.4) { pts += 1; flags.push(`Recent ratings are ${Math.abs(sg.trend)}★ lower than usual`); }
+  if (gap && gap.pct >= 25) { pts += 1; flags.push(`${gap.pct}% below the other sellers' usual price`); }
+  if (sl && sl.fba && pts > 0 && sg.r >= 3 && sg.pos >= 60) pts -= 1; // the platform ships and handles returns: one step lower, but never clears a poor rating
+  return { tier: pts >= 3 || (pts >= 2 && flags.length >= 2) ? "look" : "fine", label: pts >= 3 || (pts >= 2 && flags.length >= 2) ? label.look : label.fine, flags, gap };
+}
 function sellerChange(prev, cur) { return prev && cur && prev !== cur ? `Seller changed from ${prev} to ${cur} since your last visit.` : null; }
 
 const priceConfidence = (source, price, mrp) =>
@@ -182,4 +199,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { sellerTier, HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, priceConfidence, useLookup, LIMITS, inr, DAY };

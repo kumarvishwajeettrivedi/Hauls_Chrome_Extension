@@ -680,6 +680,22 @@ test("42", "Impulse Check inside the extension on REAL Flipkart and Myntra pages
   t.check(errs.length === 0, "extension console errors: " + errs.join(" | "));
 }), { retries: 1, live: true });
 
+test("43", "Seller Intel v2a: the seller card shows one neutral tier (Looks fine / Worth a closer look / Limited data) and the price gap to other sellers, with the reasons in the sheet", t => withExt({}, async ({ ctx, sw }) => {
+  const fs = await import("node:fs"), seed2 = async (name, html) => sw.evaluate(([h, sid]) => { offSellerCache.set(sid, { at: Date.now(), data: offParseSellerPage(h) }); }, [html, name]);
+  const big = fs.readFileSync(new URL("../fixtures/offers/seller-big.html", import.meta.url), "utf8"), tiny = fs.readFileSync(new URL("../fixtures/offers/seller-tiny.html", import.meta.url), "utf8");
+  // real storefront: 3.5 stars, 68% positive, 75,303 ratings
+  await seed2("AJ6SIZC8YQDZX", big);
+  let { p, panel } = await product(ctx, { id: "B0TIERLOOK1", price: 900, seller: { name: "Clicktech Retail Private Ltd", ships: "RandomTraders", fba: false } }); await panel.open();
+  await poll(async () => /closer look|Looks fine|Limited/.test(await panel.text(".seller")), 12000, 400);
+  let row = await panel.text(".seller"); t.check(/Worth a closer look/.test(row) && /68% positive/.test(row) && !/fake|scam|fraud/i.test(row), "3.7★ (last 12 months) + 68% positive + a recent dip: worth a closer look, neutral words: " + row);
+  await panel.click(".seller"); await sleep(400); let sheet = await panel.text(".sheet"); t.check(/68% positive/.test(sheet) && /Rated 3\.7★/.test(sheet) && /not a verdict/.test(sheet), "the sheet lists the reasons and says it is not a verdict: " + sheet.slice(0, 220));
+  await p.close();
+  // a seller with very few ratings: limited data, never a tier
+  await seed2("AJ6SIZC8YQDZX", tiny);
+  ({ p, panel } = await product(ctx, { id: "B0TIERLTD01", price: 900, seller: { name: "Tiny Traders", ships: "Tiny Traders", fba: false } })); await panel.open();
+  await poll(async () => /Limited/.test(await panel.text(".seller")), 12000, 400); row = await panel.text(".seller"); t.check(/Limited data/.test(row) && !/closer look|Looks fine/.test(row), "few ratings: limited data only: " + row);
+}));
+
 test("35", "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {
   const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
   const sb = await fakeSupabase(ctx); await seedSession(sw, SESSION); await seed(sw, { profile: { plan: "free", contribute: true, name: "Test User" } });

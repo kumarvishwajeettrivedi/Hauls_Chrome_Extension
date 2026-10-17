@@ -331,18 +331,21 @@
         const d = spDone[sl.sid] && spDone[sl.sid].data, sg = sellerSignals(sl, d || null), compact = n => n >= 1e5 ? Math.round(n / 1e3) + "k" : n >= 1e3 ? (n / 1e3).toFixed(1).replace(".0", "") + "k" : String(n);
         const mid = el("div", "s-mid"), chips = el("div", "s-chips"), chip = (icon, text, cls) => { const c = el("span", "schip " + (cls || "")); c.append(ico(icon), text); chips.append(c); };
         mid.append(el("span", "lbl", "Seller"), el("span", "sname", sl.name), el("span", "skind", sl.kind));
+        const tr = sellerTier(sg, sl, (offDone[p.key] || {}).offers, p.price); // Seller Intel v2a: one neutral tier, with the reasons in the sheet
         chip(sl.fba || sl.firstParty ? "shield" : "pin", sl.fba || sl.firstParty ? "Amazon ships" : "Seller ships", sl.fba || sl.firstParty ? "ok" : "warn");
+        chip(tr.tier === "look" ? "info" : tr.tier === "fine" ? "check" : "info", tr.label, tr.tier === "look" ? "warn" : tr.tier === "fine" ? "ok" : "");
         if (d && !sg.limited) { chip("star", `${sg.r} (${compact(sg.n)})`, sg.r >= 4 ? "ok" : sg.r >= 3 ? "" : "warn"); chip("check", `${sg.pos}% positive`, sg.pos >= 85 ? "ok" : sg.pos >= 65 ? "" : "warn"); if (sg.trend <= -0.4) chip("down", "Recent dip", "warn"); }
         else if (sg.limited) chip("info", `Limited data · ${sg.n} rating${sg.n === 1 ? "" : "s"}`, "warn");
         else if (sl.sid && spDone[sl.sid] == null) chip("sync", "Checking seller…", "");
         if (sw) chip("swap", "Changed", "warn");
-        sb.dataset.reasons = JSON.stringify(sg.reasons || []);
+        if (tr.gap && tr.gap.pct >= 25) chip("down", `${tr.gap.pct}% below others`, "warn"); else if (tr.gap && tr.gap.pct <= -25) chip("pin", `${Math.abs(tr.gap.pct)}% above others`, "");
+        sb.dataset.tier = tr.tier; sb.dataset.reasons = JSON.stringify([...(sg.reasons || []), ...tr.flags.filter(f => !(sg.reasons || []).includes(f))]);
         mid.append(chips); sb.replaceChildren(mid, ...(sg.score == null ? [] : [gaugeEl(sg.score, "Seller signals", 96)])); sb.setAttribute("aria-label", `Seller ${sl.name}, ${sl.kind}${sg.score == null ? ", limited data" : ", signals " + sg.score + " of 100"}. Tap for details`);
       };
       fill(); sellerFill = fill;
       if (sl.sid && spDone[sl.sid] === undefined) { spDone[sl.sid] = null; send({ type: "seller", sid: sl.sid }).then(r => { spDone[sl.sid] = r && r.data ? r : { failed: true }; if (cur && cur.p && cur.p.key === p.key && sellerFill) sellerFill(); }).catch(() => { spDone[sl.sid] = { failed: true }; }); }
       sb.onclick = () => { const ul = el("ul"); sl.notes.forEach(n => ul.append(el("li", "", n))); try { JSON.parse(sb.dataset.reasons || "[]").forEach(n => ul.append(el("li", "", n))); } catch {} if (sw) ul.append(el("li", "", sw));
-        const nodes = [ul, el("p", "meta", "Signals come from this page and the seller's public Amazon storefront (ratings, % positive, volume). HAULS does not rate or vouch for any seller.")];
+        const nodes = [ul, el("p", "meta", "Signals come from this page and the seller's public Amazon storefront (ratings, % positive, volume) and, once loaded, the other sellers' prices. \"Worth a closer look\" means at least two of them are weak, or one is clearly poor. It is not a verdict on the seller, and HAULS does not vouch for any seller.")];
         if (sl.sid) { const a = el("a", "btn ghost", "Seller profile"); a.href = new URL(p.url).origin + "/sp?seller=" + sl.sid; a.target = "_blank"; a.rel = "noopener"; nodes.push(a); }
         openSheet("About this seller", nodes); };
       main.append(sb);
