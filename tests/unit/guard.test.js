@@ -19,6 +19,8 @@ bad({ type: "__proto__" }, /unknown/); bad({ type: "toString" }, /unknown/); bad
 bad(Object.create({ type: "sync" }), /unknown/); bad(new (class X { constructor() { this.type = "sync"; } })(), /unknown/);
 // products
 const bp = o => bad({ type: "seen", p: { ...P, ...o } });
+ok({ type: "seen", p: { ...P, seller: { name: "A", ships: "B", text: "", href: "/x" } } }, tab); ok({ type: "seen", p: { ...P, seller: null } }, tab);
+bp({ seller: { name: "x".repeat(81) } }); bp({ seller: { evil: "x" } }); bp({ seller: "str" }); bp({ seller: { name: 5 } });
 bp({ price: 0 }); bp({ price: -1 }); bp({ price: NaN }); bp({ price: Infinity }); bp({ price: 1e7 }); bp({ price: "9" }); bp({ mrp: 0 }); bp({ mrp: "1" }); bp({ src: "x" }); bp({ key: "" }); bp({ key: "k".repeat(201) });
 bp({ url: "http://a.in/x" }); bp({ url: "javascript:alert(1)" }); bp({ image: "http://a/i.png" }); bp({ image: "data:text/html," }); bp({ title: "t".repeat(501) }); bp({ site: "s".repeat(61) }); bp({ url: "https://a/" + "x".repeat(2000) });
 ok({ type: "seen", p: { ...P, mrp: 120, image: "https://i/p.png", key: "k".repeat(200) } }, tab); bad({ type: "seen", p: { ...P, extra: 1 } }, null, tab); bad({ type: "seen" });

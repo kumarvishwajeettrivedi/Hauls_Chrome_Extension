@@ -6,6 +6,7 @@ const put = items => chrome.storage.local.set({ items });
 async function record(p) {
   const items = await get(), it = items[p.key] ||= { hist: [] };
   Object.assign(it, { site: p.site, title: p.title || it.title, image: p.image || it.image, url: p.url, mrp: p.mrp });
+  if (p.seller && p.seller.name) { if (it.seller && it.seller !== p.seller.name) it.sellerChange = { from: it.seller, at: Date.now() }; it.seller = p.seller.name; }
   const before = it.hist.length; it.hist = addPoint(it.hist, p.price, Date.now());
   await put(items);
   if (it.hist.length > before) { const { profile } = await chrome.storage.local.get("profile"); if (await getSession() && (profile && profile.contribute === true)) enqueue({ t: "obs", key: p.key, site: p.site, price: p.price, mrp: p.mrp, at: Date.now(), src: p.src }); }

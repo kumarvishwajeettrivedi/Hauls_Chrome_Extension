@@ -17,8 +17,8 @@ const mkT = () => ({ fails: [], notes: [],
 
 const PRODUCT_ID = "B0TESTPRD1";
 // Opens a routed synthetic product page with the panel ready.
-async function product(ctx, { id = PRODUCT_ID, price = 830, mrp = 1299 } = {}) {
-  const url = await routeProduct(ctx, { id, price, mrp });
+async function product(ctx, { id = PRODUCT_ID, price = 830, mrp = 1299, seller = null } = {}) {
+  const url = await routeProduct(ctx, { id, price, mrp, seller });
   const r = await openPage(ctx, url); if (!r.panel || !(await r.panel.has(".knob"))) throw new Error("knob did not appear");
   return { ...r, url };
 }
@@ -178,7 +178,8 @@ if (!NOLIVE) for (const c of CASES) test("7:" + c.id, "extraction (live): " + c.
   st = await p.evaluate(pageState).catch(() => ({ title: "", body: "" }));
   if (!it) { if (BLOCK.test(st.title + " " + st.body.slice(0, 300))) t.skip("product page blocked: " + st.title.slice(0, 50)); const tr = await p.evaluate(pageTruth).catch(() => ({})); t.check(false, `nothing extracted though page shows price=${tr.price} (${pick.h.slice(0, 80)}) title "${st.title.slice(0, 50)}"`); return; }
   const price = it.hist.at(-1)[1], tr = await p.evaluate(pageTruth).catch(() => ({}));
-  t.note(`${pick.h.slice(0, 70)} | price=${price} mrp=${it.mrp} pagePrice=${tr.price} struck=${JSON.stringify(tr.struck)} | ${(it.title || "").slice(0, 50)}`);
+  if (/amazon/.test(c.site)) t.check(!!it.seller, "seller read from the live Amazon page: " + it.seller);
+  t.note(`${pick.h.slice(0, 70)} | seller=${it.seller} | price=${price} mrp=${it.mrp} pagePrice=${tr.price} struck=${JSON.stringify(tr.struck)} | ${(it.title || "").slice(0, 50)}`);
   t.check(typeof price === "number" && price > 0, "price is a positive number");
   if (tr.price) t.check(Math.abs(tr.price - price) < 1.5, `price ${price} equals visible main price ${tr.price}`); else t.note("could not read visible price independently");
   const strike = (tr.struck || []).filter(v => v > price && v < price * 12);
@@ -358,6 +359,25 @@ test("13", "watchlist: inline stepper edit persists, invalid rejected, 'Set a tr
   await poll(async () => (await panel.count(".wrow .stp")) === 2, 3000); t.check((await panel.count(".wrow .stp")) === 2, "wish-only row now shows a stepper");
   await panel.click(`${row(1)} .x`); await poll(async () => (await panel.count(".wrow")) === 1, 3000);
   t.check((await panel.count(".wrow")) === 1, "remove (x) drops a row");
+}));
+
+test("23", "seller: row shows who sells and ships, sheet explains, a changed seller is flagged", t => withExt({}, async ({ ctx, sw }) => {
+  const id = "B0SELLER01", now = Date.now();
+  await seed(sw, { items: seedItem(id, [[now - 40 * D, 900], [now - 20 * D, 900], [now - 36e5, 900]]) });
+  let { p, panel } = await product(ctx, { id, price: 900, seller: { name: "Clicktech Retail Private Ltd", ships: "Amazon", fba: true } }); await panel.open();
+  t.check(await panel.has(".seller"), "seller row present");
+  const row = await panel.text(".seller"); t.check(/Clicktech Retail/.test(row) && /3rd-party/.test(row) && /Fulfilled by Amazon/.test(row), "row text: " + row);
+  await panel.click(".seller"); await sleep(400);
+  const sheet = await panel.text(".sheet"); t.check(/independent seller/.test(sheet) && /Seller profile/.test(sheet) && !/scam|fake|fraud/i.test(sheet), "sheet text: " + sheet.slice(0, 160));
+  t.check(!/changed from/.test(sheet), "no change note on first sight");
+  await p.close();
+  ({ p, panel } = await product(ctx, { id, price: 900, seller: { name: "RandomTraders", ships: "RandomTraders", fba: false } })); await panel.open();
+  t.check(/RandomTraders/.test(await panel.text(".seller")), "new seller shown");
+  await panel.click(".seller"); await sleep(400);
+  t.check(/changed from Clicktech Retail Private Ltd to RandomTraders/.test(await panel.text(".sheet")), "seller change flagged: " + (await panel.text(".sheet")).slice(0, 200));
+}));
+test("23b", "seller: pages without seller info show no row", t => withExt({}, async ({ ctx }) => {
+  const { panel } = await product(ctx); await panel.open(); t.check(!(await panel.has(".seller")), "no seller row");
 }));
 
 // ---------------------------------------------------------------- 14 range selector

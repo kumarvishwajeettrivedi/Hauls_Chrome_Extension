@@ -72,6 +72,26 @@ function dealScan(hist, price, mrp, now = Date.now()) {
   return { score, label, tone, headline, rows, pump, coverage: cov };
 }
 
+// Seller intelligence (pure). Input comes from the page: {name, ships, href, text}. We describe what the page says, never judge honesty.
+function sellerInfo(raw, title = "") {
+  if (!raw || typeof raw !== "object") return null;
+  const clean = (v, n) => String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+  let name = clean(raw.name, 80), ships = clean(raw.ships, 60); const href = String(raw.href || ""), text = clean(raw.text, 200);
+  if (!name && text) { const m = text.match(/sold by\s+(.+?)(?:\s+and\s+fulfilled|\.|$)/i); if (m) name = clean(m[1], 80); }
+  if (!name) return null;
+  const firstParty = /^(amazon(\.in)?|amazon retail( india)?|appario retail|cloudtail( india)?)(\s*(pvt|private)?\.?\s*(ltd|limited)?\.?)?$/i.test(name) && !/third/i.test(text);
+  const fba = /amazon/i.test(ships) || /fulfilled by amazon/i.test(text) || /isAmazonFulfilled=1/.test(href);
+  const brand = clean(title, 80).split(/\s+/)[0].toLowerCase(), brandStore = !firstParty && brand.length >= 3 && name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(brand.replace(/[^a-z0-9]/g, "")) ;
+  const kind = firstParty ? "Amazon" : brandStore ? "Brand store" : "3rd-party";
+  const sid = (href.match(/[?&]seller=([A-Z0-9]{8,16})/) || [])[1] || null;
+  const notes = [];
+  notes.push(firstParty ? "Sold directly by the store itself." : brandStore ? "The seller's name matches the brand on the listing." : "Sold by an independent seller on the marketplace.");
+  notes.push(fba ? "Shipped and handled by Amazon, so returns and delivery follow Amazon's own process." : ships ? `Shipped by ${ships}. Delivery and returns follow that seller's process.` : "The page does not say who ships it.");
+  const tone = firstParty || brandStore ? "good" : fba ? "neutral" : "watch";
+  return { name, ships, kind, fba, firstParty, tone, sid, notes };
+}
+function sellerChange(prev, cur) { return prev && cur && prev !== cur ? `Seller changed from ${prev} to ${cur} since your last visit.` : null; }
+
 // Observations only: we never claim a scarcity message is untrue.
 function urgencySignals(text) {
   const t = String(text || "").slice(0, 20000), out = [];
@@ -105,4 +125,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };

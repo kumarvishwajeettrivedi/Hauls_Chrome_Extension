@@ -49,6 +49,17 @@ assert.ok(sc.rows.every(r => r.pts >= 0 && r.pts <= r.max), "points within max")
 assert.equal(A.buyWait(pumped, 1005, 2000, NOW).verdict, "wait", "a pumped drop is never a Buy");
 assert.equal(A.buyWait(real, 1200, 1800, NOW).verdict, "buy");
 console.log("dealScan ok");
+
+// Seller
+let se = A.sellerInfo({ name: "Clicktech Retail Private Ltd", ships: "Amazon", href: "/gp/aag?seller=AJ6SIZC8YQDZX&isAmazonFulfilled=1" }, "Apple iPhone 16");
+assert.equal(se.kind, "3rd-party"); assert.equal(se.fba, true); assert.equal(se.tone, "neutral"); assert.equal(se.sid, "AJ6SIZC8YQDZX");
+assert.equal(A.sellerInfo({ name: "Amazon" }, "x").kind, "Amazon"); assert.equal(A.sellerInfo({ name: "Appario Retail Private Ltd", text: "" }, "x").firstParty, true);
+se = A.sellerInfo({ name: "boAt Lifestyle", ships: "boAt Lifestyle" }, "boAt Airdopes 141"); assert.equal(se.kind, "Brand store"); assert.equal(se.tone, "good");
+se = A.sellerInfo({ name: "RandomTraders", ships: "RandomTraders" }, "boAt Airdopes"); assert.equal(se.tone, "watch");
+assert.equal(A.sellerInfo({ text: "Sold by Foo Retail and Fulfilled by Amazon." }, "x").name, "Foo Retail"); assert.equal(A.sellerInfo(null), null); assert.equal(A.sellerInfo({}), null);
+assert.ok(!/scam|fake|fraud/i.test(JSON.stringify(se)), "never accuses");
+assert.ok(A.sellerChange("A", "B") && !A.sellerChange("A", "A") && !A.sellerChange(null, "B"));
+console.log("seller ok");
 let u = null; for (let i = 0; i < 50; i++) u = A.useLookup(u && u.usage, "k" + i, "free", new Date(NOW));
 assert.ok(u.allowed && u.used === 50); assert.ok(!A.useLookup(u.usage, "k51", "free", new Date(NOW)).allowed);
 assert.ok(A.useLookup(u.usage, "k3", "free", new Date(NOW)).allowed, "revisiting a counted product is free");

@@ -7,8 +7,10 @@ const num = (v, lo, hi) => typeof v === "number" && Number.isFinite(v) && v > lo
 const https = (v, max) => str(v, 1, max) && /^https:\/\//i.test(v);
 const pin = v => typeof v === "string" && /^\d{6}$/.test(v);
 const key = v => str(v, 1, 200);
-const PK = ["key", "site", "url", "title", "image", "price", "mrp", "src"];
-const product = p => isObj(p) && Object.keys(p).every(k => PK.includes(k)) && key(p.key) && str(p.site, 0, 60) && https(p.url, 2000) && str(p.title, 0, 500) && (p.image === null || https(p.image, 2000)) && num(p.price, 0, 1e7) && (p.mrp === null || num(p.mrp, 0, 1e7)) && ["jsonld", "dom", "meta"].includes(p.src);
+const PK = ["key", "site", "url", "title", "image", "price", "mrp", "src", "seller"];
+const SELLER_MAX = { name: 80, ships: 60, text: 200, href: 300 };
+const seller = v => v === undefined || v === null || (isObj(v) && Object.keys(v).every(k => k in SELLER_MAX && str(v[k], 0, SELLER_MAX[k])));
+const product = p => isObj(p) && Object.keys(p).every(k => PK.includes(k)) && key(p.key) && str(p.site, 0, 60) && https(p.url, 2000) && str(p.title, 0, 500) && (p.image === null || https(p.image, 2000)) && num(p.price, 0, 1e7) && (p.mrp === null || num(p.mrp, 0, 1e7)) && ["jsonld", "dom", "meta"].includes(p.src) && seller(p.seller);
 const loc = l => isObj(l) && Object.keys(l).every(k => ["lat", "lon", "pin"].includes(k)) && num(l.lat, -91, 91) && num(l.lon, -181, 181) && (l.pin === undefined || pin(l.pin));
 // per type: allowed extra keys -> validator. Missing optional keys are only allowed where the validator tolerates undefined.
 const S = {

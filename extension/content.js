@@ -21,6 +21,16 @@
     return best;
   }
 
+  // Who sells and ships this item, as the page states it (Amazon layouts + generic JSON-LD). Text only; nothing is fetched.
+  function readSeller() {
+    const t = sel => { const e = document.querySelector(sel); return e ? e.textContent.replace(/\s+/g, " ").trim() : ""; };
+    const link = document.querySelector("#sellerProfileTriggerId"), name = t("#sellerProfileTriggerId") || t('[offer-display-feature-name="desktop-merchant-info"] .offer-display-feature-text');
+    const ships = t('[offer-display-feature-name="desktop-fulfiller-info"] .offer-display-feature-text') || "", text = t("#merchant-info");
+    let ld = ""; if (!name && !text) { for (const s of document.querySelectorAll('script[type="application/ld+json"]')) { const m = s.textContent.match(/"seller"\s*:\s*\{[^}]*?"name"\s*:\s*"([^"]{2,80})"/); if (m) { ld = m[1]; break; } } }
+    const out = { name: name || ld, ships, text, href: link ? (link.getAttribute("href") || "") : "" };
+    return out.name || out.text ? out : null;
+  }
+
   function extract() {
     const u = new URL(location.href), id = S && S.id(u);
     if (!id) return null;
@@ -29,7 +39,7 @@
     if (!price) { price = num(meta("product:price:amount") || meta("og:price:amount")); src = "meta"; }
     if (!price) return null;
     return { key: `${dom}:${id}`, site: S.name, url: u.origin + u.pathname + (dom === "flipkart.com" ? `?pid=${id}` : ""),
-      title: title || meta("og:title") || document.title, image: image || meta("og:image"), price, mrp: num(q(S.mrp)) || (ldMrp > price ? ldMrp : null) || strikePrice(price), src };
+      title: title || meta("og:title") || document.title, image: image || meta("og:image"), price, mrp: num(q(S.mrp)) || (ldMrp > price ? ldMrp : null) || strikePrice(price), src, seller: readSeller() };
   }
 
 
@@ -228,6 +238,18 @@
     if (urg.length) { const u = el("button", "pill y"); u.append("Urgency banner"); u.style.cursor = "pointer"; u.onclick = () => openSheet("Seen on this page", [note("Observed", urg.join(". ") + "."), note("Price history says", d.badge === "unknown" ? "Not enough history to compare yet." : `This price is: ${d.label}.`)]); row.append(u); }
     main.append(row);
     main.append(trapEditor(p, it));
+    // seller
+    const sl = sellerInfo(p.seller, p.title);
+    if (sl) {
+      const sb = el("button", "seller " + sl.tone), sw = it.sellerChange && Date.now() - it.sellerChange.at < 30 * 864e5 ? sellerChange(it.sellerChange.from, sl.name) : null;
+      const nm = el("span", "sname", sl.name), kd = el("span", "skind", sl.kind + (sl.kind !== "Amazon" && sl.fba ? " · Fulfilled by Amazon" : ""));
+      sb.append(el("span", "lbl", "Seller"), nm, kd); sb.setAttribute("aria-label", `Seller ${sl.name}, ${sl.kind}. Tap for details`);
+      sb.onclick = () => { const ul = el("ul"); sl.notes.forEach(n => ul.append(el("li", "", n))); if (sw) ul.append(el("li", "", sw));
+        const nodes = [ul, el("p", "meta", "Read from this product page. HAULS does not rate or vouch for any seller, and cannot see their reviews from here.")];
+        if (sl.sid) { const a = el("a", "btn ghost", "Seller profile"); a.href = new URL(p.url).origin + "/sp?seller=" + sl.sid; a.target = "_blank"; a.rel = "noopener"; nodes.push(a); }
+        openSheet("About this seller", nodes); };
+      main.append(sb);
+    }
     // stores
     const { links } = smartLinks(p.title, S ? S.name : ""), SHOW = 5, sec = el("div"), st = el("div", "stores");
     sec.append(el("p", "lbl", "Compare"));
