@@ -92,6 +92,8 @@
   };
   // Small rating dot for rows: green/amber/red ring by seller rating (grey when unknown).
   const ratingDot = (rating, ratings) => { const d = el("i", "rdot"); d.style.setProperty("--c", !rating ? "#B9B9C4" : rating >= 4 ? "#19B968" : rating >= 3 ? "#F5A524" : "#E5484D"); d.title = rating ? `Seller ${rating}★ (${ratings})` : "No seller rating"; return d; };
+  // All ranges Amazon's chart has shown us for this product, as one series (finer/newer ranges win on overlap).
+  const ahPoints = ah => { if (!ah || !ah.ranges) return []; const pts = []; for (const k of ["1Y", "3M", "1M"]) { const r = ah.ranges[k]; if (r) for (const p of r.points) pts.push(p); } pts.sort((a, b) => a[0] - b[0]); const out = []; for (const p of pts) { const l = out[out.length - 1]; if (l && p[0] - l[0] < 12 * 3600e3) { out[out.length - 1] = p; continue; } if (!l || l[1] !== p[1] || p[0] - l[0] > 6 * 864e5) out.push(p); } return out; };
   // Too little own history: show the range this page reported (Amazon's own price history), with today's price on it. DOM only, no markup strings.
   const refBar = (ref, price) => {
     const w = el("div", "refbar"), track = el("div", "rb-track"), dot = el("i", "rb-dot"), lab = el("div", "rb-lab"), pos = ref.high > ref.low ? Math.min(1, Math.max(0, (price - ref.low) / (ref.high - ref.low))) : 0.5;
@@ -221,7 +223,7 @@
     if (!cur) return main.append(el("p", "empty", T.emptyProduct));
     if (cur.limited) { main.append(el("div", "vcard wait", ""), quotaRow()); main.firstChild.append(el("span", "vl", `All ${cur.limit} free lookups used this month. Saved items still update.`)); return; }
     cur.it = withStoredFlags(cur.it, safeItems((await chrome.storage.local.get("items")).items), cur.p.key);
-    const { p, it } = cur, H = cur.comm && cur.comm.length ? mergeHistory(it.hist, cur.comm) : it.hist, s = stats(H), bw = buyWait(H, p.price, p.mrp, Date.now(), it.ref), d = bw.deal;
+    const { p, it } = cur, ahp = ahPoints(it.ahist), H = ahMerge(cur.comm && cur.comm.length ? mergeHistory(it.hist, cur.comm) : it.hist, ahp), s = stats(H), horizon = (await chrome.storage.local.get("horizon")).horizon || "1w", bw = buyWait(H, p.price, p.mrp, Date.now(), it.ref, horizon), d = bw.deal;
     // hero: price sticker + lowest tag + heart
     const hero = el("div", "hero"), sw = el("div", "st-wrap"), price = el("span", "price num"); sw.append(price);
     if (H.length > 1 && s.min === p.price) sw.append(el("span", "tag", `Lowest in ${d.w ? d.w.days : 1} days`));
@@ -243,7 +245,7 @@
     const paintRange = () => {
       const days = (RANGES.find(r => r[0] === range) || RANGES[1])[1], ws = windowStats(H, now, days || 99999) || { min: s.min, avg: s.avg, max: s.max }, sl = downsample(sliceHistory(H, days, now), 200);
       c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3"), sm = el("small"); sm.append(ico(i), n); x.append(sm, el("b", "num", fmt(v))); c3.append(x); });
-      cb.replaceChildren(el("p", "lbl", `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), sl.length > 1 || !refUsable(it.ref, p.price, now) ? chart(sl, now, days ? range : "") : refBar(it.ref, p.price));
+      cb.replaceChildren(el("p", "lbl", `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), sl.length > 1 || !refUsable(it.ref, p.price, now) ? chart(sl, now, days ? range : "") : refBar(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : []));
       [...seg.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.r === range)));
     };
     RANGES.forEach(([k]) => { const b = el("button", "", k); b.dataset.r = k; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
@@ -254,7 +256,11 @@
     info.onclick = () => { const ul = el("ul"); bw.reasons.forEach(r => ul.append(el("li", "", r)));
       const nodes = [ul]; if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") nodes.push(note("Discount context", `Advertised ${Math.round(d.adv * 100)}% off the listed MRP. Against recent observed prices it's ${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"}.`));
       openSheet(bw.title, nodes); };
+    { const hz = el("div", "seg hz"); hz.setAttribute("role", "group"); hz.setAttribute("aria-label", "How soon do you need it");
+      HORIZONS.forEach(([k, l]) => { const b = el("button", "", l); b.setAttribute("aria-pressed", String(k === horizon)); b.dataset.h = k; b.onclick = async () => { await chrome.storage.local.set({ horizon: k }); draw(); }; hz.append(b); });
+      main.append(el("p", "lbl", "How soon do you need it?"), hz); }
     main.append(vc);
+    if (bw.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Alert me at ${fmt(bw.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const r = await send({ type: "track", key: p.key, target: bw.alertAt }); ab.textContent = r && r.error ? "Tracking limit reached" : `Alert set at ${fmt(bw.alertAt)}`; }; main.append(ab); }
     // Deal Scanner: 0-100 score with the exact points behind it
     const sc = dealScan(H, p.price, p.mrp, Date.now(), it.ref), scard = el("div", "scan " + sc.tone), sh = el("div", "scan-h");
     sh.append(el("b", "", "Deal Scanner"), el("span", "meta", sc.score == null ? "" : `${sc.score}/100`)); scard.append(sh);
@@ -565,22 +571,47 @@
     const r = await chrome.runtime.sendMessage({ type: "seen", p });
     if (!r || r.error) { cur = null; loading = false; setBadge(); idleRedraw(); return; }
     cur = r.limited ? { limited: true, limit: r.limit, usage: { used: r.used, limit: r.limit } } : { p, it: r.it, usage: r.usage, comm: r.comm || [] };
-    loading = false; setBadge(); idleRedraw();
+    loading = false; setBadge(); idleRedraw(); ahAutoRead().catch(() => {});
   }
   run(); if (APP) setOpen(true);
   // SPA navigation (Flipkart/Myntra/Ajio): re-run when the URL changes.
   let href = location.href;
   // Amazon's own price-history answer appears inside the page when the user opens it. We read its text, nothing else, and remember the range for this product.
   if (S && dom === "amazon.in") {
-    let hrT = null;
-    new MutationObserver(muts => { clearTimeout(hrT); hrT = setTimeout(async () => {
-      if (!cur || !cur.p) return; let found = null;
+    let hrT = null; const pend = []; // every batch is kept: a later batch (for example the panel closing) must not discard the chart added just before it
+    new MutationObserver(mu => { pend.push(...mu); if (pend.length > 500) pend.splice(0, pend.length - 500); clearTimeout(hrT); hrT = setTimeout(async () => { const muts = pend.splice(0);
+      if (!cur || !cur.p) return;
+      for (const m of muts) for (const n of m.addedNodes) { const root = n.nodeType === 1 ? n : null; if (!root) continue;
+        const svgs = root.matches && root.matches("svg") ? [root] : [...(root.querySelectorAll ? root.querySelectorAll("svg[aria-label]") : [])];
+        for (const sv of svgs) { if (!/price history/i.test(sv.getAttribute("aria-label") || "") || (sv.closest && sv.closest(HISTORY_UNTRUSTED))) continue;
+          const ch = ahParseChart(sv.outerHTML, Date.now()); if (!ch || !ch.current || Math.abs(ch.current - cur.p.price) > 1) continue; // must announce today's price on THIS product
+          const r = await send({ type: "ahist", key: cur.p.key, range: ch.range, days: ch.days, points: ch.points, current: ch.current, offer: ch.offer, highest: ch.highest }).catch(() => null);
+          if (r && r.ok) { cur.it = r.it; idleRedraw(); } } }
+      let found = null;
       for (const m of muts) for (const n of m.addedNodes) { const el1 = n.nodeType === 1 ? n : n.parentElement, t = n.nodeType === 1 ? n.textContent : n.nodeType === 3 ? n.nodeValue : "";
         if (!t || t.length >= 4000 || !/ranged from/i.test(t) || !el1 || (el1.closest && el1.closest(HISTORY_UNTRUSTED)) || (n.nodeType === 1 && n.querySelector && n.querySelector(HISTORY_UNTRUSTED))) continue;
         const f = parseAmazonHistoryText(t); if (f && historyTextTrusted(f, cur.p)) { found = f; break; } }
       if (!found) return; const r = await send({ type: "history-ref", key: cur.p.key, days: found.days, low: found.low, high: found.high }).catch(() => null);
       if (r && r.ok) { cur.it = r.it; idleRedraw(); }
     }, 700); }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+  // Experimental, opt-in (Settings): open Amazon's own "Price history" answer out of sight, let the observer above read its chart, then close it. No endpoint is called.
+  // Fail-safes: only with an ingress button present, once per product per 12 h, panel hidden by CSS while it runs, every step has a timeout, on any doubt it stops and stays quiet.
+  let ahBusy = false;
+  async function ahAutoRead() {
+    if (ahBusy || !cur || !cur.p || dom !== "amazon.in") return; const { ahAuto } = await chrome.storage.local.get("ahAuto"); if (ahAuto !== true) return;
+    const last = cur.it && cur.it.ahist && Math.max(cur.it.ahist.at || 0, cur.it.ahist.tried || 0); if (last && Date.now() - last < 12 * 3600e3) return;
+    const trig = document.querySelector('#rufus-price-ingress-bb [data-action="show-rufus-price-ingress"], .rufus-ph-ingress-pill [data-action="show-rufus-price-ingress"]'); if (!trig) return;
+    ahBusy = true; const key = cur.p.key, hide = document.createElement("style"); hide.id = "hauls-ah-hide"; hide.textContent = "#nav-flyout-rufus,.rufus-panel-container,#rufus-conversation-papyrus-container{opacity:0!important;pointer-events:none!important;transition:none!important}"; document.documentElement.append(hide);
+    const wait = (f, ms) => new Promise(res => { const t0 = Date.now(), iv = setInterval(() => { let v; try { v = f(); } catch { v = null; } if (v || Date.now() - t0 > ms) { clearInterval(iv); res(v || null); } }, 150); });
+    const chart = () => document.querySelector('#rufus-react-renderer svg[aria-label*="price history" i]');
+    try {
+      await send({ type: "ahist-tried", key }).catch(() => {});
+      (trig.querySelector("button, .a-button-text, a") || trig).click();
+      const first = await wait(chart, 8000); if (!first) return;
+      for (const label of ["3M", "1Y"]) { const tab = [...document.querySelectorAll("#rufus-react-renderer [role=tab], #rufus-react-renderer button, #rufus-react-renderer span")].find(e => e.children.length === 0 && e.textContent.trim() === label); if (!tab) continue; const before = chart() && chart().outerHTML; tab.click(); await wait(() => chart() && chart().outerHTML !== before, 4000); }
+      const close = document.querySelector('#rufus-panel-header-container [aria-label*="lose" i], #nav-flyout-rufus button[aria-label*="lose" i]'); if (close) close.click();
+    } finally { await new Promise(r => setTimeout(r, 400)); hide.remove(); ahBusy = false; }
   }
   setInterval(() => { if (!document.hidden && location.href !== href) { href = location.href; tries = 0; cur = null; loading = !!(S || SHOP); setBadge(); run(); } }, 1000);
 })();

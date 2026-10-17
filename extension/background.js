@@ -70,6 +70,11 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "grocery") reply(await noteLocation(m.loc).then(() => groceryAt(m.q, m.loc, { more: !!m.more })).catch(e => ({ items: [], errors: [e.message] })));
     else if (m.type === "history-ref") { const items = await get(), it = items[m.key]; const price = it && it.hist.length ? it.hist[it.hist.length - 1][1] : 0;
       if (it && m.low <= m.high && price >= m.low * 0.6 && price <= m.high * 1.4) { it.ref = { days: Math.round(m.days), low: m.low, high: m.high, at: Date.now() }; await put(items); reply({ ok: true, it }); } else reply({ ok: false }); }
+    else if (m.type === "ahist") { await withLock(async () => { const items = await get(), it = items[m.key]; if (!it || !it.hist.length) return reply({ ok: false });
+        const price = it.hist[it.hist.length - 1][1], last = m.points[m.points.length - 1][1];
+        if (!(last >= price * 0.6 && last <= price * 1.4)) return reply({ ok: false }); // the chart must agree with the price this product shows today
+        const ah = it.ahist || { ranges: {} }; ah.at = Date.now(); ah.ranges[m.range] = { at: Date.now(), days: m.days, points: m.points }; if (m.offer) ah.offer = m.offer; if (m.highest) ah.highest = m.highest; it.ahist = ah; await put(items); reply({ ok: true, it }); }); }
+    else if (m.type === "ahist-tried") { await withLock(async () => { const items = await get(), it = items[m.key]; if (it) { it.ahist = it.ahist || { ranges: {} }; it.ahist.tried = Date.now(); await put(items); } }); reply({ ok: true }); }
     else if (m.type === "seller") reply(await offSeller({ sid: m.sid }).catch(() => ({ failed: true })));
     else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));
     else if (m.type === "compare") reply(await cmpFind({ title: m.title, brand: m.brand, mpn: m.mpn, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));

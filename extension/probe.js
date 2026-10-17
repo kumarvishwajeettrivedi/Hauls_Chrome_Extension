@@ -3,7 +3,7 @@
 // It never reads cookies, forms, the account name, or anything that does not match the price-history wording.
 function historyProbe() {
   const RE = /price history|ranged from|featured offer price|lowest price|price over time/i, MAXHITS = 8;
-  const scrubFull = t => String(t).replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]").replace(/\b\d{10,}\b/g, "[number]").replace(/\s+/g, " ").trim(), scrub = t => scrubFull(t).slice(0, 400);
+  const scrubFull = t => String(t).replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]").replace(/(?<![\d.])\d{10,}(?![\d])/g, "[number]").replace(/\s+/g, " ").trim(), scrub = t => scrubFull(t).slice(0, 400);
   const desc = e => e.tagName.toLowerCase() + (e.id ? "#" + e.id.slice(0, 40) : "") + (e.classList.length ? "." + [...e.classList].slice(0, 3).join(".").slice(0, 60) : "") + (e.getAttribute("role") ? "[role=" + e.getAttribute("role") + "]" : "") + (e.getAttribute("data-hook") ? "[data-hook=" + e.getAttribute("data-hook") + "]" : "");
   const out = { triggers: [], frame: location.origin + location.pathname, isTop: window === window.top, hits: [], charts: [], rufus: [], shadowRoots: 0 };
   const scan = (root, inShadow) => {

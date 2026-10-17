@@ -15,6 +15,8 @@
 - **Price history.** Lowest, average and highest price over 30 days, 90 days, a year or all time, drawn as a chart.
 - **Buy-or-wait verdict.** A plain answer with the reason, and a check for discounts that were never real.
 - **Trap prices.** Set the price you want and get a notification when it is reached.
+- **Amazon's own price graph.** When Amazon draws its "Price history" chart, HAULS reads the chart data, merges it with its own history and draws the graph with the lowest/highest prices and the "Buy for ₹X with offers" price. An opt-in setting can read it automatically.
+- **How soon do you need it?** 2-3 days / 1 week / 1 month changes the buy-or-wait call for fair prices and suggests an alert price.
 - **Deal Scanner.** A 0–100 score with the points behind it, and a warning when a price was lifted before a "discount".
 - **Background price checks.** While the browser is open, watched items are re-read a few times a day from each store's own data, so history and alerts continue without a visit. Settings shows per-store health.
 - **Reviews and seller.** What buyers say (the page's own average and rating split), and a seller card built from the seller's public storefront: rating windows, % positive, volume and recent trend.

@@ -29,7 +29,15 @@ function dealStrength(hist, price, mrp, now = Date.now()) {
   return { badge, label, coverage: cov, vsAvg, adv, w };
 }
 
-function buyWait(hist, price, mrp, now = Date.now(), ref = null) {
+// How soon the shopper needs it moves only the middle band: a fair price is fine in 2-3 days, but not worth buying if a month can be waited.
+const HORIZONS = [["3d", "2-3 days"], ["1w", "1 week"], ["1m", "1 month"]];
+function horizonVerdict(v, horizon) { return v === "okay" && horizon === "3d" ? "buy" : v === "okay" && horizon === "1m" ? "wait" : v; }
+function buyWait(hist, price, mrp, now = Date.now(), ref = null, horizon = "1w") { const r = buyWait0(hist, price, mrp, now, ref), v = horizonVerdict(r.verdict, horizon);
+  if (v === r.verdict) return r;
+  const alertAt = r.deal && r.deal.w ? Math.round(r.deal.w.min * 1.03) : ref ? Math.round(ref.low * 1.03) : null, hz = HORIZONS.find(h => h[0] === horizon)[1];
+  return { ...r, verdict: v, title: { buy: "Good time to buy", wait: "Wait if you can" }[v], short: v === "buy" ? `Fair price. Fine if you need it in ${hz}.` : `Fair, but you can wait ${hz} for a lower price.`, reasons: [`You need it in ${hz}.`, ...r.reasons], alertAt: v === "wait" && alertAt && alertAt < price ? alertAt : null };
+}
+function buyWait0(hist, price, mrp, now = Date.now(), ref = null) {
   const d = dealStrength(hist, price, mrp, now), w = d.w;
   if (d.badge === "unknown" && refUsable(ref, price, now)) { // too little own history: say what Amazon's own range says, and say that it is Amazon's range
     const spread = Math.max(ref.high - ref.low, 1), pos = (price - ref.low) / spread, verdict = price <= ref.low * 1.01 ? "buy" : pos >= 0.8 ? "wait" : "okay", k = ref.days + "-day";
@@ -185,4 +193,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };

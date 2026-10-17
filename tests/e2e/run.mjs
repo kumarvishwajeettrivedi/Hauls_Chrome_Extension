@@ -495,20 +495,68 @@ test("30", "settings: background price check card shows per-store health and run
   await o.click("#trkrun"); await poll(async () => /Checked 0/.test(await o.$eval("#tmsg", e => e.textContent)), 8000, 300); t.check(/Checked 0, new prices 0/.test(await o.$eval("#tmsg", e => e.textContent)), "run-now answered: " + await o.$eval("#tmsg", e => e.textContent));
 }));
 
+test("32", "Amazon chart: the real Price-history SVG, when Amazon draws it, becomes HAULS's history (chart, high/low, verdict) and is merged with own points", t => withExt({}, async ({ ctx, sw }) => {
+  const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
+  const { p, panel } = await product(ctx, { id: "B0AMZCHART", price: 4499, mrp: 5999 }); await panel.open(); await sleep(600);
+  t.check(!(await panel.has(".cw svg")), "no chart before Amazon's chart appears (only one point)");
+  await p.evaluate(h => { const w = document.createElement("div"); w.id = "rufus-react-renderer"; w.innerHTML = '<span class="rufus-pricing-chart-container">' + h + '</span>'; document.body.append(w); }, svg);
+  const ok = await poll(async () => Object.values((await store(sw, "items")).items || {}).some(i => i.ahist), 8000, 300); t.check(!!ok, "chart read and stored");
+  const it = Object.values((await store(sw, "items")).items).find(i => i.ahist); t.check(it.ahist.ranges["1M"].points[0][1] === 5499 && it.ahist.offer === 4049 && it.ahist.highest.price === 5499, "stored series/offer/highest: " + JSON.stringify(it.ahist.offer));
+  await poll(async () => await panel.has(".cw svg"), 6000, 300); t.check(await panel.has(".cw svg"), "history chart drawn from Amazon's data");
+  const chips = await panel.text(".chips3"); t.check(/₹4,499/.test(chips) && /₹5,499/.test(chips), "low/high come from the series: " + chips);
+  t.check(/Includes Amazon's own price history/.test(await panel.text(".chartbox")) && /with offers ₹4,049/.test(await panel.text(".chartbox")), "source + offer price caption: " + (await panel.text(".chartbox")).slice(-160));
+  t.check(!/Too early to call/.test(await panel.text(".vcard")), "verdict no longer 'too early': " + await panel.text(".vcard"));
+  // an SVG for another price is refused
+  await p.evaluate(h => { const w = document.createElement("div"); w.innerHTML = h.replace(/price ₹4,499/, "price ₹1,111"); document.body.append(w); }, svg);
+  await sleep(1500); const it2 = Object.values((await store(sw, "items")).items).find(i => i.ahist); t.check(it2.ahist.ranges["1M"].points.length === it.ahist.ranges["1M"].points.length, "chart announcing a different price is ignored");
+}));
+
+test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy to Wait, saves the choice, and offers an alert price", t => withExt({}, async ({ ctx, sw }) => {
+  const now = Date.now(), id = "B0HORIZON1"; await seed(sw, { items: seedItem(id, [[now - 60 * D, 1050], [now - 40 * D, 1000], [now - 20 * D, 1050], [now - 36e5, 1050]]) });
+  const { panel } = await product(ctx, { id, price: 1050, mrp: 0 }); await panel.open();
+  const word = () => panel.text(".vcard .vw"), pick = async h => { await panel.click(`.hz [data-h="${h}"]`); await sleep(500); };
+  t.check(/Fair/.test(await word()), "default 1 week: fair price stays Fair: " + await word());
+  await pick("3d"); t.check(/Buy/.test(await word()), "need it in 2-3 days: Buy: " + await word());
+  await pick("1m"); t.check(/Wait/.test(await word()), "can wait a month: Wait: " + await word());
+  const ab = await panel.text(".btn.ghost.full"); t.check(/Alert me at ₹1,0\d\d/.test(ab), "alert price offered between the low and today: " + ab);
+  const st = await store(sw, "horizon"); t.check(st.horizon === "1m", "choice saved: " + st.horizon);
+  await panel.click(".btn.ghost.full"); await sleep(600); const it = Object.values((await store(sw, "items")).items).find(i => i.target); t.check(it && it.target > 1000 && it.target < 1050, "alert target stored: " + (it && it.target));
+}));
+
+test("34", "auto-read (opt-in): clicks Amazon's own Price-history button out of sight, reads the chart, closes the panel; off by default", t => withExt({}, async ({ ctx, sw }) => {
+  const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
+  const install = async p => p.evaluate(h => { window.__clicked = 0; window.__closed = 0; const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; document.body.append(d);
+    d.querySelector(".a-declarative").addEventListener("click", () => { window.__clicked++; setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; f.innerHTML = '<div id="rufus-panel-header-container"><button aria-label="Close panel"></button></div><div id="rufus-react-renderer"><span class="rufus-pricing-chart-container">' + h + '</span></div>'; document.body.append(f); f.querySelector("button").addEventListener("click", () => { window.__closed++; f.remove(); }); window.__hiddenSeen = !!document.getElementById("hauls-ah-hide"); }, 300); }); }, svg);
+  // default OFF: nothing is clicked
+  let r = await product(ctx, { id: "B0AUTOOFF1", price: 4499, mrp: 5999 }); await install(r.p); await sleep(3500);
+  t.check((await r.p.evaluate(() => window.__clicked)) === 0, "off by default: the Price history button is never touched");
+  await r.p.close();
+  await seed(sw, { ahAuto: true });
+  r = await product(ctx, { id: "B0AUTOON01", price: 4499, mrp: 5999 }); await install(r.p);
+  // the content script ran its check before the button existed; trigger a new lookup the way a page change would
+  await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  const ok = await poll(async () => Object.values((await store(sw, "items")).items || {}).some(i => i.key !== undefined || (i.ahist && Object.keys(i.ahist.ranges || {}).length)), 12000, 400);
+  const got = Object.values((await store(sw, "items")).items || {}).find(i => i.ahist && i.ahist.ranges && i.ahist.ranges["1M"]);
+  t.check(!!got, "chart stored after the auto-read (panel removed right after it appeared): clicked=" + await r.p.evaluate(() => window.__clicked));
+  t.check((await r.p.evaluate(() => window.__clicked)) >= 1, "button clicked"); t.check(got.ahist.ranges["1M"].points[0][1] === 5499, "chart read");
+  t.check((await r.p.evaluate(() => window.__closed)) >= 1 && !(await r.p.evaluate(() => document.getElementById("hauls-ah-hide"))), "panel closed and the hiding style removed");
+  t.check(!!got.ahist.tried, "attempt recorded (no repeat within 12 h)");
+}));
+
 // ---------------------------------------------------------------- 14 range selector
 test("14", "range selector: 30D/90D/1Y/All changes label, x-axis, y labels, chips; persists", t => withExt({}, async ({ ctx, sw }) => {
   const now = Date.now(), H = [[now - 380 * D, 1500], [now - 200 * D, 1300], [now - 60 * D, 1100], [now - 20 * D, 900], [now - 36e5, 830]];
   await seed(sw, { items: seedItem(PRODUCT_ID, H) });
   const { p, panel } = await product(ctx, { price: 830 }); await panel.open();
-  const btns = await panel.ev(function () { return [...this.querySelectorAll(".seg button")].map(b => ({ t: b.textContent, r: b.dataset.r, on: b.getAttribute("aria-pressed") })); });
+  const btns = await panel.ev(function () { return [...this.querySelectorAll(".seg:not(.hz) button")].map(b => ({ t: b.textContent, r: b.dataset.r, on: b.getAttribute("aria-pressed") })); });
   t.check(btns.map(b => b.r).join() === "30D,90D,1Y,All" && btns.map(b => b.t).join() === "30D,90D,1Y,All", "four buttons with data-r: " + JSON.stringify(btns));
   t.check(btns.filter(b => b.on === "true").map(b => b.r).join() === "90D", "default 90D pressed (only)");
   const read = () => panel.ev(function () { return { lbl: this.querySelector(".chartbox .lbl").textContent, x0: this.querySelector(".xl span").textContent, yt: (this.querySelector(".yl.t") || {}).textContent, yb: (this.querySelector(".yl.b") || {}).textContent,
-    chips: [...this.querySelectorAll(".chip3 b")].map(b => b.textContent), pressed: [...this.querySelectorAll(".seg button[aria-pressed=true]")].map(b => b.dataset.r) }; });
+    chips: [...this.querySelectorAll(".chip3 b")].map(b => b.textContent), pressed: [...this.querySelectorAll(".seg:not(.hz) button[aria-pressed=true]")].map(b => b.dataset.r) }; });
   const seen = {};
   // hi = chart top label (includes the price in force at window start); chi = High chip (observed inside the window only).
   for (const [r, days, hi, chi] of [["30D", 30, "₹1,100", "₹900"], ["90D", 90, "₹1,300", "₹1,100"], ["1Y", 365, "₹1,500", "₹1,300"], ["All", 0, "₹1,500", "₹1,500"]]) {
-    await panel.click(`.seg button[data-r='${r}']`); await sleep(300); const s = seen[r] = await read();
+    await panel.click(`.seg:not(.hz) button[data-r='${r}']`); await sleep(300); const s = seen[r] = await read();
     t.check(s.lbl.startsWith(r + " history"), `${r}: label "${s.lbl}"`);
     t.check(s.pressed.join() === r, `${r}: only ${r} pressed (${s.pressed})`);
     const x0 = days ? dshort(Date.now() - days * D) : dshort(H[0][0]); t.check(s.x0 === x0, `${r}: x-axis starts ${x0} (got ${s.x0})`);
@@ -517,7 +565,7 @@ test("14", "range selector: 30D/90D/1Y/All changes label, x-axis, y labels, chip
     if (chi !== hi) t.note(`${r}: High chip ${chi} but chart top label ${hi} (chart carries in the price at window start, chips don't)`);
   }
   t.check(new Set(["30D", "90D", "1Y"].map(r => seen[r].chips.join())).size === 3, "chips differ between 30D, 90D and 1Y");
-  await panel.click(".seg button[data-r='30D']"); await sleep(300); t.check((await store(sw, "range")).range === "30D", "selected range stored");
+  await panel.click(".seg:not(.hz) button[data-r='30D']"); await sleep(300); t.check((await store(sw, "range")).range === "30D", "selected range stored");
   await p.reload({ waitUntil: "domcontentloaded" }); await panel.waitKnob(); await panel.open(); await sleep(400);
   const after = await read(); t.check(after.pressed.join() === "30D", "range survives reload: " + after.pressed);
 }));

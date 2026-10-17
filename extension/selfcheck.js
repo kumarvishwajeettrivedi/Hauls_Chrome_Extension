@@ -99,6 +99,10 @@ assert.equal(A.historyTextTrusted(null, prod), false);
   assert.equal(A.buyWait([[NOW - D, 575]], 575, 0, NOW, refx).verdict, "wait"); assert.equal(A.buyWait([[NOW - D, 540]], 540, 0, NOW, refx).verdict, "okay");
   assert.equal(A.buyWait(one, 499, 0, NOW).verdict, "unknown", "no reference: still too early"); assert.equal(A.buyWait(one, 499, 0, NOW, { ...refx, at: NOW - 30 * D }).verdict, "unknown", "stale reference ignored");
   assert.equal(A.buyWait(real, 1200, 1800, NOW, refx).source, undefined, "enough own history wins"); }
+{ const fairH = [[NOW - 60*D, 1050], [NOW - 40*D, 1000], [NOW - 20*D, 1050], [NOW - D, 1050]], k = (h) => A.buyWait(fairH, 1050, 0, NOW, null, h);
+  assert.equal(k("1w").verdict, "okay"); assert.equal(k("3d").verdict, "buy", "need it soon: a fair price is enough"); assert.equal(k("1m").verdict, "wait", "can wait a month: hold out"); assert.ok(k("1m").alertAt > 1000 && k("1m").alertAt < 1050, "suggested alert price between the low and today: " + k("1m").alertAt);
+  assert.equal(A.buyWait([[NOW - 60*D, 1000], [NOW - 40*D, 1100], [NOW - 20*D, 1000], [NOW - 3600e3, 800]], 800, 0, NOW, null, "1m").verdict, "buy", "a clear low is a buy whatever the horizon");
+  assert.equal(A.buyWait([[NOW - 60*D, 1000], [NOW - 40*D, 1000], [NOW - 20*D, 1000]], 1200, 0, NOW, null, "3d").verdict, "wait", "a clearly high price is a wait even when needed soon"); }
 console.log("amazon history ok");
 let u = null; for (let i = 0; i < 50; i++) u = A.useLookup(u && u.usage, "k" + i, "free", new Date(NOW));
 assert.ok(u.allowed && u.used === 50); assert.ok(!A.useLookup(u.usage, "k51", "free", new Date(NOW)).allowed);
