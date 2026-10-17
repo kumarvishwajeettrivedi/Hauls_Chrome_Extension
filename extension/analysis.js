@@ -65,6 +65,15 @@ function historyTextTrusted(parsed, product) {
 // A reference is only trusted when it agrees with the price on the page (within 40% either side) and is under two weeks old.
 const refUsable = (ref, price, now = Date.now()) => !!(ref && ref.low > 0 && ref.high >= ref.low && now - ref.at < 14 * DAY && price >= ref.low * 0.6 && price <= ref.high * 1.4);
 
+// Alert rule (pure). Fires once when the price is at/below the target after having been above it (or after the target was set below the price).
+// armed: false while the target was set at/above the current price, so setting a target never alerts instantly; it re-arms once the price is above target.
+function alertDecision(it, price) {
+  if (!it || !(it.target > 0) || !(price > 0)) return { fire: false, patch: {} };
+  if (price > it.target) return { fire: false, patch: it.armed === true && it.notified == null ? {} : { armed: true, notified: null } };
+  const fire = it.armed !== false && it.notified !== price && (it.notified == null || price < it.notified);
+  return { fire, patch: fire ? { notified: price } : {} };
+}
+
 // Deal Scanner: a 0-100 score from observed prices only. Rows carry earned/max points so the card can show exactly why.
 const median = a => { const b = [...a].sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
 // A pump = the price was lifted 15%+ above its older baseline in the last 45 days and is now "discounted" back to that baseline.
@@ -158,4 +167,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };

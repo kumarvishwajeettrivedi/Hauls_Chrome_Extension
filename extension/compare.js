@@ -87,6 +87,21 @@ function cmpPick(id, cands, refPrice) {
   return best;
 }
 
+
+// Why the best-looking candidate was rejected, so an empty result is explainable instead of silent.
+function cmpClosest(id, cands, refPrice) {
+  let best = null;
+  for (const c of cands) {
+    if (refPrice && (c.price < refPrice * 0.3 || c.price > refPrice * 4)) continue;
+    const ct = cmpTokens(c.title), cs = new Set(ct), cover = id.toks.filter(x => cs.has(x)).length / Math.max(1, id.toks.length);
+    if (!best || cover > best.cover) best = { c, ct, cover };
+  }
+  if (!best || best.cover < 0.4) return null;
+  const { c, ct } = best, cst = cmpStorage(ct);
+  const why = cmpVariants(id.toks) !== cmpVariants(ct.slice(0, 14)) ? "different version" : id.storage.size && cst.size && ![...id.storage].some(x => cst.has(x)) ? "different storage" : "different model";
+  return { title: c.title, price: c.price, url: c.url, why };
+}
+
 const CMP_STORES = {
   Amazon: { host: "amazon.in", search: q => "https://www.amazon.in/s?k=" + encodeURIComponent(q), parse: cmpParseAmazon },
   Flipkart: { host: "flipkart.com", search: q => "https://www.flipkart.com/search?q=" + encodeURIComponent(q), parse: cmpParseFlipkart },
@@ -102,13 +117,13 @@ async function cmpFetch(url, doFetch = fetch) {
 // -> { results: [{store,title,price,url,confidence}], failed: [store], here }
 async function cmpFind({ title, site, price }, doFetch = fetch, now = Date.now()) {
   const id = cmpIdentity(title), q = cmpQuery(title); if (!q) return { results: [], failed: [], here: site };
-  const stores = Object.entries(CMP_STORES).filter(([n]) => n !== site), results = [], failed = [];
+  const stores = Object.entries(CMP_STORES).filter(([n]) => n !== site), results = [], failed = [], near = [], seen = {};
   await Promise.all(stores.map(async ([name, s]) => {
     const key = name + "|" + q, hit = cmpCache.get(key);
     let cands; if (hit && now - hit.at < CMP_TTL) cands = hit.cands; else { try { cands = s.parse(await cmpFetch(s.search(q), doFetch)); cmpCache.set(key, { at: now, cands }); } catch { failed.push(name); return; } }
-    const best = cmpPick(id, cands, price); if (best) results.push({ store: name, title: best.title, price: best.price, url: best.url, confidence: best.confidence });
+    seen[name] = cands.length; const best = cmpPick(id, cands, price); if (best) results.push({ store: name, title: best.title, price: best.price, url: best.url, confidence: best.confidence }); else { const cl = cmpClosest(id, cands, price); if (cl) near.push({ store: name, ...cl }); }
   }));
   results.sort((a, b) => a.price - b.price);
-  return { results, failed, here: site };
+  return { results, failed, here: site, near, seen };
 }
-if (typeof module !== "undefined") module.exports = { cmpParseFlipkart, cmpParseReliance, cmpParseAmazon, cmpIdentity, cmpMatch, cmpPick, cmpFind, cmpStateJson, cmpTokens, CMP_STORES, cmpCache };
+if (typeof module !== "undefined") module.exports = { cmpClosest, cmpParseFlipkart, cmpParseReliance, cmpParseAmazon, cmpIdentity, cmpMatch, cmpPick, cmpFind, cmpStateJson, cmpTokens, CMP_STORES, cmpCache };

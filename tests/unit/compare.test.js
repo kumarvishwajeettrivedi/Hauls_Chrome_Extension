@@ -27,6 +27,8 @@ ok(C.cmpIdentity(LONG).toks.join(" ") === "apple iphone 17e 256gb", "identity: "
 ok(C.cmpIdentity("Apple iPhone 15 (128 GB) - Black").toks.join(" ") === "apple iphone 15 128gb", "storage kept when it sits in the brackets");
 const phones = [{ title: "Apple iPhone 17 (Black, 256 GB)", price: 86999, url: "https://a" }, { title: "Apple iPhone 17e (Soft Pink, 512 GB)", price: 84900, url: "https://b" }, { title: "Apple iPhone 17e (White, 256 GB)", price: 64900, url: "https://c" }, { title: "Apple iPhone 17 Pro 256 GB", price: 130490, url: "https://d" }];
 best = C.cmpPick(C.cmpIdentity(LONG), phones, 71999); ok(best && best.url === "https://c" && best.confidence === "Exact", "iPhone 17e 256 picks the right row: " + JSON.stringify(best));
+const cl = C.cmpClosest(C.cmpIdentity(LONG), [{ title: "Apple iPhone 17 (Black, 256 GB)", price: 86999, url: "https://a" }, { title: "Samsung Galaxy S25", price: 70000, url: "https://s" }], 71999);
+ok(cl && cl.url === "https://a" && /model|version/.test(cl.why), "closest explains itself: " + JSON.stringify(cl)); ok(C.cmpClosest(C.cmpIdentity(LONG), [{ title: "Boat Rockerz", price: 1000, url: "https://z" }], 71999) === null, "nothing close: null");
 // network layer: skips the current store, parses each store's page, sorts by price, reports failures, caches
 (async () => {
   const pages = { "www.flipkart.com": fx("flipkart"), "www.reliancedigital.in": fx("reliance"), "www.amazon.in": fx("amazon") }; let calls = 0;

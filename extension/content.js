@@ -307,7 +307,7 @@
       cbox.replaceChildren(); const here = p.price;
       if (r.error) return void cbox.append(el("p", "meta", "Couldn't compare right now. Try again later."), cbtn);
       const all = [...r.results.map(x => x.price), here], low = Math.min(...all);
-      if (!r.results.length) cbox.append(el("p", "meta", "No confident match at other stores."));
+      if (!r.results.length) { cbox.append(el("p", "meta", "No confident match at other stores.")); (r.near || []).slice(0, 2).forEach(x => { const a = el("a", "cmp-r near"); a.href = x.url; a.target = "_blank"; a.rel = "noopener"; a.append(el("span", "", x.store), el("b", "num", fmt(x.price)), el("span", "tag", x.why), el("small", "", "Closest, not the same item: " + String(x.title).slice(0, 70))); cbox.append(a); }); }
       else { const hr = el("div", "cmp-r" + (here <= low ? " low" : "")); hr.append(el("span", "", `${p.site} (here)`), el("b", "num", fmt(here)), el("span", "tag", here <= low ? "Lowest" : "")); cbox.append(hr); }
       r.results.forEach(x => { const a = el("a", "cmp-r" + (x.price <= low ? " low" : "")), d = x.price - here; a.href = x.url; a.target = "_blank"; a.rel = "noopener";
         a.append(el("span", "", x.store), el("b", "num", fmt(x.price)), el("span", "tag", x.price <= low ? "Lowest" : d > 0 ? `${fmt(d)} more` : d < 0 ? `${fmt(-d)} less` : "Same"), el("small", "", x.confidence + " match")); cbox.append(a); });

@@ -5,7 +5,7 @@ const put = items => chrome.storage.local.set({ items });
 
 async function record(p) {
   const items = await get(), it = items[p.key] ||= { hist: [] };
-  Object.assign(it, { site: p.site, title: p.title || it.title, image: p.image || it.image, url: p.url, mrp: p.mrp });
+  Object.assign(it, { site: p.site || it.site, title: p.title || it.title, image: p.image || it.image, url: p.url || it.url }); if (p.mrp !== undefined) it.mrp = p.mrp; // undefined = this reader did not look at MRP: keep what we know
   if (p.seller && p.seller.name) { if (it.seller && it.seller !== p.seller.name) it.sellerChange = { from: it.seller, at: Date.now() }; it.seller = p.seller.name; }
   const before = it.hist.length; it.hist = addPoint(it.hist, p.price, Date.now());
   await put(items);
@@ -14,12 +14,11 @@ async function record(p) {
   return it;
 }
 async function maybeAlert(key, it) {
-  const price = it.hist[it.hist.length - 1][1];
-  if (it.target && price <= it.target && it.notified !== price) {
-    it.notified = price;
-    chrome.notifications.create(key, { type: "basic", iconUrl: "icons/icon-128.png", title: "Price drop", message: `${it.title || key}: ₹${price} (target ₹${it.target})` });
-    const items = await get(); items[key] = it; await put(items);
-  }
+  const price = it.hist[it.hist.length - 1][1], d = alertDecision(it, price);
+  if (!d.fire && !Object.keys(d.patch).length) return;
+  Object.assign(it, d.patch);
+  if (d.fire) chrome.notifications.create(key, { type: "basic", iconUrl: "icons/icon-128.png", title: "Price drop", message: `${it.title || key}: ₹${price} (target ₹${it.target})` });
+  const items = await get(); items[key] = it; await put(items);
 }
 
 // A new pincode makes cached results for the old one dead weight: forget them (S4).
@@ -55,7 +54,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "track") {
       reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (!it) return true; const { plan = "free" } = await chrome.storage.local.get("plan");
         if (!it.target && !it.wish && trackedCount(items) >= LIMITS[plan].tracked) return { error: "limit" };
-        it.target = m.target; it.notified = null; it.u = Date.now(); await put(items); enqueue(watchOp(m.key, it)); flush(); return true; })); }
+        it.target = m.target; it.notified = null; it.armed = !(it.hist.length && it.hist[it.hist.length - 1][1] <= m.target); it.u = Date.now(); await put(items); enqueue(watchOp(m.key, it)); flush(); return true; })); }
     else if (m.type === "wish") {
       reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (!it) return true; const { plan = "free" } = await chrome.storage.local.get("plan");
         if (m.on && !it.wish && !it.target && trackedCount(items) >= LIMITS[plan].tracked) return { error: "limit" };
@@ -111,6 +110,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === "flags") { await loadFlags(); return; }
   if (alarm.name === "housekeeping") { await housekeeping().catch(() => {}); return; } // prune >400-day history + enforce the storage budget
   if (alarm.name === "tokens") { await getSession(REFRESH_AHEAD).catch(() => {}); return; } // keep the 1-hour access token fresh while the browser is open
+  if (alarm.name !== "recheck") return; // an unknown alarm name must never trigger a scan
   const items = await get();
   for (const [key, it] of Object.entries(items)) {
     if (!it.target) continue;
