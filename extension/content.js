@@ -45,6 +45,7 @@
 
   const T = TT.s, el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const P = { bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', x: '<path d="M6 6l12 12M18 6 6 18"/>', out: '<path d="M7 17 17 7M8 7h9v9"/>', heart: '<path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.5 2.7 5 6.1 5c2 0 3.4 1.1 4.2 2.4h3.4C14.5 6.1 15.9 5 17.9 5c3.4 0 5.2 3.5 3.7 6.8C19.5 16.4 12 21 12 21z"/>',
+    star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>', swap: '<path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', checkc: '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>', sync: '<path d="M20 11a8 8 0 0 0-14.9-3M4 5v4h4M4 13a8 8 0 0 0 14.9 3M20 19v-4h-4"/>', pin: '<path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>', info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
     shield: '<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>', bell: '<path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>',
     down: '<path d="M12 5v14M6 13l6 6 6-6"/>', up: '<path d="M12 19V5M6 11l6-6 6 6"/>', trend: '<path d="M3 17l6-6 4 4 8-8"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>', minus: '<path d="M5 12h14"/>', plus: '<path d="M12 5v14M5 12h14"/>', download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>', gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>', sync: '<path d="M20 11a8 8 0 0 0-14-4M4 5v4h4M4 13a8 8 0 0 0 14 4M20 19v-4h-4"/>', cloud: '<path d="M7 18a4 4 0 0 1-.5-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1 0 9z"/>', chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>' };
@@ -58,6 +59,16 @@
   const STORE_C = c => c || "#999";
 
   const dshort = t => new Date(t).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  // Semi-ring gauge (5 colour bands + needle + number), DOM only. Shared by the Deal Scanner and the seller card.
+  const gaugeEl = (score, caption, w = 120) => {
+    const g = el("div", "gauge"), NS = "http://www.w3.org/2000/svg", mk = (tag, at) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); return e; }, svg = mk("svg", { viewBox: "0 0 100 58", "aria-hidden": "true" });
+    const ang = Math.PI * (1 - score / 100), nx = 50 + 36 * Math.cos(ang), ny = 50 - 36 * Math.sin(ang);
+    ["#E5484D", "#F5A524", "#FFD93D", "#7ED957", "#19B968"].forEach((c, i) => { const a0 = Math.PI * (1 - i / 5), a1 = Math.PI * (1 - (i + 1) / 5), pt = (a, r) => `${50 + r * Math.cos(a)} ${50 - r * Math.sin(a)}`; svg.append(mk("path", { d: `M${pt(a0, 42)} A42 42 0 0 1 ${pt(a1, 42)}`, stroke: c, "stroke-width": 9, fill: "none" })); });
+    svg.append(mk("line", { x1: 50, y1: 50, x2: nx, y2: ny, stroke: "#131316", "stroke-width": 3, "stroke-linecap": "round" }), mk("circle", { cx: 50, cy: 50, r: 4.5, fill: "#fff", stroke: "#131316", "stroke-width": 2.5 }));
+    svg.style.width = w + "px"; svg.style.height = Math.round(w * 0.58) + "px"; g.style.width = w + "px"; const gn = el("div", "gnum num", String(score)); if (caption) gn.append(el("small", "", caption)); g.append(svg, gn); return g;
+  };
+  // Small rating dot for rows: green/amber/red ring by seller rating (grey when unknown).
+  const ratingDot = (rating, ratings) => { const d = el("i", "rdot"); d.style.setProperty("--c", !rating ? "#B9B9C4" : rating >= 4 ? "#19B968" : rating >= 3 ? "#F5A524" : "#E5484D"); d.title = rating ? `Seller ${rating}★ (${ratings})` : "No seller rating"; return d; };
   // Too little own history: show the range this page reported (Amazon's own price history), with today's price on it. DOM only, no markup strings.
   const refBar = (ref, price) => {
     const w = el("div", "refbar"), track = el("div", "rb-track"), dot = el("i", "rb-dot"), lab = el("div", "rb-lab"), pos = ref.high > ref.low ? Math.min(1, Math.max(0, (price - ref.low) / (ref.high - ref.low))) : 0.5;
@@ -225,11 +236,7 @@
     sh.append(el("b", "", "Deal Scanner"), el("span", "meta", sc.score == null ? "" : `${sc.score}/100`)); scard.append(sh);
     if (sc.score == null) scard.append(el("p", "meta", sc.headline));
     else {
-      const top = el("div", "scan-top"), pill = el("span", "scan-pill", sc.label), g = el("div", "gauge"), ang = Math.PI * (1 - sc.score / 100), nx = 50 + 36 * Math.cos(ang), ny = 50 - 36 * Math.sin(ang);
-      const NS = "http://www.w3.org/2000/svg", mk = (tag, at) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); return e; }, svg = mk("svg", { viewBox: "0 0 100 58", "aria-hidden": "true" });
-      ["#E5484D", "#F5A524", "#FFD93D", "#7ED957", "#19B968"].forEach((c, i) => { const a0 = Math.PI * (1 - i / 5), a1 = Math.PI * (1 - (i + 1) / 5), pt = (a, r) => `${50 + r * Math.cos(a)} ${50 - r * Math.sin(a)}`; svg.append(mk("path", { d: `M${pt(a0, 42)} A42 42 0 0 1 ${pt(a1, 42)}`, stroke: c, "stroke-width": 9, fill: "none" })); });
-      svg.append(mk("line", { x1: 50, y1: 50, x2: nx, y2: ny, stroke: "#131316", "stroke-width": 3, "stroke-linecap": "round" }), mk("circle", { cx: 50, cy: 50, r: 4.5, fill: "#fff", stroke: "#131316", "stroke-width": 2.5 }));
-      const gn = el("div", "gnum num", String(sc.score)); gn.append(el("small", "", "Deal score")); g.append(svg, gn);
+      const top = el("div", "scan-top"), pill = el("span", "scan-pill", sc.label), g = gaugeEl(sc.score, "Deal score");
       top.append(pill, g); scard.append(top, el("div", "scan-head", sc.headline));
       const list = el("div", "scan-rows"); sc.rows.forEach(r => { const li = el("div", "scan-r" + (r.bad ? " bad" : "")); li.append(el("span", "", r.label), el("span", "num", r.value), el("b", "num", `${r.pts}/${r.max}`)); list.append(li); });
       scard.append(list, el("p", "meta", sc.source === "amazon" ? "Based on the price range this page showed for this product. HAULS has too little of its own history yet." : "Observed by this extension from the prices it has seen. Not a seller statement."));
@@ -257,11 +264,20 @@
     // seller
     const sl = sellerInfo(p.seller, p.title);
     if (sl) {
+      // visual seller card: half-ring score + name + icon chips (text kept to a few words). fill() reruns when the offers list adds the seller's rating.
       const sb = el("button", "seller " + sl.tone), sw = it.sellerChange && Date.now() - it.sellerChange.at < 30 * 864e5 ? sellerChange(it.sellerChange.from, sl.name) : null;
-      const nm = el("span", "sname", sl.name), kd = el("span", "skind", sl.kind + (sl.kind !== "Amazon" && sl.fba ? " · Fulfilled by Amazon" : ""));
-      sb.append(el("span", "lbl", "Seller"), nm, kd); sb.setAttribute("aria-label", `Seller ${sl.name}, ${sl.kind}. Tap for details`);
+      const fill = () => {
+        const known = offDone[p.key] && (offDone[p.key].offers || []).find(o => o.seller.toLowerCase() === sl.name.toLowerCase()), score = sellerScore(sl, known || null);
+        const mid = el("div", "s-mid"), chips = el("div", "s-chips"), chip = (icon, text, cls) => { const c = el("span", "schip " + (cls || "")); c.append(ico(icon), text); chips.append(c); };
+        mid.append(el("span", "lbl", "Seller"), el("span", "sname", sl.name), el("span", "skind", sl.kind));
+        chip(sl.fba || sl.firstParty ? "shield" : "pin", sl.fba || sl.firstParty ? "Amazon ships" : "Seller ships", sl.fba || sl.firstParty ? "ok" : "warn");
+        if (known && known.rating) chip("star", `${known.rating} (${known.ratings})`, known.rating >= 4 ? "ok" : known.rating >= 3 ? "" : "warn");
+        if (sw) chip("swap", "Changed", "warn");
+        mid.append(chips); sb.replaceChildren(mid, gaugeEl(score, "Seller signals", 96)); sb.setAttribute("aria-label", `Seller ${sl.name}, ${sl.kind}, signals ${score} of 100. Tap for details`);
+      };
+      fill(); sellerFill = fill;
       sb.onclick = () => { const ul = el("ul"); sl.notes.forEach(n => ul.append(el("li", "", n))); if (sw) ul.append(el("li", "", sw));
-        const nodes = [ul, el("p", "meta", "Read from this product page. HAULS does not rate or vouch for any seller, and cannot see their reviews from here.")];
+        const nodes = [ul, el("p", "meta", "Signals come from this product page and, once loaded, Amazon's seller list. HAULS does not rate or vouch for any seller.")];
         if (sl.sid) { const a = el("a", "btn ghost", "Seller profile"); a.href = new URL(p.url).origin + "/sp?seller=" + sl.sid; a.target = "_blank"; a.rel = "noopener"; nodes.push(a); }
         openSheet("About this seller", nodes); };
       main.append(sb);
@@ -275,11 +291,11 @@
         const best = offBest(r.offers, p.price), here = (p.seller && p.seller.name || "").toLowerCase();
         if (best && best.saving > 0) ob.append(el("p", "off-save", `${fmt(best.saving)} less from ${best.lowest.seller}${best.lowest.rating && best.lowest.rating <= 2 ? ` (seller rated ${best.lowest.rating}★)` : ""}`));
         r.offers.slice(0, 8).forEach(o => { const row = el(o.sid ? "a" : "div", "off-r" + (best && o === best.lowest ? " low" : "")); if (o.sid) { row.href = new URL(p.url).origin + "/sp?seller=" + o.sid; row.target = "_blank"; row.rel = "noopener"; }
-          const mine = here && o.seller.toLowerCase() === here; row.append(el("span", "on", o.seller + (mine ? " (here)" : "")), el("b", "num", fmt(o.price)),
+          const mine = here && o.seller.toLowerCase() === here; row.append(ratingDot(o.rating, o.ratings), el("span", "on", o.seller + (mine ? " (here)" : "")), el("b", "num", fmt(o.price)),
             el("small", "", [o.cond !== "New" ? o.cond : "", o.ships ? "Ships from " + o.ships : "", o.rating ? `Seller ${o.rating}★ (${o.ratings} rating${o.ratings === 1 ? "" : "s"})` : ""].filter(Boolean).join(" · "))); ob.append(row); });
         ob.append(el("p", "meta", "Read from Amazon's own seller list for this item. Delivery, returns and seller quality can differ."));
       };
-      obtn.onclick = async () => { obtn.disabled = true; obtn.textContent = "Loading sellers…"; offDone[p.key] = await send({ type: "offers", asin: asinM[1] }).catch(() => ({ failed: true, offers: [] })); if (cur && cur.p && cur.p.key === p.key) paintOff(offDone[p.key]); };
+      obtn.onclick = async () => { obtn.disabled = true; obtn.textContent = "Loading sellers…"; offDone[p.key] = await send({ type: "offers", asin: asinM[1] }).catch(() => ({ failed: true, offers: [] })); if (cur && cur.p && cur.p.key === p.key) { paintOff(offDone[p.key]); if (sellerFill) sellerFill(); } };
       if (offDone[p.key]) paintOff(offDone[p.key]); else ob.append(obtn); main.append(ob);
     }
     // stores
@@ -316,7 +332,7 @@
   }
 
   // Review quality signals + themes. Rating shape comes from the page's rating breakdown (large sample); text signals from visible reviews (+ more if the user asks).
-  let revExtra = null; const cmpDone = {}, offDone = {};
+  let revExtra = null; const cmpDone = {}, offDone = {}; let sellerFill = null;
   function reviewsInfo() {
     if (typeof Reviews_ === "undefined") return null;
     const site = dom === "amazon.in" ? "amazon" : dom === "flipkart.com" ? "flipkart" : ""; if (!site) return null;

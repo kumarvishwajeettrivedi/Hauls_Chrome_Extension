@@ -366,7 +366,7 @@ test("23", "seller: row shows who sells and ships, sheet explains, a changed sel
   await seed(sw, { items: seedItem(id, [[now - 40 * D, 900], [now - 20 * D, 900], [now - 36e5, 900]]) });
   let { p, panel } = await product(ctx, { id, price: 900, seller: { name: "Clicktech Retail Private Ltd", ships: "Amazon", fba: true } }); await panel.open();
   t.check(await panel.has(".seller"), "seller row present");
-  const row = await panel.text(".seller"); t.check(/Clicktech Retail/.test(row) && /3rd-party/.test(row) && /Fulfilled by Amazon/.test(row), "row text: " + row);
+  const row = await panel.text(".seller"); t.check(/Clicktech Retail/.test(row) && /3rd-party/.test(row) && /Amazon ships/.test(row) && /Seller signals/.test(row), "row text: " + row); t.check(await panel.has(".seller .gauge svg path") && /^\d+/.test(await panel.text(".seller .gnum")), "half-ring gauge with a score");
   await panel.click(".seller"); await sleep(400);
   const sheet = await panel.text(".sheet"); t.check(/independent seller/.test(sheet) && /Seller profile/.test(sheet) && !/scam|fake|fraud/i.test(sheet), "sheet text: " + sheet.slice(0, 160));
   t.check(!/changed from/.test(sheet), "no change note on first sight");

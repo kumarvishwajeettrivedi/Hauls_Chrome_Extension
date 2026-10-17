@@ -115,6 +115,14 @@ function sellerInfo(raw, title = "") {
   const tone = firstParty || brandStore ? "good" : fba ? "neutral" : "watch";
   return { name, ships, kind, fba, firstParty, tone, sid, notes };
 }
+
+// Seller signals 0-100 from what the page states (+ the seller's own rating when the offers list has been loaded). Descriptive, never a verdict on honesty.
+function sellerScore(sl, rt) {
+  if (!sl) return null;
+  let sc = sl.firstParty ? 92 : sl.kind === "Brand store" ? 82 : sl.fba ? 62 : 38;
+  if (rt && rt.rating) { if (rt.ratings >= 20) sc += Math.round((rt.rating - 3.5) * 12); else if (rt.rating <= 2) sc -= 10; }
+  return Math.max(5, Math.min(98, sc));
+}
 function sellerChange(prev, cur) { return prev && cur && prev !== cur ? `Seller changed from ${prev} to ${cur} since your last visit.` : null; }
 
 // Observations only: we never claim a scarcity message is untrue.
@@ -150,4 +158,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };

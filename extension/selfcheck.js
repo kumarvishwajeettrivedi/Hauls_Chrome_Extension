@@ -63,6 +63,9 @@ se = A.sellerInfo({ name: "RandomTraders", ships: "RandomTraders" }, "boAt Airdo
 assert.equal(A.sellerInfo({ text: "Sold by Foo Retail and Fulfilled by Amazon." }, "x").name, "Foo Retail"); assert.equal(A.sellerInfo(null), null); assert.equal(A.sellerInfo({}), null);
 assert.ok(!/scam|fake|fraud/i.test(JSON.stringify(se)), "never accuses");
 assert.ok(A.sellerChange("A", "B") && !A.sellerChange("A", "A") && !A.sellerChange(null, "B"));
+assert.equal(A.sellerScore(A.sellerInfo({ name: "Amazon" }, "x")), 92); assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "Amazon" }, "x")), 62); assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "Foo" }, "x")), 38);
+assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "Amazon" }, "x"), { rating: 4.8, ratings: 500 }), 78); assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "Amazon" }, "x"), { rating: 1, ratings: 3 }), 52);
+assert.equal(A.sellerScore(A.sellerInfo({ name: "Foo Traders", ships: "x" }, "x"), { rating: 1, ratings: 900 }), 8, "many low ratings pull the score down"); assert.equal(A.sellerScore(null), null);
 console.log("seller ok");
 
 // Amazon's own history text
