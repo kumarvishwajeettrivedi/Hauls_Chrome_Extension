@@ -1,0 +1,18 @@
+{
+  "name": "hauls-chrome-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HAULS price-intelligence browser extension (Chrome MV3, Firefox-ready) with Supabase backend.",
+  "scripts": {
+    "test:unit": "node extension/selfcheck.js && node extension/reviews.test.js && node extension/shopify.test.js && node tests/unit/all.js",
+    "test:integration": "node tests/integration/run.mjs",
+    "test:e2e": "node tests/e2e/run.mjs",
+    "test": "npm run test:unit",
+    "build:config": "node scripts/build-config.js",
+    "package": "bash scripts/package.sh",
+    "test:stop": "pkill -f tests/e2e/run.mjs; pkill -f chrome-mac-arm64; rm -rf \"${TMPDIR:-/tmp}/hauls-test.lock\"; echo stopped"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.50.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "at": "2026-10-16T19:25:00.998Z",
+  "summary": {
+    "pass": 1,
+    "fail": 1,
+    "skip": 0
+  },
+  "results": [
+    {
+      "id": "12",
+      "name": "trap editor: step size, hold-to-repeat, typed persist, invalid rejected",
+      "status": "FAIL",
+      "ms": 2638,
+      "failures": [
+        "exception: worker.evaluate: Target page, context or browser has been closed     at store (/Users/vishwajeet-coridors/Downloads/REA_BUYHATKE/hauls-chrome-extension/tests/e2e/lib/ext.mjs:41:39)     at itemOf (/Users/vishwajeet-coridors/Downloads/REA_BUYHATKE/hauls-chrome-extension/tests/e2e/run.mjs:285:40)"
+      ],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "21c",
+      "name": "sync: server 500 keeps the outbox and the UI stays usable",
+      "status": "PASS",
+      "ms": 5824,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    }
+  ]
+}
