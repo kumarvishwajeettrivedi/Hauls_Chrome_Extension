@@ -12,7 +12,8 @@
     "package": "bash scripts/package.sh",
     "test:stop": "pkill -f tests/e2e/run.mjs; pkill -f chrome-mac-arm64; rm -rf \"${TMPDIR:-/tmp}/hauls-test.lock\"; echo stopped",
     "package:share": "bash scripts/package.sh share",
-    "test:sql": "node tests/sql/pglite.test.mjs"
+    "test:sql": "node tests/sql/pglite.test.mjs",
+    "verify:live-0010": "node tests/live/verify-0010.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
