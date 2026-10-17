@@ -1,0 +1,92 @@
+{
+ "site": "shopify",
+ "url": "https://www.boat-lifestyle.com/products/boat-stone-edge",
+ "title": "\n              boAt Stone Edge \n            \n          ",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Limited Edition",
+   "rel": 287,
+   "tag": "P",
+   "anc": ". < .nav-dropdown__link < .nav-dropdown__item < desktop-menu-1.nav-dropdown < .header__linklist-item"
+  },
+  {
+   "t": "Daily Deals",
+   "rel": 142,
+   "tag": "A",
+   "anc": ".nav-dropdown__link < .nav-dropdown__item < desktop-menu-5.nav-dropdown < .header__linklist-item < .header__linklist"
+  },
+  {
+   "t": "Sale price",
+   "rel": 332,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price < .pdp_price_box < .pdp_price_wrapper < .price-list"
+  },
+  {
+   "t": "Restocking soon",
+   "rel": 548,
+   "tag": "SPAN",
+   "anc": ". < .out_of_stock_msg < .product-form__payment-container < [object HTMLInputElement].shopify-product-form < .product-form__buy-buttons"
+  },
+  {
+   "t": "ZET TOWN INDIA PRIVATE LIMITED | B-04,Sector-63, Noida, Gautam Buddha Nagar, Uttar Pradesh, 201301",
+   "rel": 10078,
+   "tag": "SPAN",
+   "anc": ".spec < .specs-item < .specs-items < .col-md-7 < .row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 11239,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price < .price-list < .product-item-meta__price-list-container < .product-item-meta__reviews-badge"
+  },
+  {
+   "t": "Fast Charging Power Bank",
+   "rel": 14034,
+   "tag": "A",
+   "anc": ".footer-features-filter-link < .footer-features-filter-item < .footer-features-filter-list < .features-wrapper < .footer-collection-block-inner"
+  },
+  {
+   "t": "Limited Editions",
+   "rel": 14215,
+   "tag": "P",
+   "anc": ".footer-collection-title < .footer-collection-block-inner < .footer-collection-block < .footer-additional-block < .footer__inner"
+  },
+  {
+   "t": "Limited Editions Headphones",
+   "rel": 14286,
+   "tag": "A",
+   "anc": ".footer-features-filter-link < .footer-features-filter-item < .footer-features-filter-list < .features-wrapper < .footer-collection-block-inner"
+  },
+  {
+   "t": "Limited Editions Earphone",
+   "rel": 14304,
+   "tag": "A",
+   "anc": ".footer-features-filter-link < .footer-features-filter-item < .footer-features-filter-list < .features-wrapper < .footer-collection-block-inner"
+  },
+  {
+   "t": "Limited Edition Speakers",
+   "rel": 14322,
+   "tag": "A",
+   "anc": ".footer-features-filter-link < .footer-features-filter-item < .footer-features-filter-list < .features-wrapper < .footer-collection-block-inner"
+  },
+  {
+   "t": "© 2026 Imagine Marketing Limited. All Rights Reserved.",
+   "rel": 14568,
+   "tag": "P",
+   "anc": ".copy < .col-lg-12 < .row < .footer__aside < .footer__inner"
+  },
+  {
+   "t": "For queries contact us: Manager, Imagine Marketing Limited",
+   "rel": 14568,
+   "tag": "P",
+   "anc": ".copy < .col-lg-12 < .row < .footer__aside < .footer__inner"
+  },
+  {
+   "t": "Daily Deals",
+   "rel": 967,
+   "tag": "A",
+   "anc": ". < .mobile-nav__item < .mobile-nav < mobile-menu-5.collapsible < .mobile-nav__item"
+  }
+ ]
+}

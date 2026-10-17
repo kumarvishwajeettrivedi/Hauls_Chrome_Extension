@@ -20,7 +20,8 @@
 - **Deal Scanner.** A 0–100 score with the points behind it, and a warning when a price was lifted before a "discount".
 - **Background price checks.** While the browser is open, watched items are re-read a few times a day from each store's own data, so history and alerts continue without a visit. Settings shows per-store health.
 - **Reviews and seller.** What buyers say (the page's own average and rating split), and a seller card built from the seller's public storefront: rating windows, % positive, volume and recent trend.
-- **Other sellers.** On Amazon, every seller's price for the same item, with the lowest marked and seller ratings.
+- **Other sellers.** Amazon and Flipkart: every seller's price for the same item, with the lowest marked. Myntra: the sellers listed on the page, with a price per size.
+- **Impulse Check.** Spots "Only 2 left", countdown timers and sale labels near the product, remembers them across your visits, and shows what it saw: did the timer restart, is the count the same, has the price moved. It never calls a message fake.
 - **Same-product compare.** One click compares Amazon, Flipkart and Reliance Digital, and shows only listings it can confirm are the same item: brand, model, version, storage and size are checked and listed on each row. Different models, accessories, used units and other variants are rejected, and the closest rejected item is shown with the reason.
 - **Grocery comparison.** Search once and compare Blinkit, DMart and more at your exact pincode. Only stores that confirm delivery to that pincode show a price.
 - **Watchlist and sync.** Keep products on a watchlist. Signing in with Google is optional and only syncs your watchlist, saved places and settings.

@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-17T15:39:58.857Z",
+  "at": "2026-10-17T16:15:48.466Z",
   "summary": {
     "pass": 1,
     "fail": 0,
@@ -7,15 +7,14 @@
   },
   "results": [
     {
-      "id": "40",
-      "name": "Impulse Check on REAL Amazon.in pages: chips come only from the product's own zones (live, skippable)",
+      "id": "11",
+      "name": "privacy: manifest has no <all_urls>; network only to allowlist",
       "status": "PASS",
-      "ms": 19266,
+      "ms": 35955,
       "failures": [],
       "notes": [
-        "B07Y916W4P: card=true text=\"Impulse CheckUrgency message on this pageLimited-time deal label400+ bought in past month\" availability=\"In stock\" 'Only N left' anywhere on page=1",
-        "B0H1WY55ZL: card=true text=\"Impulse CheckUrgency message on this pageSale event label5K+ bought in past month\" availability=\"In stock\" 'Only N left' anywhere on page=0",
-        "B0G319XS3M: card=true text=\"Impulse CheckUrgency message on this pageSale event label4K+ bought in past month\" availability=\"In stock\" 'Only N left' anywhere on page=0"
+        "optional_host_permissions requests [\"https://*/*\"] (user-granted, not install-time)",
+        "hosts contacted: www.amazon.in(1) xesmxpwcmbimhngdufje.supabase.co(1,sw) nominatim.openstreetmap.org(1,sw) digital.dmart.in(3,sw) blinkit.com(2,sw) www.jiomart.com(1,sw) cdn.dmart.in(2)"
       ],
       "attempts": 1
     }

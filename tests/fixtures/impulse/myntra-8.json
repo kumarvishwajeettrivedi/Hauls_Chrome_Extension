@@ -1,0 +1,26 @@
+{
+ "site": "myntra",
+ "url": "https://www.myntra.com/kurtas/varanga/varanga-women-floral-thread-embroidered-yoke-design-straight-kurta/27325302/buy",
+ "title": "Varanga",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Orders above Rs. 300 (only on first purchase)",
+   "rel": 969,
+   "tag": "SPAN",
+   "anc": ". < .pdp-offers-labelMarkup < . < .pdp-offers-offerDesc < ."
+  },
+  {
+   "t": "Fastrack Watches",
+   "rel": 10679,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  },
+  {
+   "t": "Fastrack",
+   "rel": 10704,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  }
+ ]
+}

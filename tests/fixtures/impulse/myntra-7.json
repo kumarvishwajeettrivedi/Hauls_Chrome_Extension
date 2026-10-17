@@ -1,0 +1,26 @@
+{
+ "site": "myntra",
+ "url": "https://www.myntra.com/kurtas/gerua+by+libas/gerua-by-libas-women-floral-printed-flared-sleeves-kurta/40281862/buy",
+ "title": "Gerua By Libas",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Orders above Rs. 149 (only on first purchase)",
+   "rel": 752,
+   "tag": "SPAN",
+   "anc": ". < .pdp-offers-labelMarkup < . < .pdp-offers-offerDesc < ."
+  },
+  {
+   "t": "Fastrack Watches",
+   "rel": 8343,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  },
+  {
+   "t": "Fastrack",
+   "rel": 8368,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  }
+ ]
+}

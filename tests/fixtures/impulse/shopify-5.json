@@ -1,0 +1,20 @@
+{
+ "site": "shopify",
+ "url": "https://mcaffeine.com/products/guava-tini-de-tan-body-wash-25ml-7",
+ "title": "Guava Tini De-Tan Body Wash - 25ml",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Frequently Bought",
+   "rel": -49,
+   "tag": "SPAN",
+   "anc": ". < .reorder-tab < .reorder-sidebar < .reorder-popup < .reorder-popup-wrapper"
+  },
+  {
+   "t": "You will be notified once the item is back in stock!",
+   "rel": 847,
+   "tag": "DIV",
+   "anc": ".notify-me-success-message-popup < .gradient < .js"
+  }
+ ]
+}

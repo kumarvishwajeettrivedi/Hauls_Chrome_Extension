@@ -1,0 +1,68 @@
+{
+ "site": "shopify",
+ "url": "https://mamaearth.in/products/ubtan-2-in-1-soap",
+ "title": "Get your hands on Nature-Inspired Mamaearth Products ",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Sale price",
+   "rel": -6193,
+   "tag": "SPAN",
+   "anc": ".sr-only < .hdt-price < .hdt-price__list < .hdt-price-wrapp < .hdt-card-product__info"
+  },
+  {
+   "t": "Sale price",
+   "rel": -6193,
+   "tag": "SPAN",
+   "anc": ".sr-only < .hdt-price < .hdt-price__list < .hdt-price-wrapp < .hdt-card-product__info"
+  },
+  {
+   "t": "Sale price",
+   "rel": -6193,
+   "tag": "SPAN",
+   "anc": ".sr-only < .hdt-price < .hdt-price__list < .hdt-price-wrapp < .hdt-card-product__info"
+  },
+  {
+   "t": "Sale price",
+   "rel": -6193,
+   "tag": "SPAN",
+   "anc": ".sr-only < .hdt-price < .hdt-price__list < .hdt-price-wrapp < .hdt-card-product__info"
+  },
+  {
+   "t": "Sale price",
+   "rel": -6193,
+   "tag": "SPAN",
+   "anc": ".sr-only < .hdt-price < .hdt-price__list < .hdt-price-wrapp < .hdt-card-product__info"
+  },
+  {
+   "t": "Sale price",
+   "rel": -6193,
+   "tag": "SPAN",
+   "anc": ".sr-only < .hdt-price < .hdt-price__list < .hdt-price-wrapp < .hdt-card-product__info"
+  },
+  {
+   "t": "Sale price",
+   "rel": -6193,
+   "tag": "SPAN",
+   "anc": ".sr-only < .hdt-price < .hdt-price__list < .hdt-price-wrapp < .hdt-card-product__info"
+  },
+  {
+   "t": "Sale price",
+   "rel": -6194,
+   "tag": "SPAN",
+   "anc": ".sr-only < .hdt-price < .hdt-price__list < .hdt-price-wrapp < .hdt-card-product__info"
+  },
+  {
+   "t": "Honasa Consumer Limited",
+   "rel": -208,
+   "tag": "SPAN",
+   "anc": ". < .hdt-coppy-right < .hdt-list-toleft < .hdt-footer-copyright < .hdt-footer-bottom-bar"
+  },
+  {
+   "t": "Mamaearth's OMG sale website",
+   "rel": 284,
+   "tag": "A",
+   "anc": ". < . < .metafield-rich_text_field < profile-description. < .container-g"
+  }
+ ]
+}

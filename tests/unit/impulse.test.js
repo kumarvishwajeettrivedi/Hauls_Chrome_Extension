@@ -15,6 +15,18 @@ ok(I.impCues([{ zone: "stock", text: "Only 1 left in stock." }, { zone: "stock",
 ok(I.impCues([{ zone: "bought", text: "Only 2 left" }]).length === 0 && I.impCues([{ zone: "stock", text: "10:00:00" }]).length === 0, "a zone only reads its own kind of message");
 ok(I.impCues(null).length === 0 && I.impCues([{ zone: "stock", text: "x".repeat(5000) }]).length === 0 && I.impCues([{ zone: "deal", text: "ends in 99:99:99999" }]).length === 0, "garbage and huge text are harmless");
 ok(I.impCues([{ zone: "deal", text: "ends in 400:00:00" }]).every(x => x.kind !== "timer"), "a timer longer than 14 days is not a countdown");
+// real phrases captured on Flipkart, Myntra and Shopify stores (2026-10-17)
+c = I.impCues([{ zone: "page", text: "Ends in 01d 02h 49m 37s" }]); ok(c[0].kind === "timer" && c[0].secs === 86400 + 2 * 3600 + 49 * 60 + 37 && c[0].gran === "s", "flipkart d/h/m/s timer: " + JSON.stringify(c));
+c = I.impCues([{ zone: "page", text: "Lowest Price Live • Ends in 02h 46m 37s" }]); ok(c[0].kind === "timer" && c[0].secs === 2 * 3600 + 46 * 60 + 37, "flipkart 'Lowest Price Live' timer: " + JSON.stringify(c));
+c = I.impCues([{ zone: "page", text: "2 left" }]); ok(c.length === 1 && c[0].kind === "stock" && c[0].n === 2, "myntra size '2 left': " + JSON.stringify(c));
+ok(I.impCues([{ zone: "page", text: "3 days left" }]).length === 0 && I.impCues([{ zone: "page", text: "2 left of 5 stars" }]).length === 0, "'N days left' and prose are not stock");
+c = I.impCues([{ zone: "page", text: "Hurry Up! Only 3 left in stock" }]); ok(c[0].kind === "stock" && c[0].n === 3, "shopify 'Hurry Up! Only N left in stock'");
+c = I.impCues([{ zone: "page", text: "Only 4 items left in stock!" }]); ok(c[0].n === 4, "'only N items left'");
+c = I.impCues([{ zone: "page", text: "Offer ends Tomorrow" }]); ok(c[0].kind === "deadline" && c[0].text === "Ends tomorrow", "sleep company 'Offer ends Tomorrow': " + JSON.stringify(c));
+c = I.impCues([{ zone: "page", text: "27 sold in the last 24 hours" }]); ok(c[0].kind === "bought" && c[0].n === 27, "'sold in the last 24 hours': " + JSON.stringify(c));
+ok(I.impCues([{ zone: "page", text: "The Offer is valid only for select serviceable pincodes within Mumbai" }, { zone: "page", text: "Orders above Rs. 149 (only on first purchase)" }, { zone: "page", text: "Sale price" }, { zone: "page", text: "Daily Deals" }, { zone: "page", text: "Top Discount of the Sale" }]).length === 0, "ordinary marketing and fine print are not urgency cues");
+c = I.impCues([{ zone: "page", text: "Sale ends in 26 Hrs : 36 Min : 30 Sec" }]); ok(c[0].kind === "timer" && c[0].secs === 26 * 3600 + 36 * 60 + 30 && c[0].gran === "s", "flipkart 'Hrs : Min : Sec' timer: " + JSON.stringify(c));
+c = I.impCues([{ zone: "page", text: "Hurry Up! Only 1 Item(s) left in stock" }]); ok(c[0].kind === "stock" && c[0].n === 1, "giva 'Item(s)': " + JSON.stringify(c));
 // ---- memory: timer
 const T1 = [{ kind: "timer", secs: 4 * 3600, gran: "s" }];
 let m = I.impRecord(null, T1, 1000, NOW); ok(m.v.length === 1 && m.v[0].end === NOW + 4 * 3600e3 && m.restarts === 0, "first sight stores the end time");
@@ -27,6 +39,7 @@ let g = I.impRecord(null, [{ kind: "timer", secs: 9000, gran: "m" }], 1, NOW); g
 let e1 = I.impRecord(null, [{ kind: "timer", secs: 3600, gran: "s" }], 1, NOW); e1 = I.impRecord(e1, [{ kind: "timer", secs: 7200, gran: "s" }], 1, NOW + 5 * HR); ok(e1.restarts === 1 && e1.daily === 0, "a timer that had ended and comes back with a different length is a restart");
 ok(I.impVerdict([{ kind: "stock", n: 2, text: "x" }], { v: [0, 3].map(i => ({ at: NOW - (3 - i) * DAY, stock: 2 })) }, [], NOW).level === "seen", "two visits are not a pattern");
 ok(I.impCues([{ zone: "stock", text: "4K+ bought in past month. 12:00:00 Limited time deal" }]).length === 0, "the stock zone does not read popularity, timers or deals");
+ok(I.impRecord(null, [{ kind: "stock", n: 4 }, { kind: "stock", n: 2 }, { kind: "stock", n: 3 }], 1, NOW).v[0].stock === 2, "several per-size counts: the lowest is remembered");
 ok(I.impRecord(null, [{ kind: "bought", n: 5 }], 1, NOW).v.length === 0, "cues that are not stock/timer leave no memory");
 ok(I.impRecord({ v: [{ at: NOW - 100 * DAY, stock: 1 }] }, [{ kind: "stock", n: 1 }], 1, NOW).v.length === 1, "memory older than 90 days is dropped");
 let big = null; for (let i = 0; i < 40; i++) big = I.impRecord(big, [{ kind: "stock", n: 2 }], 1, NOW + i * HR); ok(big.v.length <= 16, "memory is bounded");

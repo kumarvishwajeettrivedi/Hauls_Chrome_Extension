@@ -1,0 +1,50 @@
+{
+ "site": "shopify",
+ "url": "https://mamaearth.in/products/rice-hydra-burst-gel-moisturizer-with-rice-extract-for-glass-glow-50g",
+ "title": "Rice Hydra Burst Gel Moisturizer with Rice Extract for Glass Glow - 50g",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Sale price",
+   "rel": 104,
+   "tag": "SPAN",
+   "anc": ".sr-only < .hdt-price < .hdt-price__sale < .hdt-price__container < .hdt-price-wrapp"
+  },
+  {
+   "t": "Get lightning-fast delivery",
+   "rel": 182,
+   "tag": "H3",
+   "anc": ".edd-title < .edd-card-header < .edd-card < .edd-pdp-container < honasa-edd-pdp.hdt-product-info__item"
+  },
+  {
+   "t": "Sold out",
+   "rel": 333,
+   "tag": "SPAN",
+   "anc": ".hdt-btn-atc_text < .hdt-product-form__submit < .hdt-product-form__top-buttons < .hdt-product-form__buttons < [object HTMLInputElement].hdt-main-product-form"
+  },
+  {
+   "t": "All images shown are for illustration purpose only, actual results may vary.",
+   "rel": 6952,
+   "tag": "LI",
+   "anc": ". < . < . < .additional-info-item < .hdt-accordion-item"
+  },
+  {
+   "t": "For external use only. Store in a cool & dry place.",
+   "rel": 6971,
+   "tag": "LI",
+   "anc": ". < . < . < .additional-info-item < .hdt-accordion-item"
+  },
+  {
+   "t": "Honasa Consumer Limited, 10th and 11th Floor, Capital Cyberscape, Sector 59, Gurugram, Haryana, 122101",
+   "rel": 7147,
+   "tag": "P",
+   "anc": ". < . < .additional-info-item < .additional-info-inner-container < .additional-info-content"
+  },
+  {
+   "t": "Honasa Consumer Limited",
+   "rel": 7669,
+   "tag": "SPAN",
+   "anc": ". < .hdt-coppy-right < .hdt-list-toleft < .hdt-footer-copyright < .hdt-footer-bottom-bar"
+  }
+ ]
+}

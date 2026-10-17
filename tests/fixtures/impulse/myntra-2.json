@@ -1,0 +1,32 @@
+{
+ "site": "myntra",
+ "url": "https://www.myntra.com/tshirts/nobero/nobero-pure-cotton-graphic-round-neck-short-sleeves-oversized-t-shirt/31715526/buy",
+ "title": "NOBERO",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Orders above Rs. 300 (only on first purchase)",
+   "rel": 944,
+   "tag": "SPAN",
+   "anc": ". < .pdp-offers-labelMarkup < . < .pdp-offers-offerDesc < ."
+  },
+  {
+   "t": "PRATYAYA E COMMERCE PRIVATE LIMITED",
+   "rel": 3704,
+   "tag": "SPAN",
+   "anc": ".supplier-productSellerName < . < .supplier-supplier < .undefined < .pdp-description-container"
+  },
+  {
+   "t": "Fastrack Watches",
+   "rel": 10782,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  },
+  {
+   "t": "Fastrack",
+   "rel": 10807,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  }
+ ]
+}

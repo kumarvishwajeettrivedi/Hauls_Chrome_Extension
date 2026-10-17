@@ -1,0 +1,20 @@
+{
+ "site": "shopify",
+ "url": "https://mcaffeine.com/products/sweet-escape-perfume-body-lotion-15ml-7",
+ "title": "Sweet Escape Perfume Body Lotion - 15ml",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Frequently Bought",
+   "rel": -49,
+   "tag": "SPAN",
+   "anc": ". < .reorder-tab < .reorder-sidebar < .reorder-popup < .reorder-popup-wrapper"
+  },
+  {
+   "t": "You will be notified once the item is back in stock!",
+   "rel": 847,
+   "tag": "DIV",
+   "anc": ".notify-me-success-message-popup < .gradient < .js"
+  }
+ ]
+}

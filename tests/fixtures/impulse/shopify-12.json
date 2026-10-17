@@ -1,0 +1,122 @@
+{
+ "site": "shopify",
+ "url": "https://thesleepcompany.in/products/toronto-recliner-sofa",
+ "title": "Toronto Recliner Sofa",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Salem",
+   "rel": 3046,
+   "tag": "P",
+   "anc": ".city-name < .city-group < .store-list < .store-locator < .store-locator-container"
+  },
+  {
+   "t": "Omalur Main Road Salem - Salem",
+   "rel": 3091,
+   "tag": "P",
+   "anc": ".asb-store-loc-title < .asb-store-cntnt < .asb-store-card < .asb-store-item < .city-group"
+  },
+  {
+   "t": "SF no 157, Ground Floor, Omalur Main Rd, Mamangam Post, Narayan Complex, Salem, Tamilnadu - 636302",
+   "rel": 3120,
+   "tag": "P",
+   "anc": ".asb-store-loc-full-add < .asb-store-cntnt < .asb-store-card < .asb-store-item < .city-group"
+  },
+  {
+   "t": "*Already-applied deal",
+   "rel": 253,
+   "tag": "DIV",
+   "anc": ".pdp-dc-price-discounted-notice < .pdp-dc-breakdown < .pdp-dynamic-popup-content < .pdp-dynamic-popup < .pdp-dynamic-offer"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 451,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 746,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 963,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 1176,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 1394,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 1600,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 1805,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 1974,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 2137,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 2291,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 2464,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "Offer ends Tomorrow",
+   "rel": 2688,
+   "tag": "DIV",
+   "anc": ".pdp-offer-item-expire < .pdp-offer-item-footer < .pdp-offer-item-content < .pdp-offer-card < .pdp-offers-list-item"
+  },
+  {
+   "t": "The Offer is valid only for select serviceable pincodes within Mumbai, Bengaluru, Gurugram & Hyderabad.",
+   "rel": 198,
+   "tag": "LI",
+   "anc": ". < . < .next-day-widget-section < .next-day-widget-modal__content < .next-day-widget-modal"
+  },
+  {
+   "t": "The Offer applies only to eligible standard products at store store only.",
+   "rel": 278,
+   "tag": "LI",
+   "anc": ". < . < .next-day-widget-section < .next-day-widget-modal__content < .next-day-widget-modal"
+  },
+  {
+   "t": "The Offer shall apply only where the delivery address falls within eligible Mumbai & Bengaluru pincodes.",
+   "rel": 794,
+   "tag": "LI",
+   "anc": ". < . < .next-day-widget-section < .next-day-widget-modal__content < .next-day-widget-modal"
+  }
+ ]
+}

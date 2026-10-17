@@ -100,7 +100,7 @@
   // Impulse Check input: only the parts of the page that describe THIS product's stock, deal and popularity. Never reviews, Q&A, carousels or other sellers.
   const urgSent = {}, IMP_ZONES = { "amazon.in": { stock: ["#availability"], deal: ["#dealBadge_feature_div", "#apex_desktop", "#corePrice_feature_div"], bought: ["#socialProofingAsinFaceout_feature_div"] } };
   const visText = e => { const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT), out = []; for (let n = w.nextNode(); n; n = w.nextNode()) { const pe = n.parentElement; if (pe && !pe.closest("style,script,noscript,.aok-hidden,[hidden]")) out.push(n.nodeValue); } return out.join(" "); }; // what the shopper can read: no hidden template labels
-  const impCollect = () => { const z = IMP_ZONES[dom]; if (!z) return []; const parts = []; for (const [zone, sels] of Object.entries(z)) for (const q2 of sels) { const e = document.querySelector(q2); if (e && !(e.closest && e.closest(HISTORY_UNTRUSTED))) parts.push({ zone, text: visText(e).slice(0, 600) }); } return parts; };
+  const impCollect = () => { const z = IMP_ZONES[dom]; if (!z) return impCollectNear(document); const parts = []; for (const [zone, sels] of Object.entries(z)) for (const q2 of sels) { const e = document.querySelector(q2); if (e && !(e.closest && e.closest(HISTORY_UNTRUSTED))) parts.push({ zone, text: visText(e).slice(0, 600) }); } return parts; };
   // Same frame as the step chart for when only a range is known (no series yet): the band between Amazon's low and high, and today's price on it. Nothing in between is drawn because nothing in between is known.
   const bandChart = (ref, price) => {
     const lo = Math.min(ref.low, price), hi = Math.max(ref.high, price), W = 300, L = 6, R = 294, T = 14, B = 76, Y = v => hi === lo ? (T + B) / 2 : B - (v - lo) / (hi - lo) * (B - T), cw = el("div", "cw bandc");
@@ -291,7 +291,7 @@
         ic.append(top, chips, ...v.lines.filter(l => !cues.some(c => c.text === l)).slice(0, 2).map(l => el("p", "meta", l))); ic.setAttribute("aria-label", `Impulse Check: ${v.head}. Tap for details`);
         ic.onclick = () => { const ul = el("ul"); v.lines.forEach(l => ul.append(el("li", "", l))); openSheet("Impulse Check", [ul, el("p", "meta", "HAULS does not say whether a message is true. It shows what this page displayed, what it displayed on your earlier visits, and what the price did. Stock and viewer counts cannot be checked from outside the store.")]); };
         main.append(ic);
-        if (!urgSent[p.key]) { urgSent[p.key] = 1; send({ type: "urg", key: p.key, price: p.price, cues: cues.filter(c => c.kind === "stock" || c.kind === "timer").map(c => ({ kind: c.kind, n: c.n === undefined ? undefined : c.n, secs: c.secs, gran: c.gran, text: c.text })) }).then(m => { if (m && cur && cur.p && cur.p.key === p.key) { cur.it.urg = m; } }).catch(() => {}); }
+        if (!urgSent[p.key]) { urgSent[p.key] = 1; send({ type: "urg", key: p.key, price: p.price, cues: cues.filter(c => c.kind === "stock" || c.kind === "timer").map(c => ({ kind: c.kind, n: c.n === undefined ? undefined : c.n, secs: c.secs, gran: c.gran, text: c.text })) }).then(m => { if (m && cur && cur.p && cur.p.key === p.key) { cur.it.urg = m; idleRedraw(); /* the verdict now includes this visit */ } }).catch(() => {}); }
       } }
     // Deal Scanner: 0-100 score with the exact points behind it
     const scard = el("div", "scan " + sc.tone), sh = el("div", "scan-h");

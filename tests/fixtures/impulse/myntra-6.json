@@ -1,0 +1,38 @@
+{
+ "site": "myntra",
+ "url": "https://www.myntra.com/kurtas/szn/szn-women-brown-floral-printed-with-lace-work-straight-cotton-brown-stitched-kurta/36872914/buy",
+ "title": "SZN",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Orders above Rs. 300 (only on first purchase)",
+   "rel": 900,
+   "tag": "SPAN",
+   "anc": ". < .pdp-offers-labelMarkup < . < .pdp-offers-offerDesc < ."
+  },
+  {
+   "t": "Sri Jagdamba Pearls Dealer",
+   "rel": 7766,
+   "tag": "P",
+   "anc": ".product-item-brand < .product-item-metaContainer < .product-item-shl-container < .product-list-link < .product-list-shl-gist"
+  },
+  {
+   "t": "Sri Jagdamba Pearls Dealer",
+   "rel": 8607,
+   "tag": "P",
+   "anc": ".product-item-brand < .product-item-metaContainer < .product-item-shl-container < .product-list-link < .product-list-shl-gist"
+  },
+  {
+   "t": "Fastrack Watches",
+   "rel": 10662,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  },
+  {
+   "t": "Fastrack",
+   "rel": 10687,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  }
+ ]
+}

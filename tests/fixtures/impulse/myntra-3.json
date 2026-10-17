@@ -1,0 +1,26 @@
+{
+ "site": "myntra",
+ "url": "https://www.myntra.com/lounge-tshirts/levis/levis-men-soft-pure-cotton-round-neck-half-sleeve-tshirt/12027436/buy",
+ "title": "Levis",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Orders above Rs. 149 (only on first purchase)",
+   "rel": 874,
+   "tag": "SPAN",
+   "anc": ". < .pdp-offers-labelMarkup < . < .pdp-offers-offerDesc < ."
+  },
+  {
+   "t": "Fastrack Watches",
+   "rel": 11118,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  },
+  {
+   "t": "Fastrack",
+   "rel": 11143,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  }
+ ]
+}

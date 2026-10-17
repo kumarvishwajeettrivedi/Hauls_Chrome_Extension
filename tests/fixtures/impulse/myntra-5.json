@@ -1,0 +1,32 @@
+{
+ "site": "myntra",
+ "url": "https://www.myntra.com/kurtas/sangria/sangria-floral-yoke-printed-mirror-work-kurta/22057794/buy",
+ "title": "Sangria",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Orders above Rs. 300 (only on first purchase)",
+   "rel": 876,
+   "tag": "SPAN",
+   "anc": ". < .pdp-offers-labelMarkup < . < .pdp-offers-offerDesc < ."
+  },
+  {
+   "t": "DIVYANK FASHION PRIVATE LIMITED",
+   "rel": 3907,
+   "tag": "SPAN",
+   "anc": ".supplier-productSellerName < . < .supplier-supplier < .undefined < .pdp-description-container"
+  },
+  {
+   "t": "Fastrack Watches",
+   "rel": 10985,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  },
+  {
+   "t": "Fastrack",
+   "rel": 11010,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  }
+ ]
+}

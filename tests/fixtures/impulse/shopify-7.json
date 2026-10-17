@@ -1,0 +1,20 @@
+{
+ "site": "shopify",
+ "url": "https://www.beardo.in/products/de-tan-aha-bha-roll-on",
+ "title": "DE-TAN AHA BHA ROLL ON",
+ "h1": true,
+ "cands": [
+  {
+   "t": "☀️ Last Chance to Save 5% | Use HIGH5",
+   "rel": -138,
+   "tag": "P",
+   "anc": ".announcement-bar__slide < .announcement-bar__track < announcement-bar. < shopify-section-sections--22756923408692__announcement_bar.shopify-section < .header-g"
+  },
+  {
+   "t": "Marketed by: Marico Limited, 175 CST Road, Kalina, Santacruz (East), Mumbai – 400098, Maharashtra",
+   "rel": 777,
+   "tag": "LI",
+   "anc": ".metafield-single_line_text_field < .metafield-single_line_text_field-array < .product-section__ingredient-list < .accordion__content-inner < accordion-product-"
+  }
+ ]
+}

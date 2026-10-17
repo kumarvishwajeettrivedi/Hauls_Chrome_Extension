@@ -1,0 +1,140 @@
+{
+ "site": "shopify",
+ "url": "https://www.giva.co/products/rose-gold-forever-you-bracelet",
+ "title": "Rose Gold Forever You Bracelet",
+ "h1": true,
+ "cands": [
+  {
+   "t": "Sale price",
+   "rel": -75,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < price-template--23960215584930__main.no-js-hidden"
+  },
+  {
+   "t": "Hurry Up! Only",
+   "rel": 141,
+   "tag": "P",
+   "anc": "Inventory-template--23960215584930__main.product__inventory < ProductInfo-template--23960215584930__main.product__info-container < .product__info-wrapper < .dif"
+  },
+  {
+   "t": "left in stock",
+   "rel": 141,
+   "tag": "P",
+   "anc": "Inventory-template--23960215584930__main.product__inventory < ProductInfo-template--23960215584930__main.product__info-container < .product__info-wrapper < .dif"
+  },
+  {
+   "t": "Sale price",
+   "rel": 1470,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 1886,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 1886,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 1886,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 1886,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 1886,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 1886,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 1886,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 1886,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "INDIEJEWEL FASHIONS PRIVATE LIMITED",
+   "rel": 3706,
+   "tag": "STRONG",
+   "anc": ". < . < .footer-block__details-content < .footer-block < .footer__blocks-wrapper"
+  },
+  {
+   "t": "INDIEJEWEL FASHIONS PRIVATE LIMITED",
+   "rel": 4807,
+   "tag": "STRONG",
+   "anc": ". < .copyright__content < .footer__company-info < .footer__content-bottom-wrapper < .footer__content-bottom"
+  },
+  {
+   "t": "Sale price",
+   "rel": 913,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 913,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 913,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 913,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 913,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 913,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 913,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  },
+  {
+   "t": "Sale price",
+   "rel": 913,
+   "tag": "SPAN",
+   "anc": ".visually-hidden < .price__sale < .price__container < .\n < .card__price-wishlist-row"
+  }
+ ]
+}

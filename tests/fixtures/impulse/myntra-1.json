@@ -1,0 +1,32 @@
+{
+ "site": "myntra",
+ "url": "https://www.myntra.com/tshirts/boldfit/boldfit-men-dry-fit-training-tshirt/32491271/buy",
+ "title": "BOLDFIT",
+ "h1": true,
+ "cands": [
+  {
+   "t": "left",
+   "rel": 407,
+   "tag": "SPAN",
+   "anc": ".size-buttons-inventory-left < .size-buttons-buttonContainer < .size-buttons-tipAndBtnContainer < .size-buttons-size-buttons < sizeButtonsContainer.size-buttons"
+  },
+  {
+   "t": "Orders above Rs. 149 (only on first purchase)",
+   "rel": 876,
+   "tag": "SPAN",
+   "anc": ". < .pdp-offers-labelMarkup < . < .pdp-offers-offerDesc < ."
+  },
+  {
+   "t": "Fastrack Watches",
+   "rel": 8868,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  },
+  {
+   "t": "Fastrack",
+   "rel": 8893,
+   "tag": "A",
+   "anc": ". < .desktop-pSearchlinks < . < .desktop-popularSearch < ."
+  }
+ ]
+}

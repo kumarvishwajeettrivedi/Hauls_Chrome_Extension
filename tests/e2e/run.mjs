@@ -622,10 +622,10 @@ test("39", "Impulse Check (Amazon): real page markup -> stock/deal/popularity cu
   r = await open("B0NOCUES01", "B0F7XWCCY3.bought", { noSocial: true }); t.check(!(await r.panel.has(".impulse")), "no urgency message: no card (never an empty 'all clear')");
   // 5. real stock message in the availability zone + memory of earlier visits + a flat price -> repeated
   const now = Date.now(); const key = "amazon.in:B0STOCK2VI"; const url = await page("B0STOCK2VI", "B07Y916W4P.deal", { stockText: "Only 2 left in stock - order soon." });
-  await seed(sw, { items: { [key]: { site: "Amazon", title: "Backpack", url, hist: [[now - 40 * D, 2249], [now - 10 * D, 2249]], urg: { v: [0, 2, 4].map(i => ({ at: now - (5 - i) * D, stock: 2 })), restarts: 0, daily: 0 } } } });
+  await seed(sw, { items: { [key]: { site: "Amazon", title: "Backpack", url, hist: [[now - 40 * D, 2249], [now - 10 * D, 2249]], urg: { v: [0, 2].map(i => ({ at: now - (5 - i) * D, stock: 2 })), restarts: 0, daily: 0 } } } });
   r = await openPage(ctx, url); await r.panel.open(); await sleep(900); txt = await r.panel.text(".impulse");
-  t.check(/Only 2 left/.test(txt) && /Same stock message again/.test(txt) && /on 3 visits over 4 days/.test(txt), "stock repeated across visits: " + txt.slice(0, 200));
-  const mem = (await store(sw, "items")).items[key].urg; t.check(mem.v.length === 4 && mem.v[3].stock === 2, "this visit was remembered (numbers only): " + JSON.stringify(mem.v[3]));
+  t.check(/Only 2 left/.test(txt) && /Same stock message again/.test(txt) && /on 3 visits over 5 days/.test(txt), "stock repeated across visits (earlier two + this one): " + txt.slice(0, 200));
+  const mem = (await store(sw, "items")).items[key].urg; t.check(mem.v.length === 3 && mem.v[2].stock === 2, "this visit was remembered (numbers only): " + JSON.stringify(mem.v[2]));
   t.check(!JSON.stringify(mem).includes("order soon"), "no page text is stored");
   // 6. flat price and a message: the price context line
   await seed(sw, { items: { [key]: { site: "Amazon", title: "Backpack", url, hist: [[now - 40 * D, 2249], [now - 10 * D, 2249]], urg: { v: [], restarts: 0, daily: 0 } } } });
@@ -642,6 +642,39 @@ test("40", "Impulse Check on REAL Amazon.in pages: chips come only from the prod
     t.note(`${asin}: card=${has} text="${txt.slice(0, 110)}" availability="${raw.avail.trim().slice(0, 30)}" 'Only N left' anywhere on page=${raw.anyOnly}`);
     t.check(has, asin + ": a real page with a deal/bought message shows the card");
     if (!/only\s+\d+\s+left/i.test(raw.avail)) t.check(!/Only \d+ left/.test(txt), asin + ": no stock chip unless the product's own availability says so");
+    await p.close();
+  }
+  t.check(errs.length === 0, "extension console errors: " + errs.join(" | "));
+}), { retries: 1, live: true });
+
+test("41", "Impulse Check (Flipkart, Myntra): messages near the product title are read (timer d/h/m/s, per-size stock); menus, banners, reviews, carousels, pop-ups are not; a timer that restarts is reported", t => withExt({}, async ({ ctx, sw }) => {
+  const ld = (title, price) => `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "Product", name: title, image: "https://example.com/i.jpg", offers: { "@type": "Offer", price: String(price), priceCurrency: "INR" } })}</script>`;
+  const decoys = '<nav><a>Daily Deals</a> <span>Only 9 left</span></nav><div class="reviews-block"><p>Only 3 left, 20 people are viewing</p></div><div style="height:2200px"></div><section><p>Hurry, only 7 left</p></section><div class="similar-products"><p>Only few left</p><p>Ends in 01h 00m 00s</p></div><div class="modal"><p>Offer ends Tomorrow</p></div>';
+  const page = (body, title, price) => `<!doctype html><html><head><meta charset=utf-8><title>${title}</title>${ld(title, price)}</head><body><header><div class="announcement">Last Chance to Save 5%</div></header><div id="root"><h1>${title}</h1><div class="price">₹${price}</div>${body}</div>${decoys}</body></html>`;
+  let timerText = "Ends in 01d 02h 49m 37s";
+  await ctx.route("https://www.flipkart.com/test-mixer/p/itm9*", r => r.fulfill({ status: 200, contentType: "text/html", body: page(`<div><div>Top Discount of the Sale</div><div>${timerText}</div><div>Sales Package</div></div>`, "Test Mixer Grinder 750 W", 2999) }));
+  await ctx.route("https://www.myntra.com/tshirts/x/test-tee/55555555/buy*", r => r.fulfill({ status: 200, contentType: "text/html", body: page('<div class="size-buttons-size-buttons"><div><button>S</button></div><div><button>XL</button><span class="size-buttons-inventory-left">2 left</span></div><span class="size-buttons-inventory-left size-buttons-inventory-left-hidden" style="display:none">Hide</span></div><span>Orders above Rs. 149 (only on first purchase)</span>', "Test Tee", 499) }));
+  let r = await openPage(ctx, "https://www.flipkart.com/test-mixer/p/itm9a?pid=MIXGHMGYQNK1234"); await r.panel.open(); await sleep(800);
+  let txt = await r.panel.text(".impulse"); t.check(/Countdown timer/.test(txt) && !/Only 9|Only 3|Only 7|viewing|Only few|Tomorrow|Last Chance/i.test(txt), "flipkart: timer found, decoys ignored: " + txt.slice(0, 160));
+  r = await openPage(ctx, "https://www.myntra.com/tshirts/x/test-tee/55555555/buy"); await r.panel.open(); await sleep(800); txt = await r.panel.text(".impulse"); t.check(/Only 2 left/.test(txt) && !/Hide|first purchase|Only 9|Only 7|viewing/.test(txt), "myntra: per-size '2 left' found, offer fine print ignored: " + txt.slice(0, 160));
+  // the flipkart timer restarts: remembered end time moves later although time has passed
+  const key = "flipkart.com:MIXGHMGYQNK1234", mem0 = (await store(sw, "items")).items[key].urg; t.check(mem0 && mem0.v.length === 1 && mem0.v[0].end > Date.now(), "flipkart end time remembered");
+  await seed(sw, { items: { ...(await store(sw, "items")).items, [key]: { ...(await store(sw, "items")).items[key], urg: { v: [{ at: Date.now() - 3 * 3600e3, end: Date.now() + 1 * 3600e3, gran: "s" }], restarts: 0, daily: 0 } } } });
+  r = await openPage(ctx, "https://www.flipkart.com/test-mixer/p/itm9a?pid=MIXGHMGYQNK1234"); await r.panel.open(); await sleep(900); txt = await r.panel.text(".impulse");
+  t.check(/Timer showed a new end time/.test(txt) && /later end time when you came back/.test(txt), "a timer that shows a later end time after hours is reported neutrally: " + txt.slice(0, 200));
+}));
+
+test("42", "Impulse Check inside the extension on REAL Flipkart and Myntra pages: the card appears exactly when the collector finds a message, with no console errors (live, skippable)", t => withExt({}, async ({ ctx, errs }) => {
+  const nodeFs = await import("node:fs"), require_ = () => nodeFs, src = nodeFs.readFileSync(new URL("../../extension/impulse.js", import.meta.url), "utf8"), find = async (q, sel, site) => { const p = await ctx.newPage(); await p.goto(q, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {}); await sleep(2500); const u = (await p.$$eval(sel, as => as.map(a => a.href.split("&")[0]))).slice(0, 4); await p.close(); return u; };
+  const urls = [...(await find("https://www.flipkart.com/search?q=mixer+grinder", "a[href*='/p/itm']")).slice(0, 2), ...[1, 2, 3].map(n => { try { return JSON.parse(nodeFs.readFileSync(new URL(`../fixtures/impulse/myntra-${n}.json`, import.meta.url), "utf8")).url; } catch { return null; } }).filter(Boolean)];
+  t.check(urls.length >= 3, "found real product pages: " + urls.length);
+  for (const u of urls) {
+    const p = await ctx.newPage(); await p.goto(u, { waitUntil: "domcontentloaded", timeout: 40000 }).catch(() => {}); await sleep(4500);
+    let expected = null; try { expected = await p.evaluate(code => { try { (0, eval)(code + "\nwindow.__imp = { impCues, impCollectNear };"); return window.__imp.impCues(window.__imp.impCollectNear(document)).length; } catch { return -1; } }, src); } catch {}
+    const panel = await Panel.attach(ctx, p).catch(() => null); if (!panel || !(await panel.waitKnob().catch(() => false))) { t.note("no panel on " + u.slice(0, 60)); await p.close(); continue; }
+    await panel.open(); await sleep(900); const has = await panel.has(".impulse"), txt = has ? await panel.text(".impulse") : "";
+    t.note(`${u.replace(/^https:\/\/(www\.)?/, "").slice(0, 50)}: collector=${expected} card=${has} ${txt.slice(0, 80)}`);
+    if (expected >= 0) t.check(has === (expected > 0), "card shown iff a message was found: " + u.slice(0, 60));
     await p.close();
   }
   t.check(errs.length === 0, "extension console errors: " + errs.join(" | "));
