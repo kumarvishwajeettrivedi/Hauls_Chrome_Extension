@@ -15,7 +15,7 @@ alter table public.ext_chart_series enable row level security;
 revoke all on public.ext_chart_series from public, anon, authenticated;
 
 -- Submit one series. Returns true when stored. Rules: signed in, contribute = true, account at least 3 days old, <= 200 stored series per user per UTC day,
--- 2..130 points, <= 4000 bytes, integer day numbers strictly increasing inside the last ~400 days and spanning at most range+7 days, prices 1..10M with <= 2 decimals,
+-- range_days one of 30/90/365 (one stored row per user, product and range), 2..130 points, <= 4000 bytes, integer day numbers strictly increasing inside the last ~400 days and spanning at most range+7 days, prices 1..10M with <= 2 decimals,
 -- spread <= 20x, the LAST price must match the price the reader saw today (+-1%) and, when >= 3 observers exist for the product, stay within 30% of their median.
 -- A product/range is rewritten at most once per 6 hours per user. Any malformed input returns false (never an error).
 create or replace function public.ext_submit_chart(p_key text, p_range int, p_series jsonb, p_current numeric) returns boolean
@@ -26,7 +26,7 @@ begin
   if uid is null then return false; end if;
   if not coalesce((select contribute from public.ext_profiles where id = uid), false) then return false; end if;
   if (select created_at from public.ext_profiles where id = uid) > now() - interval '3 days' then return false; end if;
-  if p_key is null or length(p_key) < 1 or length(p_key) > 200 or p_range is null or p_range < 5 or p_range > 400 then return false; end if;
+  if p_key is null or length(p_key) < 1 or length(p_key) > 200 or p_range is null or p_range not in (30, 90, 365) then return false; end if;
   if p_current is null or p_current < 1 or p_current >= 10000000 or scale(p_current) > 2 then return false; end if;
   if p_series is null or jsonb_typeof(p_series) <> 'array' or octet_length(p_series::text) > 4000 then return false; end if;
   n := jsonb_array_length(p_series); if n < 2 or n > 130 then return false; end if;
@@ -58,14 +58,15 @@ revoke all on function public.ext_submit_chart(text,int,jsonb,numeric) from publ
 grant execute on function public.ext_submit_chart(text,int,jsonb,numeric) to authenticated;
 
 -- Consensus series for a product. Signed-in callers only. One value per user per day (a user's several ranges count once), then the median across users;
--- days need >= 3 distinct reporters, or exactly 2 that agree within 10%; points far from the product median are dropped first.
--- Only the 50 newest series of a product are read, with a 2 s statement timeout.
+-- days need >= 3 distinct reporters (same threshold as ext_price_history); points far from the product median are dropped first.
+-- Only the 50 newest distinct readers of a product are read, with a 2 s statement timeout.
 create or replace function public.ext_get_chart(p_key text)
 returns table (day date, price numeric, reporters int)
 language sql stable security definer set search_path = '' set statement_timeout = '2s' as $$
   with src as (
     select c.user_id, c.series from public.ext_chart_series c
-    where c.product_key = p_key and c.captured_at > now() - interval '400 days' order by c.captured_at desc limit 50
+    where c.product_key = p_key and c.captured_at > now() - interval '400 days'
+      and c.user_id in (select u.user_id from public.ext_chart_series u where u.product_key = p_key group by u.user_id order by max(u.captured_at) desc limit 50) -- the 50 newest DISTINCT readers (a few ranges each)
   ), pts as (
     select s.user_id, (date '1970-01-01' + (e.v ->> 0)::int) as d, (e.v ->> 1)::numeric as p from src s, jsonb_array_elements(s.series) as e(v)
   ), per_user as (
@@ -73,7 +74,7 @@ language sql stable security definer set search_path = '' set statement_timeout 
   ), med as (select percentile_cont(0.5) within group (order by p) as m from per_user),
   ok as (select u.* from per_user u, med where u.p between med.m * 0.4 and med.m * 2.5),
   agg as (select d, (percentile_cont(0.5) within group (order by p))::numeric as price, count(*)::int as n, min(p) as lo, max(p) as hi from ok group by d)
-  select d, price, n from agg where auth.uid() is not null and (n >= 3 or (n = 2 and hi <= lo * 1.10)) order by d limit 800;
+  select d, price, n from agg where auth.uid() is not null and n >= 3 order by d limit 800;
 $$;
 comment on function public.ext_get_chart(text) is 'HAULS ext: consensus shared chart series (aggregates only, signed-in callers).';
 revoke all on function public.ext_get_chart(text) from public, anon, authenticated;

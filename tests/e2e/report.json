@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-17T12:32:34.110Z",
+  "at": "2026-10-17T13:46:32.443Z",
   "summary": {
     "pass": 1,
     "fail": 0,
@@ -7,10 +7,10 @@
   },
   "results": [
     {
-      "id": "27",
-      "name": "page report: Settings button reads only price-history wording and the chart from the Amazon tab",
+      "id": "35",
+      "name": "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader",
       "status": "PASS",
-      "ms": 4353,
+      "ms": 10806,
       "failures": [],
       "notes": [],
       "attempts": 1

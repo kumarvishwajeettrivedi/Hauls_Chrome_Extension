@@ -253,24 +253,24 @@ T('anon cannot export', await (async()=>{await db.exec(`set role anon`);try{retu
   T('0010: future day rejected', await raw(U[1],'CK3',30,JSON.stringify([[today-5,5000],[today+30,4499]]),4499)===false);
   T('0010: spread above 20x rejected', await sub(U[1],'CK3',30,[[29,100000],[0,4499]],4499)===false);
   T('0010: 131 points rejected', await sub(U[1],'CK3',365,Array.from({length:131},(_,i)=>[131-i,1000]),1000)===false);
-  T('0010: bad range / long key rejected', (await sub(U[1],'CK3',3,[[5,1000],[0,1000]],1000))===false && (await sub(U[1],'k'.repeat(201),30,[[5,1000],[0,1000]],1000))===false);
+  T('0010: only 30/90/365 ranges and short keys are accepted', (await sub(U[1],'CK3',3,[[5,1000],[0,1000]],1000))===false && (await sub(U[1],'CK3',45,[[5,1000],[0,1000]],1000))===false && (await sub(U[1],'k'.repeat(201),30,[[5,1000],[0,1000]],1000))===false);
   T('0010: garbage elements rejected without an error', await raw(U[1],'CK3',30,'[["a",1],[2,3]]',3)===false && await raw(U[1],'CK3',30,'[[1],[2]]',3)===false && await raw(U[1],'CK3',30,'{"a":1}',3)===false);
   T('0010: fractional / huge day numbers rejected without an error', await raw(U[1],'CK3',30,`[[${today-5}.5,100],[${today},100]]`,100)===false && await raw(U[1],'CK3',30,`[[10000000000,100],[10000000001,100]]`,100)===false && await raw(U[1],'CK3',30,`[[1e10,100],[${today},100]]`,100)===false);
   T('0010: a point price below 1 or with 3 decimals is rejected', await raw(U[1],'CK3',30,`[[${today-2},0.5],[${today},1.2]]`,1.2)===false && await raw(U[1],'CK3',30,`[[${today-2},100.123],[${today},100.12]]`,100.12)===false);
-  T('0010: series spanning far more than its range is rejected', await sub(U[1],'CK3',5,[[300,1000],[0,1000]],1000)===false);
+  T('0010: series spanning far more than its range is rejected', await sub(U[1],'CK3',30,[[300,1000],[0,1000]],1000)===false);
   T('0010: anon cannot call submit or get', await (async()=>{await db.exec('set role anon');try{return await fails(db.query(`select ext_submit_chart('CK4',30,'[[1,2],[3,4]]'::jsonb,4)`)) && await fails(db.query(`select * from ext_get_chart('CK1')`))}finally{await db.exec('reset role')}})());
   T('0010: users cannot read or write the table directly', await as(U[0],()=>fails(db.query('select * from ext_chart_series'))) && await as(U[0],()=>fails(db.query(`insert into ext_chart_series(product_key,user_id,range_days,series,current_price) values('X','${U[0]}',30,'[[1,2],[3,4]]',4)`))));
   T('0010: ONE reporter -> nothing is shown (anonymity)', (await get(U[2],'CK1')).length===0);
   await sub(U[1],'CK1',30,[[29,5499],[10,4499],[0,4499]],4499);
-  { const r=await get(U[2],'CK1'); T('0010: two reporters that agree (<=10%) -> shown with their count, no user ids', r.length===2 && r.every(x=>x.reporters===2) && !('user_id' in r[0]) && Number(r[1].price)===4499); }
-  await sub(U[1],'CK6',30,[[10,1000],[0,1000]],1000); await sub(U[2],'CK6',30,[[10,2000],[0,1000]],1000);
-  { const r=await get(U[3],'CK6'), d10=(await db.query(`select (current_date - 10)::text d`)).rows[0].d; T('0010: two reporters that disagree >10% on a day -> that day hidden, agreeing day stays', !r.some(x=>(x.day instanceof Date?x.day.toISOString():String(x.day)).slice(0,10)===d10) && r.length===1 && r[0].reporters===2); }
+  { const r=await get(U[2],'CK1'); T('0010: TWO reporters are still not enough (same threshold as 0009)', r.length===0); }
+  await sub(U[2],'CK1',30,[[29,5499],[10,4499],[0,4499]],4499);
+  { const r=await get(U[3],'CK1'); T('0010: three reporters -> days shown with their count, no user ids', r.length===2 && r.every(z=>z.reporters===3) && !('user_id' in r[0]) && Number(r[1].price)===4499); }
   await sub(U[1],'CK5',30,[[20,1000],[0,1000]],1000); await sub(U[2],'CK5',30,[[20,1010],[0,1000]],1000); await sub(U[3],'CK5',30,[[20,990],[0,1000]],1000);
   { const r=await get(U[4],'CK5'); T('0010: median across 3 reporters', r.length===2 && Number(r[0].price)===1000 && r[0].reporters===3); }
   // one account with three overlapping ranges counts once
   for (const rg of [30,90,365]) { await db.exec(`delete from ext_chart_series where product_key='CK8' and user_id='${U[0]}' and range_days=${rg}`); await sub(U[0],'CK8',rg,[[20,300],[0,500]],500); }
-  await sub(U[1],'CK8',30,[[20,1000],[0,1000]],1000); await sub(U[2],'CK8',30,[[20,1000],[0,1000]],1000);
-  { const r=await get(U[3],'CK8'); T('0010: a user with 3 ranges has the weight of ONE user and a 300-vs-1000 outlier cannot move the price (sybil-by-ranges cannot outvote)', r.length===2 && r.every(x=>Number(x.price)===1000) && r[1].reporters===3); }
+  await sub(U[1],'CK8',30,[[20,1000],[0,1000]],1000); await sub(U[2],'CK8',30,[[20,1000],[0,1000]],1000); await sub(U[3],'CK8',30,[[20,1000],[0,1000]],1000);
+  { const r=await get(U[3],'CK8'); T('0010: a user with 3 ranges has the weight of ONE user and a 300-vs-1000 outlier cannot move the price (sybil-by-ranges cannot outvote)', r.length===2 && r.every(x=>Number(x.price)===1000) && r[0].reporters===3 && r[1].reporters===4); }
   // sybil +25% against 3 honest does not hide the day
   await sub(U[0],'CK9',30,[[20,1250],[0,1000]],1000); await sub(U[1],'CK9',30,[[20,1000],[0,1000]],1000); await sub(U[2],'CK9',30,[[20,1000],[0,1000]],1000); await sub(U[3],'CK9',30,[[20,1000],[0,1000]],1000);
   { const r=await get(U[4],'CK9'); T('0010: one sybil at +25% cannot hide or move a day backed by 3 honest readers', r.length===2 && r[0].reporters===4 && Number(r[0].price)===1000); }

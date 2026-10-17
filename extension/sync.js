@@ -18,7 +18,7 @@ const toWatchRow = (uid, op) => ({ user_id: uid, product_key: op.key, site: op.s
 function toChartArgs(op) {
   const byDay = new Map(); for (const [t, p] of op.series) byDay.set(Math.floor(t / DAY_MS), Math.round(p * 100) / 100);
   let pts = [...byDay.entries()].sort((a, b) => a[0] - b[0]); if (pts.length > 130) pts = pts.filter((_, i) => i % Math.ceil(pts.length / 129) === 0 || i === pts.length - 1).slice(-130);
-  return { p_key: op.key, p_range: Math.max(5, Math.min(400, Math.round(op.range))), p_series: pts.map(([d, p]) => [d, p]), p_current: op.current };
+  return { p_key: op.key, p_range: op.range <= 45 ? 30 : op.range <= 120 ? 90 : 365, p_series: pts.map(([d, p]) => [d, p]), p_current: op.current };
 }
 const toObsRow = op => ({ product_key: op.key, site: op.site, price: op.price, mrp: op.mrp || null, observed_at: new Date(op.at).toISOString(), src: op.src || "dom" });
 
