@@ -31,5 +31,24 @@ ok(O.offBest(rows, 50000).saving === 0, "already lowest: no saving");
   O.offSellerCache.clear(); let sc = 0; const sf = async u => { sc++; return { ok: true, text: async () => fx("seller-big") }; };
   let rs = await O.offSeller({ sid: "AJ6SIZC8YQDZX" }, sf, 1000); ok(rs.data && rs.data.n === 75303 && sc === 1, "seller fetched"); await O.offSeller({ sid: "AJ6SIZC8YQDZX" }, sf, 2000); ok(sc === 1, "cached 24h");
   ok((await O.offSeller({ sid: "bad" }, sf, 3000)).failed && sc === 1, "bad id never fetched"); ok((await O.offSeller({ sid: "AAAAAAAAAA" }, async () => ({ ok: false, status: 503 }), 4000)).failed, "503 reported");
+  // ---- Flipkart sellers (real captured response, trimmed)
+  const fk = JSON.parse(fs.readFileSync(path.join(__dirname, "../fixtures/offers/flipkart-sellers.json"), "utf8")), fr = O.offParseFlipkart(fk);
+  ok(fr.length === 5, "flipkart: five sellers " + fr.length);
+  ok(fr[0].seller === "RetailNet" && fr[0].price === 60990 && fr[0].rating === 4.3 && fr[0].here === true && fr[0].delivery === "24 Oct, Saturday" && fr[0].sid === null, "flipkart first: " + JSON.stringify(fr[0]));
+  const dm = fr.find(x => x.seller === "BBDDIGITAL"); ok(dm.dormant === true && dm.rating === 1, "dormant seller flagged");
+  const cheapDormant = [{ price: 100, cond: "New", seller: "A", dormant: true }, { price: 200, cond: "New", seller: "B" }]; ok(O.offBest(cheapDormant, 300).lowest.seller === "B", "an inactive seller is never 'lowest'");
+  ok(!O.offParseFlipkart(null).length && !O.offParseFlipkart({}).length && !O.offParseFlipkart({ RESPONSE: { data: { product_seller_detail_1: { data: [{ value: { sellerInfo: { value: { name: "X" } }, pricing: { value: { finalPrice: { value: 0 } } } } }] } } } }).length, "flipkart garbage / zero price: no rows");
+  ok(O.offParseFlipkart({ RESPONSE: { data: { product_seller_detail_1: { data: [{ value: { sellerInfo: { value: { name: "<b>Evil</b>" + "x".repeat(200) } }, pricing: { value: { finalPrice: { value: 10 } } }, metadata: { averageRating: 0 } } }] } } } })[0].seller.length <= 80, "seller name capped, tags stripped");
+  O.offCache.clear(); let fc = 0, req; const ff = async (u, o) => { fc++; req = { u, o }; return { ok: true, json: async () => fk }; };
+  let fo = await O.offFindFlipkart({ pid: "COMGZUYDGFJGHZR4" }, ff, 1000); ok(fo.offers.length === 5 && fo.offers[0].price === 60990 && fo.offers[4].price === 77233, "flipkart sorted by price");
+  ok(req.u === "https://1.rome.api.flipkart.com/api/3/page/dynamic/product-sellers" && req.o.method === "POST" && JSON.parse(req.o.body).requestContext.productId === "COMGZUYDGFJGHZR4" && req.o.credentials === "omit", "flipkart request shape");
+  await O.offFindFlipkart({ pid: "COMGZUYDGFJGHZR4" }, ff, 2000); ok(fc === 1, "flipkart cached 15 min");
+  ok((await O.offFindFlipkart({ pid: "bad" }, ff, 3000)).failed && fc === 1, "invalid pid never fetched");
+  ok((await O.offFindFlipkart({ pid: "AAAAAAAAAAAAAAAA" }, async () => ({ ok: false, status: 503 }), 4000)).failed, "flipkart 503 reported");
+  // ---- Myntra sellers (inside the page)
+  const my = O.offParseMyntra(fx("myntra-pdp")); ok(my.length === 2 && my[0].name === "Vision Star" && my[0].minPrice === 376 && my[0].maxPrice === 376, "myntra cheapest seller first: " + JSON.stringify(my[0]));
+  ok(my[1].minPrice === 421 && my[1].sizes.join() === "S,M,XL", "myntra second seller sizes: " + JSON.stringify(my[1]));
+  ok(O.offParseMyntra("").length === 0 && O.offParseMyntra("<html>x</html>").length === 0 && O.offParseMyntra("window.__myx = {").length === 0, "myntra garbage: none");
+  ok(O.offParseMyntra('window.__myx = {"pdpData":{"sellers":[{"sellerPartnerId":1,"sellerName":"A"}],"sizes":[{"label":"S","available":false,"sizeSellerData":[{"sellerPartnerId":1,"availableCount":5,"discountedPrice":10}]},{"label":"M","available":true,"sizeSellerData":[{"sellerPartnerId":1,"availableCount":0,"discountedPrice":10}]}]}};').length === 0, "sold-out sizes never count");
   console.log(`offers: ${n} passed, 0 failed`);
 })().catch(e => { console.error(e); process.exit(1); });

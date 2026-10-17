@@ -580,6 +580,23 @@ test("37", "Amazon background read: while idle, one watched product is opened in
   const h = (await store(sw, "chartHealth")).chartHealth; t.check(h && h["bg-read"] === 1, "counted: " + JSON.stringify(h));
 }));
 
+test("38", "Flipkart + Myntra sellers: Flipkart lists sellers on a click (one request, inactive seller never lowest); Myntra lists the page's own sellers with no request", t => withExt({}, async ({ ctx, sw }) => {
+  const fs = await import("node:fs"), fk = fs.readFileSync(new URL("../fixtures/offers/flipkart-sellers.json", import.meta.url), "utf8"), my = fs.readFileSync(new URL("../fixtures/offers/myntra-pdp.html", import.meta.url), "utf8");
+  let posts = 0; await ctx.route("https://1.rome.api.flipkart.com/**", r => { posts++; r.fulfill({ status: 200, contentType: "application/json", body: fk }); });
+  const ld = (title, price) => `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "Product", name: title, image: "https://example.com/i.jpg", offers: { "@type": "Offer", price: String(price), priceCurrency: "INR" } })}</script>`;
+  await ctx.route("https://www.flipkart.com/test-laptop/p/itm1*", r => r.fulfill({ status: 200, contentType: "text/html", body: `<!doctype html><html><head><meta charset=utf-8><title>Test Laptop</title>${ld("Test Laptop", 60990)}</head><body><h1>Test Laptop</h1></body></html>` }));
+  await ctx.route("https://www.myntra.com/lounge/levis/tee/12027436/buy*", r => r.fulfill({ status: 200, contentType: "text/html", body: my.replace("<html>", `<html><head><meta charset=utf-8><title>Levis tee</title>${ld("Levis Men Soft Pure Cotton Round Neck Half Sleeve Tshirt", 376)}</head>`) }));
+  const f = await openPage(ctx, "https://www.flipkart.com/test-laptop/p/itm1?pid=COMGZUYDGFJGHZR4"); await f.panel.open(); await sleep(800);
+  t.check(await f.panel.has(".offers .btn"), "flipkart: 'See other sellers' button shown"); t.check(posts === 0, "no request before the click");
+  await f.panel.click(".offers .btn"); await poll(async () => (await f.panel.count(".off-r")) >= 5, 8000, 300);
+  const txt = await f.panel.text(".offers"); t.check(posts === 1 && (await f.panel.count(".off-r")) === 5, "five sellers from one request: " + posts);
+  t.check(/RetailNet \(here\)/.test(txt) && /Delivery 24 Oct, Saturday/.test(txt) && /Seller 4\.3★/.test(txt), "here + delivery + rating shown: " + txt.slice(0, 160));
+  t.check(await f.panel.count(".off-r.low") === 1 && /RetailNet/.test(await f.panel.text(".off-r.low")), "lowest is the cheapest active seller");
+  const m = await openPage(ctx, "https://www.myntra.com/lounge/levis/tee/12027436/buy"); await m.panel.open(); await sleep(1200);
+  const mt = await m.panel.text(".offers"); t.check(/Vision Star/.test(mt) && /MODENIK/.test(mt) && /₹376/.test(mt) && /₹421/.test(mt), "myntra: both sellers with their prices: " + mt.slice(0, 200));
+  t.check(/Sizes S, M, XL/.test(mt), "myntra: sizes per seller");
+}));
+
 test("35", "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {
   const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
   const sb = await fakeSupabase(ctx); await seedSession(sw, SESSION); await seed(sw, { profile: { plan: "free", contribute: true, name: "Test User" } });

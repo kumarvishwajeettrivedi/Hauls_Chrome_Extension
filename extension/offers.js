@@ -16,7 +16,7 @@ function offParseAod(html) {
 }
 // Lowest New offer and how much cheaper it is than the price on this page.
 function offBest(offers, here) {
-  const fresh = (offers || []).filter(o => /^new/i.test(o.cond)); if (!fresh.length) return null;
+  const fresh = (offers || []).filter(o => /^new/i.test(o.cond) && !o.dormant); if (!fresh.length) return null;
   const lowest = fresh.reduce((a, o) => (o.price < a.price ? o : a), fresh[0]);
   return { lowest, saving: here > lowest.price ? Math.round(here - lowest.price) : 0 };
 }
@@ -29,6 +29,39 @@ async function offFind({ asin }, doFetch = fetch, now = Date.now()) {
     if (!r.ok) throw new Error("http " + r.status);
     const offers = offParseAod(await r.text()).sort((a, b) => a.price - b.price); offCache.set(asin, { at: now, offers }); return { offers, failed: false };
   } catch { return { offers: [], failed: true }; } finally { clearTimeout(t); }
+}
+
+// ---- Flipkart: the same page endpoint Flipkart's own "sellers" page calls (one POST on a click). Rows are untrusted text: capped, no links built from them.
+const offTxt = (v, n) => String(v == null ? "" : v).replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, n);
+function offParseFlipkart(j) {
+  const list = j && j.RESPONSE && j.RESPONSE.data && j.RESPONSE.data.product_seller_detail_1 && j.RESPONSE.data.product_seller_detail_1.data; if (!Array.isArray(list)) return [];
+  return list.map(x => { const v = x && x.value, si = v && v.sellerInfo && v.sellerInfo.value, price = v && v.pricing && v.pricing.value && v.pricing.value.finalPrice && +v.pricing.value.finalPrice.value, md = (v && v.metadata) || {};
+    if (!si || !si.name || !(price >= 1 && price < 1e7)) return null;
+    const rating = +md.averageRating; return { price, cond: "New", seller: offTxt(si.name, 80), sid: null, ships: "", rating: rating > 0 && rating <= 5 ? rating : null, ratings: 0, delivery: offTxt(v.deliveryInfo && v.deliveryInfo.primaryOption && v.deliveryInfo.primaryOption.deliveryDate, 40), dormant: si.dormantSeller === true, here: v.selected === true }; }).filter(Boolean);
+}
+async function offFindFlipkart({ pid }, doFetch = fetch, now = Date.now()) {
+  if (!/^[A-Z0-9]{16}$/.test(pid || "")) return { offers: [], failed: true };
+  const hit = offCache.get("fk:" + pid); if (hit && now - hit.at < OFF_TTL) return { offers: hit.offers, failed: false };
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), OFF_TIMEOUT);
+  try {
+    const r = await doFetch("https://1.rome.api.flipkart.com/api/3/page/dynamic/product-sellers", { method: "POST", credentials: "omit", signal: ctl.signal, headers: { "content-type": "application/json", "x-user-agent": "Mozilla/5.0 FKUA/website/42/website/Desktop" }, body: JSON.stringify({ requestContext: { productId: pid }, locationContext: {} }) });
+    if (!r.ok) throw new Error("http " + r.status);
+    const offers = offParseFlipkart(await r.json()).sort((a, b) => a.price - b.price); offCache.set("fk:" + pid, { at: now, offers }); return { offers, failed: false };
+  } catch { return { offers: [], failed: true }; } finally { clearTimeout(t); }
+}
+
+// ---- Myntra: sellers and per-size prices are inside the page itself (window.__myx.pdpData), so no request is needed.
+function offState(text, marker) { // the JSON object after `marker =` (brace matching, string aware)
+  const i = text.indexOf(marker); if (i < 0) return null; const a = text.indexOf("{", text.indexOf("=", i)); if (a < 0) return null;
+  let d = 0, s = false, e = false;
+  for (let k = a; k < text.length; k++) { const c = text[k]; if (s) { if (e) e = false; else if (c === "\\") e = true; else if (c === '"') s = false; continue; } if (c === '"') s = true; else if (c === "{") d++; else if (c === "}" && --d === 0) { try { return JSON.parse(text.slice(a, k + 1)); } catch { return null; } } }
+  return null;
+}
+function offParseMyntra(text) { // -> [{sid, name, minPrice, maxPrice, sizes:[label]}] for sellers with stock, cheapest first; [] when the page has no seller data
+  const st = offState(String(text || ""), "__myx"), pd = st && st.pdpData; if (!pd || !Array.isArray(pd.sellers) || !Array.isArray(pd.sizes)) return [];
+  const by = new Map(pd.sellers.filter(s => s && s.sellerPartnerId != null).map(s => [String(s.sellerPartnerId), { sid: String(s.sellerPartnerId), name: offTxt(s.sellerName || s.displayName, 80), prices: [], sizes: [] }]));
+  for (const z of pd.sizes) { if (!z || !z.available) continue; for (const d of z.sizeSellerData || []) { const s = d && by.get(String(d.sellerPartnerId)), p = d && +d.discountedPrice; if (s && d.availableCount > 0 && p >= 1 && p < 1e7) { s.prices.push(p); s.sizes.push(offTxt(z.label, 8)); } } }
+  return [...by.values()].filter(s => s.name && s.prices.length).map(s => ({ sid: s.sid, name: s.name, minPrice: Math.min(...s.prices), maxPrice: Math.max(...s.prices), sizes: s.sizes.slice(0, 12) })).sort((a, b) => a.minPrice - b.minPrice);
 }
 
 // Amazon seller storefront (/sp?seller=ID): rating windows, % positive and star split, all public. Parsed from the page text.
@@ -51,4 +84,4 @@ async function offSeller({ sid }, doFetch = fetch, now = Date.now()) {
     const data = offParseSellerPage((await r.text()).slice(0, 2e6)); if (!data) return { failed: true, reason: "unreadable" }; offSellerCache.set(sid, { at: now, data }); return { data };
   } catch { return { failed: true }; } finally { clearTimeout(t); }
 }
-if (typeof module !== "undefined") module.exports = { offParseSellerPage, offSeller, offSellerCache, offParseAod, offBest, offFind, offCache };
+if (typeof module !== "undefined") module.exports = { offParseSellerPage, offSeller, offSellerCache, offParseAod, offBest, offFind, offCache, offParseFlipkart, offFindFlipkart, offParseMyntra, offState };

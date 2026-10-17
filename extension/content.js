@@ -324,20 +324,29 @@
       main.append(sb);
     }
     // other sellers on this Amazon product (one click, one request)
-    const asinM = dom === "amazon.in" && /^amazon\.in:([A-Z0-9]{10})$/.exec(p.key);
-    if (asinM) {
+    const asinM = dom === "amazon.in" && /^amazon\.in:([A-Z0-9]{10})$/.exec(p.key), pidM = dom === "flipkart.com" && /^flipkart\.com:([A-Z0-9]{16})$/.exec(p.key);
+    if (asinM || pidM) {
       const ob = el("div", "offers"), obtn = el("button", "btn ghost full", "See other sellers"), paintOff = r => {
         ob.replaceChildren(); if (r.failed) return void ob.append(el("p", "meta", "Couldn't load other sellers right now."), obtn);
         if (!r.offers.length) return void ob.append(el("p", "meta", "Only one seller for this product."));
         const best = offBest(r.offers, p.price), here = (p.seller && p.seller.name || "").toLowerCase();
         if (best && best.saving > 0) ob.append(el("p", "off-save", `${fmt(best.saving)} less from ${best.lowest.seller}${best.lowest.rating && best.lowest.rating <= 2 ? ` (seller rated ${best.lowest.rating}★)` : ""}`));
-        r.offers.slice(0, 8).forEach(o => { const row = el(o.sid ? "a" : "div", "off-r" + (best && o === best.lowest ? " low" : "")); if (o.sid) { row.href = new URL(p.url).origin + "/sp?seller=" + o.sid; row.target = "_blank"; row.rel = "noopener"; }
-          const mine = here && o.seller.toLowerCase() === here; row.append(ratingDot(o.rating, o.ratings), el("span", "on", o.seller + (mine ? " (here)" : "")), el("b", "num", fmt(o.price)),
-            el("small", "", [o.cond !== "New" ? o.cond : "", o.ships ? "Ships from " + o.ships : "", o.rating ? `Seller ${o.rating}★ (${o.ratings} rating${o.ratings === 1 ? "" : "s"})` : ""].filter(Boolean).join(" · "))); ob.append(row); });
-        ob.append(el("p", "meta", "Read from Amazon's own seller list for this item. Delivery, returns and seller quality can differ."));
+        r.offers.slice(0, 8).forEach(o => { const row = el(o.sid ? "a" : "div", "off-r" + (best && o === best.lowest ? " low" : "") + (o.dormant ? " dim" : "")); if (o.sid) { row.href = new URL(p.url).origin + "/sp?seller=" + o.sid; row.target = "_blank"; row.rel = "noopener"; }
+          const mine = o.here || (here && o.seller.toLowerCase() === here); row.append(ratingDot(o.rating, o.ratings), el("span", "on", o.seller + (mine ? " (here)" : "")), el("b", "num", fmt(o.price)),
+            el("small", "", [o.cond !== "New" ? o.cond : "", o.ships ? "Ships from " + o.ships : "", o.delivery ? "Delivery " + o.delivery : "", o.rating ? `Seller ${o.rating}★${o.ratings ? ` (${o.ratings} rating${o.ratings === 1 ? "" : "s"})` : ""}` : ""].filter(Boolean).join(" · "))); ob.append(row); });
+        ob.append(el("p", "meta", `Read from ${pidM ? "Flipkart" : "Amazon"}'s own seller list for this item. Delivery, returns and seller quality can differ.`));
       };
-      obtn.onclick = async () => { obtn.disabled = true; obtn.textContent = "Loading sellers…"; offDone[p.key] = await send({ type: "offers", asin: asinM[1] }).catch(() => ({ failed: true, offers: [] })); if (cur && cur.p && cur.p.key === p.key) { paintOff(offDone[p.key]); if (sellerFill) sellerFill(); } };
+      obtn.onclick = async () => { obtn.disabled = true; obtn.textContent = "Loading sellers…"; offDone[p.key] = await send(pidM ? { type: "offers-fk", pid: pidM[1] } : { type: "offers", asin: asinM[1] }).catch(() => ({ failed: true, offers: [] })); if (cur && cur.p && cur.p.key === p.key) { paintOff(offDone[p.key]); if (sellerFill) sellerFill(); } };
       if (offDone[p.key]) paintOff(offDone[p.key]); else ob.append(obtn); main.append(ob);
+    }
+    // Myntra: the sellers are inside the page itself, so this needs no request
+    if (dom === "myntra.com") {
+      const sc = [...document.scripts].find(x => x.textContent.includes("__myx") && x.textContent.includes("pdpData")), ms = sc ? offParseMyntra(sc.textContent) : [];
+      if (ms.length >= 2) {
+        const mb = el("div", "offers"); mb.append(el("p", "lbl", "Sellers on this page"));
+        ms.slice(0, 6).forEach((m, i) => { const row = el("div", "off-r" + (i === 0 ? " low" : "")); row.append(el("span", "on", m.name), el("b", "num", m.minPrice === m.maxPrice ? fmt(m.minPrice) : `${fmt(m.minPrice)}–${fmt(m.maxPrice)}`), el("small", "", "Sizes " + m.sizes.join(", "))); mb.append(row); });
+        mb.append(el("p", "meta", "Price depends on the size and the seller. Read from this page.")); main.append(mb);
+      }
     }
     // stores
     const { links } = smartLinks(p.title, S ? S.name : ""), SHOW = 5, sec = el("div"), st = el("div", "stores");

@@ -87,6 +87,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "ahist-health") { await bumpHealth("chartHealth", m.event, m.reason); reply({ ok: true }); }
     else if (m.type === "ahist-tried") { await withLock(async () => { const items = await get(), it = items[m.key]; if (it) { it.ahist = it.ahist || { ranges: {} }; it.ahist.tried = Date.now(); await put(items); } }); reply({ ok: true }); }
     else if (m.type === "seller") reply(await offSeller({ sid: m.sid }).catch(() => ({ failed: true })));
+    else if (m.type === "offers-fk") reply(await offFindFlipkart({ pid: m.pid }).catch(() => ({ offers: [], failed: true })));
     else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));
     else if (m.type === "compare") reply(await cmpFind({ title: m.title, brand: m.brand, mpn: m.mpn, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
     else if (m.type === "abg-run") reply(await abgRun(Date.now(), { force: true }).catch(e => ({ ok: false, why: e.message })));

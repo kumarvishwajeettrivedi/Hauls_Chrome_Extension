@@ -17,6 +17,7 @@ const S = {
   seen: { p: product }, track: { key, target: v => num(v, 0, 1e7) }, untrack: { key }, wish: { key, on: v => typeof v === "boolean" }, remove: { key },
   "history-ref": { key, days: v => num(v, 6, 401), low: v => num(v, 0, 1e7), high: v => num(v, 0, 1e7) },
   "trk-run": {},
+  "offers-fk": { pid: v => typeof v === "string" && /^[A-Z0-9]{16}$/.test(v) },
   "abg-run": {},
   ahist: { key, range: v => ["1M", "3M", "1Y"].includes(v), days: v => num(v, 5, 400), points: v => Array.isArray(v) && v.length >= 2 && v.length <= 400 && v.every(p => Array.isArray(p) && p.length === 2 && num(p[0], 1e12, 4e12) && num(p[1], 0, 1e7)), current: v => v === null || num(v, 0, 1e7), offer: v => v === null || num(v, 0, 1e7), highest: v => v === null || (isObj(v) && num(v.price, 0, 1e7) && str(v.on, 1, 20) && Object.keys(v).length === 2) },
   "ahist-tried": { key },
