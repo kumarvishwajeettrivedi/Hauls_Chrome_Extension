@@ -66,6 +66,8 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (it) { it.u = Date.now(); enqueue(watchOp(m.key, { ...it, wish: false, target: null }, { deleted: true })); flush(); delete items[m.key]; await put(items); } return true; })); }
     else if (m.type === "invalidate") reply(await invalidate(m.reason));
     else if (m.type === "grocery") reply(await noteLocation(m.loc).then(() => groceryAt(m.q, m.loc, { more: !!m.more })).catch(e => ({ items: [], errors: [e.message] })));
+    else if (m.type === "history-ref") { const items = await get(), it = items[m.key]; const price = it && it.hist.length ? it.hist[it.hist.length - 1][1] : 0;
+      if (it && m.low <= m.high && price >= m.low * 0.6 && price <= m.high * 1.4) { it.ref = { days: Math.round(m.days), low: m.low, high: m.high, at: Date.now() }; await put(items); reply({ ok: true, it }); } else reply({ ok: false }); }
     else if (m.type === "compare") reply(await cmpFind({ title: m.title, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
     else if (m.type === "iplocate") reply(await ipLocate().catch(() => ({})));
     else if (m.type === "reverse") reply(await reverseGeocode(m.lat, m.lon).catch(() => ({})));

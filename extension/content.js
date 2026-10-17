@@ -215,7 +215,7 @@
       openSheet(bw.title, nodes); };
     main.append(vc);
     // Deal Scanner: 0-100 score with the exact points behind it
-    const sc = dealScan(H, p.price, p.mrp), scard = el("div", "scan " + sc.tone), sh = el("div", "scan-h");
+    const sc = dealScan(H, p.price, p.mrp, Date.now(), it.ref), scard = el("div", "scan " + sc.tone), sh = el("div", "scan-h");
     sh.append(el("b", "", "Deal Scanner"), el("span", "meta", sc.score == null ? "" : `${sc.score}/100`)); scard.append(sh);
     if (sc.score == null) scard.append(el("p", "meta", sc.headline));
     else {
@@ -226,7 +226,7 @@
       const gn = el("div", "gnum num", String(sc.score)); gn.append(el("small", "", "Deal score")); g.append(svg, gn);
       top.append(pill, g); scard.append(top, el("div", "scan-head", sc.headline));
       const list = el("div", "scan-rows"); sc.rows.forEach(r => { const li = el("div", "scan-r" + (r.bad ? " bad" : "")); li.append(el("span", "", r.label), el("span", "num", r.value), el("b", "num", `${r.pts}/${r.max}`)); list.append(li); });
-      scard.append(list, el("p", "meta", "Observed by this extension from the prices it has seen. Not a seller statement."));
+      scard.append(list, el("p", "meta", sc.source === "amazon" ? "Based on the price range Amazon itself showed you. HAULS has too little of its own history yet." : "Observed by this extension from the prices it has seen. Not a seller statement."));
     }
     main.append(scard);
     // deal strength meter + chips
@@ -501,5 +501,15 @@
   run(); if (APP) setOpen(true);
   // SPA navigation (Flipkart/Myntra/Ajio): re-run when the URL changes.
   let href = location.href;
+  // Amazon's own price-history answer appears inside the page when the user opens it. We read its text, nothing else, and remember the range for this product.
+  if (S && dom === "amazon.in") {
+    let hrT = null;
+    new MutationObserver(muts => { clearTimeout(hrT); hrT = setTimeout(async () => {
+      if (!cur || !cur.p) return; let found = null;
+      for (const m of muts) for (const n of m.addedNodes) { const t = n.nodeType === 1 ? n.textContent : n.nodeType === 3 ? n.nodeValue : ""; if (t && t.length < 4000 && /ranged from/i.test(t)) { found = parseAmazonHistoryText(t); if (found) break; } }
+      if (!found) return; const r = await send({ type: "history-ref", key: cur.p.key, days: found.days, low: found.low, high: found.high }).catch(() => null);
+      if (r && r.ok) { cur.it = r.it; idleRedraw(); }
+    }, 700); }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
   setInterval(() => { if (!document.hidden && location.href !== href) { href = location.href; tries = 0; cur = null; loading = !!(S || SHOP); setBadge(); run(); } }, 1000);
 })();

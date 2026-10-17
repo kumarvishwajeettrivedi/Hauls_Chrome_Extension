@@ -61,6 +61,20 @@ assert.equal(A.sellerInfo({ text: "Sold by Foo Retail and Fulfilled by Amazon." 
 assert.ok(!/scam|fake|fraud/i.test(JSON.stringify(se)), "never accuses");
 assert.ok(A.sellerChange("A", "B") && !A.sellerChange("A", "A") && !A.sellerChange(null, "B"));
 console.log("seller ok");
+
+// Amazon's own history text
+let ah = A.parseAmazonHistoryText("Over the past 30 days, the price of Portronics Clean G 20-in-1 Cleaning Kit has ranged from ₹499 to ₹579. The current price is ₹499, the lowest in the past 30 days.");
+assert.deepEqual(ah, { days: 30, low: 499, high: 579, now: 499 });
+assert.equal(A.parseAmazonHistoryText("Over the past 3 months, the price of X has ranged from ₹1,499 to ₹1,999. The current price is ₹1,599.").days, 90);
+assert.equal(A.parseAmazonHistoryText("In the last year, the price of X has ranged from ₹10 to ₹20.").days, 365);
+assert.equal(A.parseAmazonHistoryText("The price of X has ranged from ₹5 to ₹9"), null); assert.equal(A.parseAmazonHistoryText("Over the past 30 days ranged from ₹900 to ₹100"), null); assert.equal(A.parseAmazonHistoryText(""), null);
+const ref = { days: 30, low: 499, high: 579, at: NOW };
+assert.equal(A.refUsable(ref, 499, NOW), true); assert.equal(A.refUsable(ref, 5000, NOW), false); assert.equal(A.refUsable({ ...ref, at: NOW - 20*D }, 499, NOW), false); assert.equal(A.refUsable(null, 499, NOW), false);
+let rs = A.dealScan([[NOW - D, 499]], 499, 1599, NOW, ref); assert.equal(rs.source, "amazon"); assert.equal(rs.headline, "At Amazon's 30-day low"); assert.ok(rs.score >= 75 && rs.score <= 85);
+rs = A.dealScan([[NOW - D, 579]], 579, 1599, NOW, ref); assert.equal(rs.headline, "Near Amazon's 30-day high"); assert.ok(rs.score < 30, "top of the range scores low: " + rs.score);
+assert.equal(A.dealScan([[NOW - D, 499]], 499, 0, NOW, { ...ref, at: NOW - 30*D }).score, null, "stale reference ignored");
+assert.equal(A.dealScan(real, 1200, 1800, NOW, ref).source, undefined, "enough own history wins over the reference");
+console.log("amazon history ok");
 let u = null; for (let i = 0; i < 50; i++) u = A.useLookup(u && u.usage, "k" + i, "free", new Date(NOW));
 assert.ok(u.allowed && u.used === 50); assert.ok(!A.useLookup(u.usage, "k51", "free", new Date(NOW)).allowed);
 assert.ok(A.useLookup(u.usage, "k3", "free", new Date(NOW)).allowed, "revisiting a counted product is free");

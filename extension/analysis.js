@@ -44,6 +44,20 @@ function buyWait(hist, price, mrp, now = Date.now()) {
   return { verdict, title: { buy: "Good time to buy", wait: "Wait if you can", okay: "Fair price" }[verdict], short: { buy: near ? "Near its lowest. Grab it." : "Well below usual. Grab it.", wait: pump ? "Price was pumped before this drop." : "Above its usual. Hold off.", okay: "Fair price right now." }[verdict], reasons, deal: d };
 }
 
+// Amazon's own price-history answer, as the user sees it: "Over the past 30 days, the price of X has ranged from ₹499 to ₹579. The current price is ₹499, the lowest in the past 30 days."
+// Text only; we never call Amazon's endpoint. Returns {days, low, high, now} or null.
+function parseAmazonHistoryText(text) {
+  const t = String(text || "").replace(/\s+/g, " ").slice(0, 2000);
+  const m = t.match(/(?:over|in|during) the (?:past|last) (\d+|year|month)\s*(days?|months?|years?)?[^.]{0,200}?ranged from ₹\s?([\d,]+(?:\.\d+)?) to ₹\s?([\d,]+(?:\.\d+)?)/i);
+  if (!m) return null;
+  const n = /^\d+$/.test(m[1]) ? +m[1] : 1, unit = (m[2] || m[1]).toLowerCase(), days = n * (unit.startsWith("year") ? 365 : unit.startsWith("month") ? 30 : 1);
+  const low = parseFloat(m[3].replace(/,/g, "")), high = parseFloat(m[4].replace(/,/g, "")), cur = t.match(/current price is ₹\s?([\d,]+(?:\.\d+)?)/i), now = cur ? parseFloat(cur[1].replace(/,/g, "")) : null;
+  if (!(days >= 7 && days <= 400) || !(low > 0) || !(high >= low) || high > low * 20) return null;
+  return { days, low, high, now };
+}
+// A reference is only trusted when it agrees with the price on the page (within 40% either side) and is under two weeks old.
+const refUsable = (ref, price, now = Date.now()) => !!(ref && ref.low > 0 && ref.high >= ref.low && now - ref.at < 14 * DAY && price >= ref.low * 0.6 && price <= ref.high * 1.4);
+
 // Deal Scanner: a 0-100 score from observed prices only. Rows carry earned/max points so the card can show exactly why.
 const median = a => { const b = [...a].sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
 // A pump = the price was lifted 15%+ above its older baseline in the last 45 days and is now "discounted" back to that baseline.
@@ -53,8 +67,12 @@ function pumpCheck(hist, price, now = Date.now()) {
   const base = median(older.map(h => h[1])), peak = recent.reduce((a, h) => (h[1] > a[1] ? h : a), recent[0]);
   return peak[1] >= base * 1.15 && price <= base * 1.03 ? { base, peak: peak[1], at: peak[0] } : null;
 }
-function dealScan(hist, price, mrp, now = Date.now()) {
+function dealScan(hist, price, mrp, now = Date.now(), ref = null) {
   const w = windowStats(hist, now), cov = coverage(w);
+  if (cov === "insufficient" && refUsable(ref, price, now)) { // too little of our own history: use what Amazon itself reported, capped because it is a range, not a series
+    const spread = Math.max(ref.high - ref.low, 1), pos = Math.min(1, Math.max(0, (price - ref.low) / spread)), pts = Math.round(70 * (1 - pos)), score = Math.min(85, pts + (ref.high > ref.low ? 15 : 0)), tone = score >= 75 ? "real" : score >= 50 ? "fair" : score >= 30 ? "meh" : "mirage";
+    return { score, label: { real: "Real Deal", fair: "Fair Deal", meh: "Think Twice", mirage: "Deal Mirage" }[tone], tone, source: "amazon", headline: price <= ref.low * 1.01 ? `At Amazon's ${ref.days}-day low` : pos > 0.8 ? `Near Amazon's ${ref.days}-day high` : `Inside Amazon's ${ref.days}-day range`, rows: [{ label: `Place in Amazon's ${ref.days}-day range`, value: `${inr(ref.low)} to ${inr(ref.high)}`, max: 70, pts }, { label: "Range reported by Amazon", value: ref.days + " days", max: 30, pts: score - pts }], coverage: "amazon" };
+  }
   if (cov === "insufficient") return { score: null, label: "Not enough history", tone: "unknown", headline: "Keep browsing, the scanner needs a few more days of prices.", rows: [] };
   const med = median(hist.filter(h => h[0] >= now - 90 * DAY).map(h => h[1])), pump = pumpCheck(hist, price, now), adv = mrp && mrp > price ? (mrp - price) / mrp : 0;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -125,4 +143,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };

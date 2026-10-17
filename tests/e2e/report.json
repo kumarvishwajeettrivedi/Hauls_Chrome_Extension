@@ -1,25 +1,16 @@
 {
-  "at": "2026-10-17T10:49:50.128Z",
+  "at": "2026-10-17T10:57:26.517Z",
   "summary": {
-    "pass": 2,
+    "pass": 1,
     "fail": 0,
     "skip": 0
   },
   "results": [
     {
-      "id": "24",
-      "name": "reviews: visible answer card with rating split, themes and a details sheet",
+      "id": "26",
+      "name": "Amazon history: the range Amazon shows in the page is remembered and drives the scanner when HAULS has little history",
       "status": "PASS",
-      "ms": 2081,
-      "failures": [],
-      "notes": [],
-      "attempts": 1
-    },
-    {
-      "id": "24b",
-      "name": "reviews: polarised ratings read as divided, pages without ratings show no card",
-      "status": "PASS",
-      "ms": 2295,
+      "ms": 5560,
       "failures": [],
       "notes": [],
       "attempts": 1

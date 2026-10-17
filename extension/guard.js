@@ -15,6 +15,7 @@ const loc = l => isObj(l) && Object.keys(l).every(k => ["lat", "lon", "pin"].inc
 // per type: allowed extra keys -> validator. Missing optional keys are only allowed where the validator tolerates undefined.
 const S = {
   seen: { p: product }, track: { key, target: v => num(v, 0, 1e7) }, untrack: { key }, wish: { key, on: v => typeof v === "boolean" }, remove: { key },
+  "history-ref": { key, days: v => num(v, 6, 401), low: v => num(v, 0, 1e7), high: v => num(v, 0, 1e7) },
   compare: { title: v => str(v, 3, 500), site: v => str(v, 1, 60), price: v => num(v, 0, 1e7) },
   grocery: { q: v => str(v, 1, 120), loc, more: v => v === undefined || typeof v === "boolean" }, geocode: { pin }, reverse: { lat: v => num(v, -91, 91), lon: v => num(v, -181, 181) },
   iplocate: {}, whoami: {}, invalidate: { reason: v => v === "user-clear-cache" },  "forget-shared": {}, disableShopify: {}, "open-options": {}, account: {}, signin: {}, signout: { clear: v => v === undefined || typeof v === "boolean" }, "resolve-switch": { choice: v => ["clear", "merge", "cancel"].includes(v) }, sync: {}, waitlist: {}, "delete-data": {}, "export-data": {}, enableShopify: {},
