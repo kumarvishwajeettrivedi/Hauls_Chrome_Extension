@@ -29,7 +29,7 @@ try {
   ok("second reader stored", (await sub(U[1])).b === true);
   ok("TWO readers: still empty (needs 3)", (await get(U[3])).b.length === 0);
   ok("third reader stored", (await sub(U[2])).b === true);
-  const g = await get(U[3]); ok("THREE readers: consensus appears with reporter counts, no user ids", Array.isArray(g.b) && g.b.length === 2 && g.b.every(r => r.reporters === 3) && !JSON.stringify(g.b).includes(U[0].id), JSON.stringify(g.b));
+  const g = await get(U[3]); ok("THREE readers: consensus appears with reporter counts, no user ids", Array.isArray(g.b) && g.b.length === 3 && g.b.every(r => r.reporters === 3) && !JSON.stringify(g.b).includes(U[0].id), JSON.stringify(g.b));
   const an = await rpc("ext_get_chart", { p_key: key }, null, ANON); ok("anon key cannot read the consensus", an.s === 401 || an.s === 403 || (an.b && an.b.code && /42501|permission/.test(JSON.stringify(an.b))), "status " + an.s);
   const as = await rpc("ext_submit_chart", { p_key: key, p_range: 30, p_series: series, p_current: 4499 }, null, ANON); ok("anon key cannot submit", as.s === 401 || as.s === 403 || (as.b && /permission|42501/.test(JSON.stringify(as.b))), "status " + as.s);
   const direct = await rest(`/rest/v1/ext_chart_series?product_key=eq.${encodeURIComponent(key)}`, { jwt: U[0].jwt, key: ANON }); const db = await direct.json(); ok("a signed-in user cannot read the table directly", direct.status >= 400 || (Array.isArray(db) && db.length === 0), "status " + direct.status);
