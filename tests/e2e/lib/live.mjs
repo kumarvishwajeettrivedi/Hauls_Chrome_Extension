@@ -24,6 +24,11 @@ export const pageState = () => ({ title: document.title, body: (document.body ? 
 export const CASES = [
   { id: "amazon-keyboard", site: "amazon.in", kind: "keyboard", list: "https://www.amazon.in/s?k=mechanical+keyboard", link: "a[href*='/dp/']", want: /keyboard/i },
   { id: "amazon-clothing", site: "amazon.in", kind: "clothing", list: "https://www.amazon.in/s?k=men+polo+tshirt", link: "a[href*='/dp/']" },
+  { id: "amazon-phone", site: "amazon.in", kind: "other", list: "https://www.amazon.in/s?k=smartphone+5g+128gb", link: "a[href*='/dp/']", want: /5g|phone/i },
+  { id: "amazon-phone2", site: "amazon.in", kind: "other", list: "https://www.amazon.in/s?k=iphone+15", link: "a[href*='/dp/']", want: /iphone|apple/i },
+  { id: "amazon-laptop", site: "amazon.in", kind: "other", list: "https://www.amazon.in/s?k=laptop+16gb+ram", link: "a[href*='/dp/']", want: /laptop/i },
+  { id: "amazon-kitchen", site: "amazon.in", kind: "other", list: "https://www.amazon.in/s?k=mixer+grinder", link: "a[href*='/dp/']", want: /mixer|grinder/i },
+  { id: "amazon-book", site: "amazon.in", kind: "other", list: "https://www.amazon.in/s?k=atomic+habits+book", link: "a[href*='/dp/']", want: /atomic/i },
   { id: "flipkart-keyboard", site: "flipkart.com", kind: "keyboard", list: "https://www.flipkart.com/search?q=mechanical%20keyboard", link: "a[href*='/p/itm']", want: /keyboard/i },
   { id: "flipkart-clothing", site: "flipkart.com", kind: "clothing", list: "https://www.flipkart.com/search?q=men%20jeans", link: "a[href*='/p/itm']" },
   { id: "myntra-clothing", site: "myntra.com", kind: "clothing", list: "https://www.myntra.com/men-tshirts", link: "a[href$='/buy']" },

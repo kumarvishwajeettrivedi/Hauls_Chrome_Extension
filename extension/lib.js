@@ -1,7 +1,9 @@
 // Pure helpers shared by background, content script and the node self-check.
 const SITES = {
   "amazon.in": { name: "Amazon", id: u => (u.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/) || [])[1],
-    title: ["#productTitle"], price: ["#corePrice_feature_div .a-price:not(.a-text-price) .a-offscreen", ".priceToPay .a-offscreen", "#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen", "#apex_desktop .a-price:not(.a-text-price) .a-offscreen", "#centerCol .a-price:not(.a-text-price) .a-offscreen", "#ppd .a-price:not(.a-text-price) .a-offscreen", "#priceblock_ourprice", "#priceblock_dealprice"],
+    title: ["#productTitle"], price: ["#corePrice_feature_div .a-price:not(.a-text-price) .a-offscreen", ".priceToPay .a-offscreen", "#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen", "#apex_desktop .a-price:not(.a-text-price) .a-offscreen", "#centerCol .a-price:not(.a-text-price) .a-offscreen", "#ppd .a-price:not(.a-text-price) .a-offscreen", "#priceblock_ourprice", "#priceblock_dealprice",
+      // Newer phone pages leave .a-offscreen blank and only draw the digits: read the visible whole-rupee part.
+      ".priceToPay .a-price-whole", "#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-price-whole", "#apex_desktop .a-price:not(.a-text-price) .a-price-whole", "#corePrice_feature_div .a-price:not(.a-text-price) .a-price-whole"],
     mrp: [".basisPrice .a-offscreen", ".a-text-price .a-offscreen"], image: ["#landingImage"], search: "https://www.amazon.in/s?k=" },
   "flipkart.com": { name: "Flipkart", id: u => u.searchParams.get("pid"), title: [], price: [], mrp: [], image: [], search: "https://www.flipkart.com/search?q=" },
   "myntra.com": { name: "Myntra", id: u => (u.pathname.match(/\/(\d+)\/buy/) || [])[1], title: [], price: [], mrp: [], image: [], search: "https://www.myntra.com/" },
