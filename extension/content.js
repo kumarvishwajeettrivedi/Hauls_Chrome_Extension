@@ -92,6 +92,9 @@
   };
   // Small rating dot for rows: green/amber/red ring by seller rating (grey when unknown).
   const ratingDot = (rating, ratings) => { const d = el("i", "rdot"); d.style.setProperty("--c", !rating ? "#B9B9C4" : rating >= 4 ? "#19B968" : rating >= 3 ? "#F5A524" : "#E5484D"); d.title = rating ? `Seller ${rating}★ (${ratings})` : "No seller rating"; return d; };
+  // The shared (community) chart for this product: rows {day, price, reporters} -> points. Ignored when its last price is far from the price on this page (stale or wrong product).
+  const sharedChart = (rows, price) => { const pts = (rows || []).map(r => [Date.parse(r.day + "T12:00:00Z"), r.price]).filter(x => x[0] > 0 && x[1] > 0).sort((a, b) => a[0] - b[0]); if (pts.length < 2) return { points: [], n: 0 };
+    if (Math.abs(pts[pts.length - 1][1] - price) / price > 0.08) return { points: [], n: 0 }; return { points: pts, n: Math.max(...(rows || []).map(r => r.reporters || 1)) }; };
   // All ranges Amazon's chart has shown us for this product, as one series (finer/newer ranges win on overlap).
   const ahPoints = ah => { if (!ah || !ah.ranges) return []; const pts = []; for (const k of ["1Y", "3M", "1M"]) { const r = ah.ranges[k]; if (r) for (const p of r.points) pts.push(p); } pts.sort((a, b) => a[0] - b[0]); const out = []; for (const p of pts) { const l = out[out.length - 1]; if (l && p[0] - l[0] < 12 * 3600e3) { out[out.length - 1] = p; continue; } if (!l || l[1] !== p[1] || p[0] - l[0] > 6 * 864e5) out.push(p); } return out; };
   // Too little own history: show the range this page reported (Amazon's own price history), with today's price on it. DOM only, no markup strings.
@@ -223,7 +226,7 @@
     if (!cur) return main.append(el("p", "empty", T.emptyProduct));
     if (cur.limited) { main.append(el("div", "vcard wait", ""), quotaRow()); main.firstChild.append(el("span", "vl", `All ${cur.limit} free lookups used this month. Saved items still update.`)); return; }
     cur.it = withStoredFlags(cur.it, safeItems((await chrome.storage.local.get("items")).items), cur.p.key);
-    const { p, it } = cur, ahp = ahPoints(it.ahist), H = ahMerge(cur.comm && cur.comm.length ? mergeHistory(it.hist, cur.comm) : it.hist, ahp), s = stats(H), horizon = (await chrome.storage.local.get("horizon")).horizon || "1w", bw = buyWait(H, p.price, p.mrp, Date.now(), it.ref, horizon), d = bw.deal;
+    const { p, it } = cur, ahp = ahPoints(it.ahist), cch = sharedChart(cur.chart, p.price), H = ahMerge(ahMerge(cur.comm && cur.comm.length ? mergeHistory(it.hist, cur.comm) : it.hist, ahp), cch.points), s = stats(H), horizon = (await chrome.storage.local.get("horizon")).horizon || "1w", bw = buyWait(H, p.price, p.mrp, Date.now(), it.ref, horizon), d = bw.deal;
     // hero: price sticker + lowest tag + heart
     const hero = el("div", "hero"), sw = el("div", "st-wrap"), price = el("span", "price num"); sw.append(price);
     if (H.length > 1 && s.min === p.price) sw.append(el("span", "tag", `Lowest in ${d.w ? d.w.days : 1} days`));
@@ -245,7 +248,7 @@
     const paintRange = () => {
       const days = (RANGES.find(r => r[0] === range) || RANGES[1])[1], ws = windowStats(H, now, days || 99999) || { min: s.min, avg: s.avg, max: s.max }, sl = downsample(sliceHistory(H, days, now), 200);
       c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3"), sm = el("small"); sm.append(ico(i), n); x.append(sm, el("b", "num", fmt(v))); c3.append(x); });
-      cb.replaceChildren(el("p", "lbl", `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), sl.length > 1 || !refUsable(it.ref, p.price, now) ? chart(sl, now, days ? range : "") : refBar(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : []));
+      cb.replaceChildren(el("p", "lbl", `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), sl.length > 1 || !refUsable(it.ref, p.price, now) ? chart(sl, now, days ? range : "") : refBar(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : cch.points.length ? [el("p", "meta", `Includes shared history from ${cch.n} HAULS reader${cch.n === 1 ? "" : "s"}.`)] : []));
       [...seg.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.r === range)));
     };
     RANGES.forEach(([k]) => { const b = el("button", "", k); b.dataset.r = k; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
@@ -260,7 +263,7 @@
     { const bn = el("div", "buynow"), hz = el("div", "seg hz"); hz.setAttribute("role", "group"); hz.setAttribute("aria-label", "How soon do you need it");
       HORIZONS.forEach(([k, l]) => { const b = el("button", "", l); b.setAttribute("aria-pressed", String(k === horizon)); b.dataset.h = k; b.onclick = async () => { await chrome.storage.local.set({ horizon: k }); draw(); }; hz.append(b); });
       bn.append(el("p", "lbl bn-h", "Should you buy this now?"), hz, el("p", "meta", "Select based on how soon you need the item."));
-      const row = el("div", "bn-row"), right = el("div", "bn-right"); if (sc.score != null) row.append(gaugeEl(sc.score, "Deal score", 112)); right.append(el("p", "lbl", "Our recommendation"), vc); row.append(right); bn.append(row);
+      const row = el("div", "bn-row"), right = el("div", "bn-right"); if (sc.score != null) { const gw = el("div", "bn-g"); const lg = el("div", "bn-lg"); lg.append(el("span", "bad", "Bad time"), el("span", "good", "Good time")); gw.append(gaugeEl(sc.score, "Deal score", 112), lg); row.append(gw); } right.append(el("p", "lbl", "Our recommendation"), vc); row.append(right); bn.append(row);
       if (bw.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Set price alert at ${fmt(bw.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const r = await send({ type: "track", key: p.key, target: bw.alertAt }); ab.textContent = r && r.error ? "Tracking limit reached" : `Alert set at ${fmt(bw.alertAt)}`; }; bn.append(ab); }
       main.append(bn); }
     // Deal Scanner: 0-100 score with the exact points behind it
@@ -413,7 +416,7 @@
       const btn = el("button", "btn full"), msg = el("p", "meta"); btn.append("Continue with Google"); btn.onclick = async () => { btn.textContent = "Opening Google…"; const r = await chrome.runtime.sendMessage({ type: "signin", gesture: gesture() }); if (r && r.ok) { refresh(); draw(); } else { btn.replaceChildren("Continue with Google"); msg.textContent = r && r.error ? r.error : "Sign-in failed."; } };
       nodes.push(btn, msg); { const cc = el("button", "link-btn", "Clear cache"); cc.onclick = async () => { await send({ type: "invalidate", reason: "user-clear-cache", gesture: gesture() }); cc.textContent = "Cache cleared"; }; nodes.push(cc); }
       { const sg = el("button", "btn ghost"); sg.append(ico("gear"), "Independent stores & settings"); sg.onclick = () => send({ type: "open-options" }); nodes.push(sg); }
-      nodes.push(el("p", "meta", "We store your name, email and watchlist. Prices you see are shared only if you switch sharing on, and are kept apart from your name and email (never shown to anyone). Your data stays in this browser first. You can erase your cloud data anytime."));
+      nodes.push(el("p", "meta", "We store your name, email and watchlist. Prices you see, and the Amazon price charts you open, are shared only if you switch sharing on. They are kept apart from your name and email and shown only as combined history. Your data stays in this browser first. You can erase your cloud data anytime."));
       return openSheet("Sign in to HAULS", nodes);
     }
     const who = el("div", "row2"), av = el("span", "sc", (a.user.name || a.user.email || "?")[0].toUpperCase()); av.style.setProperty("--c", "var(--mint)");
@@ -572,7 +575,7 @@
     if (!p) { cur = null; setBadge(); if (tries++ < 5) return void setTimeout(run, 1500); loading = false; unreadable = !!(S ? S.id(new URL(location.href)) : SHOP); idleRedraw(); return; }
     const r = await chrome.runtime.sendMessage({ type: "seen", p });
     if (!r || r.error) { cur = null; loading = false; setBadge(); idleRedraw(); return; }
-    cur = r.limited ? { limited: true, limit: r.limit, usage: { used: r.used, limit: r.limit } } : { p, it: r.it, usage: r.usage, comm: r.comm || [] };
+    cur = r.limited ? { limited: true, limit: r.limit, usage: { used: r.used, limit: r.limit } } : { p, it: r.it, usage: r.usage, comm: r.comm || [], chart: r.chart || [] };
     loading = false; setBadge(); idleRedraw(); ahAutoRead().catch(() => {});
   }
   run(); if (APP) setOpen(true);

@@ -2,7 +2,7 @@
 // without a visit. Pure parsers (trkParse*) + fetch (trkFetch) + scheduler (trkRun). Design: docs/internal/specs/2026-10-17-reliability-program-design.md.
 // Safety: URLs are built from stored ids on an allowlisted host; a body is only a price if the product id appears in it and the number is plausible
 // (captcha pages answer HTTP 200); a big jump or a crossing of the alert target must be seen twice before it is recorded.
-const TRK = { BATCH: 4, MIN_MS: 6 * 3600e3, PENDING_MS: 20 * 60e3, HOLD_TTL: 2 * 3600e3, LEASE_MS: 4 * 60e3, DAY_CAP: 60, CAP_PER_ITEM: 6, FAILS: 3, PAUSE_MS: 6 * 3600e3, JUMP: 0.4, MAX_BYTES: 3e6, TIMEOUT: 10000 };
+const TRK = { BATCH: 4, MIN_MS: 6 * 3600e3, PENDING_MS: 20 * 60e3, RECENT_N: 12, RECENT_DAYS: 30, HOLD_TTL: 2 * 3600e3, LEASE_MS: 4 * 60e3, DAY_CAP: 60, CAP_PER_ITEM: 6, FAILS: 3, PAUSE_MS: 6 * 3600e3, JUMP: 0.4, MAX_BYTES: 3e6, TIMEOUT: 10000 };
 const TRK_STORES = { "amazon.in": { name: "Amazon", host: "amazon.in" }, "flipkart.com": { name: "Flipkart", host: "flipkart.com" }, "myntra.com": { name: "Myntra", host: "myntra.com" } };
 const trkNum = v => { const n = typeof v === "number" ? v : parseFloat(String(v == null ? "" : v).replace(/[^\d.]/g, "")); return isFinite(n) && n >= 1 && n < 1e7 ? n : null; };
 const trkDomain = key => { const d = String(key || "").split(":")[0]; return TRK_STORES[d] ? d : null; };
@@ -104,7 +104,9 @@ async function trkRunInner(now, doFetch) {
   const st = (await chrome.storage.local.get("trk")).trk || {}, T = { cursor: st.cursor || 0, day: st.day || "", counts: st.counts || {}, fails: st.fails || {}, pause: st.pause || {}, health: st.health || {} };
   if (T.day !== trkDay(now)) { T.day = trkDay(now); T.counts = {}; }
   const save = () => chrome.storage.local.set({ trk: T }), items = await get(), out = { checked: 0, recorded: 0, held: 0, failed: 0, skipped: 0 };
-  const keys = Object.keys(items).filter(k => trkDomain(k) && (items[k].target || items[k].wish)).sort();
+  // watched items + the most recently viewed products (so history grows for what the user actually shops, not only for hearts)
+  const recent = new Set(Object.keys(items).filter(k => trkDomain(k) && items[k].seenAt && now - items[k].seenAt < TRK.RECENT_DAYS * 864e5).sort((a, b) => items[b].seenAt - items[a].seenAt).slice(0, TRK.RECENT_N));
+  const keys = Object.keys(items).filter(k => trkDomain(k) && (items[k].target || items[k].wish || recent.has(k))).sort();
   const perDom = {}; for (const k of keys) perDom[trkDomain(k)] = (perDom[trkDomain(k)] || 0) + 1;
   const due = keys.filter(k => { const it = items[k], wait = it.pending || it.suspect ? TRK.PENDING_MS : Math.max(TRK.MIN_MS, it.failN ? Math.min(24 * 3600e3, TRK.MIN_MS * 2 ** (it.failN - 1)) : 0); return now - (it.checked || 0) >= wait; });
   const start = T.cursor % Math.max(due.length, 1), order = [...due.slice(start), ...due.slice(0, start)];

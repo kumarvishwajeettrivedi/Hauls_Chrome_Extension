@@ -543,6 +543,32 @@ test("34", "auto-read (opt-in): clicks Amazon's own Price-history button out of 
   t.check(!!got.ahist.tried, "attempt recorded (no repeat within 12 h)");
 }));
 
+test("35", "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {
+  const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
+  const sb = await fakeSupabase(ctx); await seedSession(sw, SESSION); await seed(sw, { profile: { plan: "free", contribute: true, name: "Test User" } });
+  const { p, panel } = await product(ctx, { id: "B0SHAREDC1", price: 4499, mrp: 5999 }); await panel.open(); await sleep(500);
+  await p.evaluate(h => { const w = document.createElement("div"); w.id = "rufus-react-renderer"; w.innerHTML = h; document.body.append(w); }, svg);
+  await poll(async () => (await outboxOf(sw)).some(o => o.t === "chart"), 8000, 300);
+  const op = (await outboxOf(sw)).find(o => o.t === "chart"); t.check(!!op && op.range >= 29 && op.range <= 30, "chart op queued: " + JSON.stringify(op && [op.key, op.range, op.current, op.series.length]));
+  const ep = await ctx.newPage(); await ep.goto(`chrome-extension://${extId}/options.html`); await ep.evaluate(() => chrome.runtime.sendMessage({ type: "sync" })); await ep.close();
+  const post = await poll(async () => sb.calls.find(c => /\/rpc\/ext_submit_chart/.test(c.path)), 8000, 300);
+  t.check(!!post, "ext_submit_chart called"); const b = post && post.body; t.check(b && /B0SHAREDC1/.test(b.p_key) && b.p_current === 4499 && b.p_range >= 29 && b.p_range <= 30 && b.p_series.length === 3 && b.p_series[0][1] === 5499 && b.p_series.every(x => Number.isInteger(x[0])), "args: " + JSON.stringify(b).slice(0, 220));
+  // opted OUT: nothing is queued
+  await seed(sw, { profile: { plan: "free", contribute: false } }); const before = (await outboxOf(sw)).filter(o => o.t === "chart").length;
+  const r2 = await product(ctx, { id: "B0SHAREDC2", price: 4499, mrp: 5999 }); await r2.panel.open(); await sleep(400);
+  await r2.p.evaluate(h => { const w = document.createElement("div"); w.id = "rufus-react-renderer"; w.innerHTML = h; document.body.append(w); }, svg); await sleep(1800);
+  t.check((await outboxOf(sw)).filter(o => o.t === "chart" && /B0SHAREDC2/.test(o.key)).length === 0, "contribute=false: no chart op");
+  // another reader: shared consensus is shown
+  const d = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10); sb.chartRows = [{ day: d(60), price: 5200, reporters: 3 }, { day: d(30), price: 5499, reporters: 3 }, { day: d(5), price: 4499, reporters: 4 }];
+  await seed(sw, { profile: { plan: "free", contribute: true } });
+  const r3 = await product(ctx, { id: "B0SHAREDC3", price: 4499, mrp: 5999 }); await r3.panel.open(); await poll(async () => await r3.panel.has(".cw svg"), 8000, 300);
+  t.check(await r3.panel.has(".cw svg") && /shared history from 4 HAULS readers/.test(await r3.panel.text(".chartbox")), "shared chart drawn with its source: " + (await r3.panel.text(".chartbox")).slice(-90));
+  // a stale shared series (last price far from this page) is ignored
+  sb.chartRows = [{ day: d(60), price: 9000, reporters: 3 }, { day: d(5), price: 9500, reporters: 3 }];
+  const r4 = await product(ctx, { id: "B0SHAREDC4", price: 4499, mrp: 5999 }); await r4.panel.open(); await sleep(1500);
+  t.check(!(await r4.panel.has(".cw svg")), "shared series that disagrees with the page price is ignored");
+}));
+
 // ---------------------------------------------------------------- 14 range selector
 test("14", "range selector: 30D/90D/1Y/All changes label, x-axis, y labels, chips; persists", t => withExt({}, async ({ ctx, sw }) => {
   const now = Date.now(), H = [[now - 380 * D, 1500], [now - 200 * D, 1300], [now - 60 * D, 1100], [now - 20 * D, 900], [now - 36e5, 830]];

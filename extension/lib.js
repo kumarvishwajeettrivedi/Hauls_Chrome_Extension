@@ -149,7 +149,7 @@ function safeItems(raw) {
   for (const [k, v] of Object.entries(raw)) { if (!k || k.length > 200) continue; const s = safeItem(v); if (s) out[k] = s; }
   return out;
 }
-const safeOutbox = raw => (Array.isArray(raw) ? raw : []).filter(o => o && typeof o === "object" && (o.t === "watch" || o.t === "obs") && typeof o.key === "string" && o.key.length <= 200).map(o => (typeof o.id === "string" && o.id ? o : { ...o, id: _uid() })).slice(-500);
+const safeOutbox = raw => (Array.isArray(raw) ? raw : []).filter(o => o && typeof o === "object" && (o.t === "watch" || o.t === "obs" || (o.t === "chart" && Array.isArray(o.series) && o.series.length >= 2 && o.series.length <= 130 && o.series.every(q => Array.isArray(q) && q.length === 2 && isFinite(q[0]) && isFinite(q[1])))) && typeof o.key === "string" && o.key.length <= 200).map(o => (typeof o.id === "string" && o.id ? o : { ...o, id: _uid() })).slice(-500);
 const safeUsage = raw => raw && typeof raw === "object" && typeof raw.month === "string" && Array.isArray(raw.keys) ? { month: raw.month, keys: raw.keys.filter(k => typeof k === "string").slice(0, 5000) } : null;
 // The Product tab's heart/trap must mirror the stored watchlist (it changes from the Watchlist tab, another tab, or a sync). Missing item = not wished, no trap.
 function withStoredFlags(it, items, key) { const st = (items && items[key]) || {}, o = { ...it, wish: !!st.wish }; if (st.target) o.target = st.target; else delete o.target; return o; }

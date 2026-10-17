@@ -11,9 +11,11 @@
     "build:config": "node scripts/build-config.js",
     "package": "bash scripts/package.sh",
     "test:stop": "pkill -f tests/e2e/run.mjs; pkill -f chrome-mac-arm64; rm -rf \"${TMPDIR:-/tmp}/hauls-test.lock\"; echo stopped",
-    "package:share": "bash scripts/package.sh share"
+    "package:share": "bash scripts/package.sh share",
+    "test:sql": "node tests/sql/pglite.test.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "playwright-core": "^1.50.0"
   }
 }

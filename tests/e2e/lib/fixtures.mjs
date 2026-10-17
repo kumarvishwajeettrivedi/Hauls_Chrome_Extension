@@ -49,6 +49,8 @@ export async function fakeSupabase(ctx, { fail = false } = {}) {
     if (u.pathname.includes("/ext_profiles")) return json(200, [{ plan: "free", contribute: true, name: "Test User" }]);
     if (u.pathname.includes("/ext_remote_config")) return json(200, [{ value: { disabled_stores: [] } }]);
     if (u.pathname.includes("/rpc/ext_price_history")) return json(200, []);
+    if (u.pathname.includes("/rpc/ext_get_chart")) return json(200, api.chartRows || []);
+    if (u.pathname.includes("/rpc/ext_submit_chart")) return json(200, true);
     return json(200, null);
   });
   return api;

@@ -66,6 +66,13 @@ sandbox.__enq = []; vm.runInContext("getSession = async () => null; enqueue = o 
   out = await ctx.trkRun(t0 + 1e6 + 1, mkFetch(u => AOD.replace(/B0F8BVSK21/g, u.match(/asin=([A-Z0-9]{10})/)[1]))); ok(out.checked === 2, "the rest next run, none twice: " + out.checked);
   mem.trk.counts = { "amazon.in": 60 }; mem.trk.day = new Date(t0 + 1e6).toISOString().slice(0, 10); for (const k of Object.keys(mem.items)) mem.items[k].checked = 0; fetched = [];
   out = await ctx.trkRun(t0 + 1e6 + 5, mkFetch(() => aod(766))); ok(fetched.length === 0, "daily per-domain cap holds");
+  // recently viewed products are polled too (top 12, last 30 days)
+  mem.items = {}; mem.trk = {}; for (let i = 0; i < 15; i++) mem.items["amazon.in:B0RECENT0" + String.fromCharCode(65 + i)] = { site: "Amazon", url: "https://www.amazon.in/dp/B0RECENT0" + String.fromCharCode(65 + i), hist: [[t0, 766]], seenAt: t0 - i * 3600e3 };
+  mem.items["amazon.in:B0OLDSEEN1"] = { site: "Amazon", url: "https://www.amazon.in/dp/B0OLDSEEN1", hist: [[t0, 766]], seenAt: t0 - 40 * D };
+  { const asked = new Set(); for (let r = 0; r < 4; r++) { await ctx.trkRun(t0 + 5e6 + r * 1e3, async u => { asked.add(u.match(/asin=([A-Z0-9]{10})/)[1]); return { ok: true, status: 200, url: u, headers: { get: () => "0" }, text: async () => AOD.replace(/B0F8BVSK21/g, u.match(/asin=([A-Z0-9]{10})/)[1]) }; }); }
+    ok(asked.size === 12 && [...asked].every(a => /^B0RECENT0[A-L]$/.test(a)), "only the 12 most recently viewed are polled, not older ones or a 40-day-old view: " + [...asked].join(",")); }
+  mem.items = { "amazon.in:B0RECENT0Z": { site: "Amazon", url: "https://www.amazon.in/dp/B0RECENT0Z", hist: [[t0, 766]], seenAt: t0 - 3600e3 }, "amazon.in:B0OLDSEEN2": { site: "Amazon", url: "https://www.amazon.in/dp/B0OLDSEEN2", hist: [[t0, 766]], seenAt: t0 - 40 * D } }; mem.trk = {};
+  { const asked = new Set(); await ctx.trkRun(t0 + 8e6, async u => { asked.add(u.match(/asin=([A-Z0-9]{10})/)[1]); return { ok: true, status: 200, url: u, headers: { get: () => "0" }, text: async () => AOD.replace(/B0F8BVSK21/g, u.match(/asin=([A-Z0-9]{10})/)[1]) }; }); ok(asked.has("B0RECENT0Z") && !asked.has("B0OLDSEEN2"), "a product last viewed 40 days ago is not polled: " + [...asked]); }
   // ---- review round: per-item backoff, hold expiry, lease, first read, visit-path hold, cap scaling, apply errors
   const body = u => AOD.replace(/B0F8BVSK21/g, u.match(/asin=([A-Z0-9]{10})/)[1]);
   mem.items = { "amazon.in:B0GOODITM1": { site: "Amazon", url: "https://www.amazon.in/dp/B0GOODITM1", hist: [[t0, 766]], wish: true }, "amazon.in:B0BADITEM1": { site: "Amazon", url: "https://www.amazon.in/dp/B0BADITEM1", hist: [[t0, 766]], wish: true } }; mem.trk = {};

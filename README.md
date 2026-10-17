@@ -33,7 +33,7 @@ Download the latest `hauls-share.zip` from the [releases page](../../releases/la
 
 ## Privacy
 
-Prices you browse are stored in your browser first. Sharing anonymous prices to build community history is off unless you switch it on, and shared prices are kept apart from your name and email. Details are in [docs/security.md](docs/security.md).
+Prices you browse are stored in your browser first. Sharing anonymous prices and the Amazon price charts you open, to build community history, is off unless you switch it on. Shared data is kept apart from your name and email and shown only as combined history (several readers per day). Details are in [docs/security.md](docs/security.md).
 
 ## Development
 

@@ -7,6 +7,7 @@ async function record(p) {
   const items = await get(), it = items[p.key] ||= { hist: [] };
   Object.assign(it, { site: p.site || it.site, title: p.title || it.title, image: p.image || it.image, url: p.url || it.url }); if (p.mrp !== undefined) it.mrp = p.mrp; // undefined = this reader did not look at MRP: keep what we know
   if (p.seller && p.seller.name) { if (it.seller && it.seller !== p.seller.name) it.sellerChange = { from: it.seller, at: Date.now() }; it.seller = p.seller.name; }
+  if (p.src !== "bg") it.seenAt = Date.now(); // a page visit: the tracker keeps recently viewed products fresh too
   if (p.checked) it.checked = p.checked; for (const k of p.clear || []) delete it[k]; // the tracker clears its hold markers in the same write as the point
   const lastP = it.hist.length ? it.hist[it.hist.length - 1][1] : null; // a page read 4x higher / 4x lower than the last point is usually an EMI, bundle or variant artefact: it needs a second read within 2h
   if (p.src !== "bg" && lastP && (p.price < lastP * 0.25 || p.price > lastP * 4)) { const v = it.vhold; if (!(v && Date.now() - v.at < 2 * 3600e3 && Math.abs(v.price - p.price) / p.price <= 0.02)) { it.vhold = { price: p.price, at: Date.now() }; await put(items); return it; } delete it.vhold; } else delete it.vhold;
@@ -51,8 +52,8 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       const { usage, plan = "free" } = await chrome.storage.local.get(["usage", "plan"]), q = useLookup(safeUsage(usage), m.p.key, plan);
       if (!q.allowed) return reply({ limited: true, used: q.used, limit: q.limit });
       await chrome.storage.local.set({ usage: q.usage });
-      const it = await withLock(() => record(m.p)), comm = await Promise.race([fetchCommunity(m.p.key), new Promise(r => setTimeout(() => r([]), 2500))]);
-      reply({ it, usage: { used: q.used, limit: q.limit }, comm });
+      const it = await withLock(() => record(m.p)), comm = await Promise.race([fetchCommunity(m.p.key), new Promise(r => setTimeout(() => r([]), 2500))]), chart = await Promise.race([fetchChart(m.p.key), new Promise(r => setTimeout(() => r([]), 2500))]);
+      reply({ it, usage: { used: q.used, limit: q.limit }, comm, chart });
     }
     else if (m.type === "track") {
       reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (!it) return true; const { plan = "free" } = await chrome.storage.local.get("plan");
@@ -73,7 +74,9 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "ahist") { await withLock(async () => { const items = await get(), it = items[m.key]; if (!it || !it.hist.length) return reply({ ok: false });
         const price = it.hist[it.hist.length - 1][1], last = m.points[m.points.length - 1][1];
         if (!(last >= price * 0.6 && last <= price * 1.4)) return reply({ ok: false }); // the chart must agree with the price this product shows today
-        const ah = it.ahist || { ranges: {} }; ah.at = Date.now(); ah.ranges[m.range] = { at: Date.now(), days: m.days, points: m.points }; if (m.offer) ah.offer = m.offer; if (m.highest) ah.highest = m.highest; it.ahist = ah; await put(items); reply({ ok: true, it }); }); }
+        const ah = it.ahist || { ranges: {} }; ah.at = Date.now(); ah.ranges[m.range] = { at: Date.now(), days: m.days, points: m.points }; if (m.offer) ah.offer = m.offer; if (m.highest) ah.highest = m.highest; it.ahist = ah; await put(items);
+        { const { profile } = await chrome.storage.local.get("profile"); if (profile && profile.contribute === true && await getSession()) enqueue({ t: "chart", key: m.key, range: m.days, series: m.points, current: m.current || last }); } // opt-in: share the chart Amazon itself showed this reader
+        reply({ ok: true, it }); }); }
     else if (m.type === "ahist-tried") { await withLock(async () => { const items = await get(), it = items[m.key]; if (it) { it.ahist = it.ahist || { ranges: {} }; it.ahist.tried = Date.now(); await put(items); } }); reply({ ok: true }); }
     else if (m.type === "seller") reply(await offSeller({ sid: m.sid }).catch(() => ({ failed: true })));
     else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));

@@ -9,11 +9,17 @@ const httpsOnly = u => typeof u === "string" && /^https:\/\//i.test(u) ? u : und
 
 // Keep one pending 'watch' op per product (latest wins); observations dedupe on key+day+price.
 function coalesce(outbox, op) {
-  const out = outbox.filter(o => !(op.t === "watch" && o.t === "watch" && o.key === op.key) && !(op.t === "obs" && o.t === "obs" && o.key === op.key && o.price === op.price && dayOf(o.at) === dayOf(op.at)));
+  const out = outbox.filter(o => !(op.t === "watch" && o.t === "watch" && o.key === op.key) && !(op.t === "chart" && o.t === "chart" && o.key === op.key && o.range === op.range) && !(op.t === "obs" && o.t === "obs" && o.key === op.key && o.price === op.price && dayOf(o.at) === dayOf(op.at)));
   out.push(op); return out.slice(-OUTBOX_MAX);
 }
 const toWatchRow = (uid, op) => ({ user_id: uid, product_key: op.key, site: op.site || null, title: op.title || null, url: op.url || null, image: op.image || null,
   target_price: op.target || null, wish: !!op.wish, last_price: op.last || null, deleted_at: op.deleted ? new Date(op.u).toISOString() : null, updated_at: new Date(op.u).toISOString() });
+// Chart series for the shared history: [[epoch ms, price]] -> [[day number, price]], one point per day (the last wins), at most 130, last price = today's price.
+function toChartArgs(op) {
+  const byDay = new Map(); for (const [t, p] of op.series) byDay.set(Math.floor(t / DAY_MS), Math.round(p * 100) / 100);
+  let pts = [...byDay.entries()].sort((a, b) => a[0] - b[0]); if (pts.length > 130) pts = pts.filter((_, i) => i % Math.ceil(pts.length / 129) === 0 || i === pts.length - 1).slice(-130);
+  return { p_key: op.key, p_range: Math.max(5, Math.min(400, Math.round(op.range))), p_series: pts.map(([d, p]) => [d, p]), p_current: op.current };
+}
 const toObsRow = op => ({ product_key: op.key, site: op.site, price: op.price, mrp: op.mrp || null, observed_at: new Date(op.at).toISOString(), src: op.src || "dom" });
 
 // Last-write-wins merge of a server watchlist row into a local item. Returns the item (new object) or null when local is newer.
@@ -45,13 +51,18 @@ async function flush() {
     try { if (profile.contribute === true) await api("/rpc/ext_upsert_observations", { method: "POST", body: { p_rows: batch.map(toObsRow) } }); batch.forEach(o => done.add(o.id)); sent += batch.length; }
     catch (e) { if (isClientErr(e)) { batch.forEach(o => done.add(o.id)); dropped += batch.length; } else failure = e; }
   }
+  const charts = failure ? [] : snapshot.filter(o => o.t === "chart");
+  for (const o of charts) { // false from the server (rate limit, validation) is an answer, not an error: the op is done either way
+    try { if (profile.contribute === true) await api("/rpc/ext_submit_chart", { method: "POST", body: toChartArgs(o) }); done.add(o.id); sent++; }
+    catch (e) { if (isClientErr(e)) { done.add(o.id); dropped++; } else { failure = e; break; } }
+  }
   await withLock(async () => { const cur = safeOutbox(await storeGet("outbox")); await chrome.storage.local.set({ outbox: cur.filter(o => !done.has(o.id)), ...(failure ? {} : { lastSync: Date.now() }) }); });
   return failure ? { ok: false, reason: String(failure.message || failure).slice(0, 120), sent, dropped } : { ok: true, sent, dropped };
 }
 
 // ---- S2 account-switch protection: local data is tagged with the user id that owns it ----
 // What belongs to the previous ACCOUNT on this device: content + personal settings (saved places, pincode, coordinates). Every SYNCED_SETTINGS key must be here (a unit test enforces it). Pure UI prefs (notch position) are not.
-const CONTENT_KEYS = ["items", "outbox", "histCache", "lastPull", "usage", "setStamps", "places", "pin", "range", "loc", "lastPin"];
+const CONTENT_KEYS = ["items", "outbox", "histCache", "chartCache", "lastPull", "usage", "setStamps", "places", "pin", "range", "loc", "lastPin"];
 async function claimOwner(userId) {
   const { localOwner } = await chrome.storage.local.get("localOwner");
   if (!localOwner) { await chrome.storage.local.set({ localOwner: userId }); return "adopted"; } // anonymous local data joins the first account that signs in
@@ -118,4 +129,13 @@ async function fetchCommunity(key) {
   try { const rows = await api("/rpc/ext_price_history", { method: "POST", body: { p_key: key, p_days: 1095 } }); cache[key] = { t: Date.now(), rows: rows || [] }; const keys = Object.keys(cache); if (keys.length > 60) delete cache[keys.sort((a, b) => cache[a].t - cache[b].t)[0]]; await chrome.storage.local.set({ histCache: cache }); return rows || []; }
   catch { return (c && c.rows) || []; }
 }
-if (typeof module !== "undefined") module.exports = { SYNCED_SETTINGS, settingsToPush, settingsFromServer, syncSettings, stampSettings, claimOwner, resolveSwitch, CONTENT_KEYS, coalesce, toWatchRow, toObsRow, mergeWatchRow };
+// Shared chart series for one product (consensus of opt-in readers, >= 2-3 reporters per day). Signed-in only; cached 6h; resolves [] on any failure.
+async function fetchChart(key) {
+  const cache = (await storeGet("chartCache")) || {}, c = cache[key]; if (c && Date.now() - c.t < COMM_TTL) return c.rows;
+  if (!(await getSession())) return [];
+  try {
+    const rows = ((await api("/rpc/ext_get_chart", { method: "POST", body: { p_key: key } })) || []).filter(x => x && /^\d{4}-\d{2}-\d{2}/.test(String(x.day)) && +x.price > 0).slice(0, 800).map(x => ({ day: String(x.day).slice(0, 10), price: +x.price, reporters: +x.reporters || 1 }));
+    cache[key] = { t: Date.now(), rows }; const keys = Object.keys(cache); if (keys.length > 60) delete cache[keys.sort((a2, b2) => cache[a2].t - cache[b2].t)[0]]; await chrome.storage.local.set({ chartCache: cache }); return rows;
+  } catch { return (c && c.rows) || []; }
+}
+if (typeof module !== "undefined") module.exports = { toChartArgs, SYNCED_SETTINGS, settingsToPush, settingsFromServer, syncSettings, stampSettings, claimOwner, resolveSwitch, CONTENT_KEYS, coalesce, toWatchRow, toObsRow, mergeWatchRow };
