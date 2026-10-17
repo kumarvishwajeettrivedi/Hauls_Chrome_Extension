@@ -97,11 +97,13 @@
     const age = Math.floor((Date.now() - pts[pts.length - 1][0]) / 864e5); if (age > 14 || Math.abs(pts[pts.length - 1][1] - price) / price > 0.08) return { points: [], n: 0 }; return { points: pts, n: Math.max(...(rows || []).map(r => r.reporters || 1)), age: Math.max(0, age) }; };
   // All ranges Amazon's chart has shown us for this product, as one series (finer/newer ranges win on overlap).
   const ahPoints = ah => { if (!ah || !ah.ranges) return []; const pts = []; for (const k of ["1Y", "3M", "1M"]) { const r = ah.ranges[k]; if (r) for (const p of r.points) pts.push(p); } pts.sort((a, b) => a[0] - b[0]); const out = []; for (const p of pts) { const l = out[out.length - 1]; if (l && p[0] - l[0] < 12 * 3600e3) { out[out.length - 1] = p; continue; } if (!l || l[1] !== p[1] || p[0] - l[0] > 6 * 864e5) out.push(p); } return out; };
-  // Too little own history: show the range this page reported (Amazon's own price history), with today's price on it. DOM only, no markup strings.
-  const refBar = (ref, price) => {
-    const w = el("div", "refbar"), track = el("div", "rb-track"), dot = el("i", "rb-dot"), lab = el("div", "rb-lab"), pos = ref.high > ref.low ? Math.min(1, Math.max(0, (price - ref.low) / (ref.high - ref.low))) : 0.5;
-    dot.style.left = `calc(${(pos * 100).toFixed(1)}% - 9px)`; track.append(dot); lab.append(el("span", "num", fmt(ref.low)), el("span", "num", fmt(ref.high)));
-    w.append(track, lab, el("p", "meta", `Range shown on this page for the last ${ref.days} days. HAULS is still building its own history.`)); return w;
+  // Same frame as the step chart for when only a range is known (no series yet): the band between Amazon's low and high, and today's price on it. Nothing in between is drawn because nothing in between is known.
+  const bandChart = (ref, price) => {
+    const lo = Math.min(ref.low, price), hi = Math.max(ref.high, price), W = 300, L = 6, R = 294, T = 14, B = 76, Y = v => hi === lo ? (T + B) / 2 : B - (v - lo) / (hi - lo) * (B - T), cw = el("div", "cw bandc");
+    const NS = "http://www.w3.org/2000/svg", mk = (tag, at) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); return e; }, svg = mk("svg", { viewBox: `0 0 ${W} 90`, role: "img", "aria-label": `Range ${fmt(ref.low)} to ${fmt(ref.high)}, now ${fmt(price)}` }), dash = y => mk("line", { x1: L, x2: R, y1: y, y2: y, stroke: "var(--ink-3)", "stroke-dasharray": "4 4" });
+    svg.append(mk("rect", { x: L, y: Y(ref.high), width: R - L, height: Math.max(2, Y(ref.low) - Y(ref.high)), rx: 6, fill: "var(--mint)", opacity: ".35" }), dash(Y(ref.high)), dash(Y(ref.low)), mk("circle", { cx: R, cy: Y(price), r: 6, fill: "var(--surface)", stroke: "var(--ink)", "stroke-width": 3 })); cw.append(svg);
+    cw.append(el("span", "yl t num", fmt(ref.high)), el("span", "yl b num", fmt(ref.low)));
+    const out = el("div"), xl = el("div", "xl"); xl.append(el("span", "", `${ref.days} days ago`), el("span", "", "Today")); out.append(cw, xl, el("p", "meta", `Range shown on this page for the last ${ref.days} days. The day-by-day line appears once Amazon's chart has been read.`)); return out;
   };
   // Step chart: a price holds until the next observation, and the last price is extended to today.
   const chart = (h, now = Date.now(), win = "") => {
@@ -248,33 +250,43 @@
     const paintRange = () => {
       const days = (RANGES.find(r => r[0] === range) || RANGES[1])[1]; let ws = windowStats(H, now, days || 99999) || { min: s.min, avg: s.avg, max: s.max }, sl = downsample(sliceHistory(H, days, now), 200);
       const useRef = sl.length < 2 && refUsable(it.ref, p.price, now); // too little own history in this tab: the numbers are Amazon's range for the days it covers, not one price repeated three times
-      if (useRef) ws = { min: Math.min(it.ref.low, p.price), avg: null, max: Math.max(it.ref.high, p.price) };
-      c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3"), sm = el("small"); sm.append(ico(i), n); x.append(sm, el("b", "num", v == null ? "—" : fmt(v))); c3.append(x); });
-      cb.replaceChildren(el("p", "lbl", `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), !useRef ? chart(sl, now, days ? range : "") : refBar(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : cch.points.length ? [el("p", "meta", `Includes shared history from ${cch.n} HAULS reader${cch.n === 1 ? "" : "s"}, updated ${cch.age ? cch.age + " days ago" : "today"}.`)] : []));
+      if (useRef) ws = { min: Math.min(it.ref.low, p.price), avg: (Math.min(it.ref.low, p.price) + Math.max(it.ref.high, p.price)) / 2, max: Math.max(it.ref.high, p.price), est: true }; // only a range is known: the midpoint stands in for the average and says so
+      const prevV = c3.dataset.v ? JSON.parse(c3.dataset.v) : {}, nowV = { Low: ws.min, Avg: ws.avg, High: ws.max }; c3.dataset.v = JSON.stringify(nowV);
+      c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3" + (prevV[n] != null && Math.round(prevV[n]) !== Math.round(v) ? " chg" : "")), sm = el("small"), dv = Math.round(p.price - v); sm.append(ico(i), n);
+        x.append(sm, el("b", "num", (ws.est && n === "Avg" ? "~" : "") + fmt(v)), el("em", "dlt num", dv === 0 ? "now" : `now ${dv > 0 ? "+" : "−"}${fmt(Math.abs(dv))}`)); if (ws.est && n === "Avg") x.title = "Estimated from Amazon's range"; c3.append(x); });
+      [...seg.children].forEach(b => b.classList.toggle("beyond", useRef && +b.dataset.d > it.ref.days));
+      cb.replaceChildren(el("p", "lbl", useRef && (!days || days > it.ref.days) ? `Last ${it.ref.days} days · all HAULS has for now` : `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), !useRef ? chart(sl, now, days ? range : "") : bandChart(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : cch.points.length ? [el("p", "meta", `Includes shared history from ${cch.n} HAULS reader${cch.n === 1 ? "" : "s"}, updated ${cch.age ? cch.age + " days ago" : "today"}.`)] : []));
       [...seg.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.r === range)));
     };
-    RANGES.forEach(([k]) => { const b = el("button", "", k); b.dataset.r = k; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
+    RANGES.forEach(([k, dd]) => { const b = el("button", "", k); b.dataset.r = k; b.dataset.d = dd || 99999; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
     main.append(seg, c3, cb); paintRange();
     // "Should you buy this now?": horizon tabs + half-ring score + recommendation (+ alert price)
     const sc = dealScan(H, p.price, p.mrp, Date.now(), it.ref);
-    const vc = el("div", "vcard " + bw.verdict), info = el("button", "info"); info.append(ico("info")); info.setAttribute("aria-label", "Why this verdict");
-    vc.append(el("span", "vw", { buy: "Buy now", wait: "Wait for savings", okay: "Fair price", unknown: "Early" }[bw.verdict]), el("span", "vl", bw.short), info);
-    info.onclick = () => { const ul = el("ul"); bw.reasons.forEach(r => ul.append(el("li", "", r)));
-      const nodes = [ul]; if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") nodes.push(note("Discount context", `Advertised ${Math.round(d.adv * 100)}% off the listed MRP. Against recent observed prices it's ${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"}.`));
-      openSheet(bw.title, nodes); };
-    { const bn = el("div", "buynow"), hz = el("div", "seg hz"); hz.setAttribute("role", "group"); hz.setAttribute("aria-label", "How soon do you need it");
-      HORIZONS.forEach(([k, l]) => { const b = el("button", "", l); b.setAttribute("aria-pressed", String(k === horizon)); b.dataset.h = k; b.onclick = async () => { await chrome.storage.local.set({ horizon: k }); draw(); }; hz.append(b); });
-      bn.append(el("p", "lbl bn-h", "Should you buy this now?"), hz, el("p", "meta", "Select based on how soon you need the item."));
-      const row = el("div", "bn-row"), right = el("div", "bn-right"); if (sc.score != null) { const gw = el("div", "bn-g"); const lg = el("div", "bn-lg"); lg.append(el("span", "bad", "Bad time"), el("span", "good", "Good time")); gw.append(gaugeEl(sc.score, "Deal score", 112), lg); row.append(gw); } right.append(el("p", "lbl", "Our recommendation"), vc); row.append(right); bn.append(row);
-      if (bw.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Set price alert at ${fmt(bw.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const r = await send({ type: "track", key: p.key, target: bw.alertAt }); ab.textContent = r && r.error ? "Tracking limit reached" : `Alert set at ${fmt(bw.alertAt)}`; }; bn.append(ab); }
+    // "Should you buy this now?": the horizon tabs refresh THIS card only (short skeleton, then the new verdict); nothing else in the panel redraws.
+    { const bn = el("div", "buynow"), hz = el("div", "seg hz"), body = el("div", "bn-body"); hz.setAttribute("role", "group"); hz.setAttribute("aria-label", "How soon do you need it");
+      const paintBuy = h => {
+        const w = buyWait(H, p.price, p.mrp, Date.now(), it.ref, h), vc = el("div", "vcard " + w.verdict), info = el("button", "info"), tipEl = el("span", "itip"); tipEl.setAttribute("role", "tooltip"); tipEl.textContent = (w.reasons || []).slice(0, 2).join(" ") || w.short;
+        info.append(ico("info"), tipEl); info.setAttribute("aria-label", "Why this verdict");
+        vc.append(el("span", "vw", { buy: "Buy now", wait: "Wait for savings", okay: "Fair price", unknown: "Early" }[w.verdict]), el("span", "vl", w.short), info);
+        info.onclick = () => { const ul = el("ul"); w.reasons.forEach(r => ul.append(el("li", "", r)));
+          const nodes = [ul]; if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") nodes.push(note("Discount context", `Advertised ${Math.round(d.adv * 100)}% off the listed MRP. Against recent observed prices it's ${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"}.`));
+          openSheet(w.title, nodes); };
+        const row = el("div", "bn-row"), right = el("div", "bn-right"); if (sc.score != null) { const gw = el("div", "bn-g"), lg = el("div", "bn-lg"); lg.append(el("span", "bad", "Bad time"), el("span", "good", "Good time")); gw.append(gaugeEl(sc.score, "Deal score", 112), lg); row.append(gw); } right.append(el("p", "lbl", "Our recommendation"), vc); row.append(right);
+        const kids = [row]; if (w.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Set price alert at ${fmt(w.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const r = await send({ type: "track", key: p.key, target: w.alertAt }); ab.textContent = r && r.error ? "Tracking limit reached" : `Alert set at ${fmt(w.alertAt)}`; }; kids.push(ab); }
+        body.replaceChildren(...kids); body.classList.remove("busy"); body.classList.add("fresh"); setTimeout(() => body.classList.remove("fresh"), 400);
+      };
+      let curH = horizon, tmr = 0;
+      HORIZONS.forEach(([k, l]) => { const b = el("button", "", l); b.setAttribute("aria-pressed", String(k === horizon)); b.dataset.h = k; b.onclick = () => { if (k === curH) return; curH = k; chrome.storage.local.set({ horizon: k }); [...hz.children].forEach(x => x.setAttribute("aria-pressed", String(x.dataset.h === k)));
+        body.classList.add("busy"); body.replaceChildren(...[0, 1, 2].map(() => el("div", "skel"))); clearTimeout(tmr); tmr = setTimeout(() => paintBuy(k), 260); }; hz.append(b); });
+      bn.append(el("p", "lbl bn-h", "Should you buy this now?"), hz, el("p", "meta", "Select based on how soon you need the item."), body); paintBuy(horizon);
       main.append(bn); }
     // Deal Scanner: 0-100 score with the exact points behind it
     const scard = el("div", "scan " + sc.tone), sh = el("div", "scan-h");
     sh.append(el("b", "", "Deal Scanner"), el("span", "meta", sc.score == null ? "" : `${sc.score}/100`)); scard.append(sh);
     if (sc.score == null) scard.append(el("p", "meta", sc.headline));
     else {
-      const top = el("div", "scan-top"), pill = el("span", "scan-pill", sc.label), g = gaugeEl(sc.score, "Deal score");
-      top.append(pill, g); scard.append(top, el("div", "scan-head", sc.headline));
+      const top = el("div", "scan-top"), pill = el("span", "scan-pill", sc.label), g = gaugeEl(sc.score, "Deal score"), gcol = el("div", "bn-g"), lg2 = el("div", "bn-lg"); lg2.append(el("span", "bad", "Bad time"), el("span", "good", "Good time")); gcol.append(g, lg2);
+      top.append(pill, gcol); scard.append(top, el("div", "scan-head", sc.headline));
       const list = el("div", "scan-rows"); sc.rows.forEach(r => { const li = el("div", "scan-r" + (r.bad ? " bad" : "")); li.append(el("span", "", r.label), el("span", "num", r.value), el("b", "num", `${r.pts}/${r.max}`)); list.append(li); });
       scard.append(list, el("p", "meta", sc.source === "amazon" ? "Based on the price range this page showed for this product. HAULS has too little of its own history yet." : "Observed by this extension from the prices it has seen. Not a seller statement."));
     }

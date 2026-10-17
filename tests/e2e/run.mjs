@@ -425,9 +425,9 @@ test("26", "Amazon history: the range Amazon shows in the page is remembered and
   const it = Object.values((await store(sw, "items")).items).find(i => i.ref); t.check(it && it.ref.low === 499 && it.ref.high === 579 && it.ref.days === 30, "ref values " + JSON.stringify(it && it.ref));
   await poll(async () => /Amazon's 30-day low/.test(await panel.text(".scan")), 6000, 300);
   const sc = await panel.text(".scan"); t.check(/At Amazon's 30-day low/.test(sc) && /Real Deal|Fair Deal/.test(sc) && /price range this page showed/.test(sc), "scanner uses Amazon's range: " + sc.slice(0, 200));
-  await poll(async () => await panel.has(".refbar"), 6000, 300);
-  const rb = await panel.text(".chartbox"); t.check(/₹499/.test(rb) && /₹579/.test(rb) && /last 30 days/.test(rb) && await panel.has(".rb-dot"), "history card shows Amazon's range bar with today's price: " + rb.slice(0, 120));
-  for (const tab of ["30D", "90D", "All"]) { await panel.click(`.seg:not(.hz) button[data-r="${tab}"]`); const c3 = await panel.text(".chips3"); t.check(/Low\s*₹499/.test(c3) && /High\s*₹579/.test(c3) && /Avg\s*—/.test(c3), `${tab}: chips show Amazon's range (Avg unknown), not one price three times: ` + c3); }
+  await poll(async () => await panel.has(".bandc"), 6000, 300);
+  const rb = await panel.text(".chartbox"); t.check(/₹499/.test(rb) && /₹579/.test(rb) && /last 30 days/.test(rb) && await panel.has(".bandc svg circle"), "history card draws Amazon's range as a graph frame with today's price: " + rb.slice(0, 120));
+  for (const tab of ["30D", "90D", "All"]) { await panel.click(`.seg:not(.hz) button[data-r="${tab}"]`); const c3 = await panel.text(".chips3"); t.check(/Low\s*₹499/.test(c3) && /High\s*₹579/.test(c3) && /Avg\s*~₹539/.test(c3) && /High₹579now −₹80/.test(c3), `${tab}: chips show Amazon's range with an estimated average and the distance from now, not one price three times: ` + c3); }
   await p.evaluate(() => { const r = document.createElement("div"); r.id = "reviewsMedley"; r.textContent = "Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹10 to ₹20. The current price is ₹499."; const wrap = document.createElement("section"); const inner = document.createElement("div"); inner.id = "reviewsMedley"; inner.textContent = "x"; wrap.append(inner); wrap.append(document.createTextNode("Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹11 to ₹22. The current price is ₹499.")); document.body.append(wrap); document.body.append(r); const q = document.createElement("div"); q.textContent = "Over the past 30 days, the price of some other gadget has ranged from ₹30 to ₹40. The current price is ₹499."; document.body.append(q); const d = document.createElement("div"); d.textContent = "The price of Y has ranged from ₹900 to ₹100 over time"; document.body.append(d); }); await sleep(1500);
   t.check((await store(sw, "items")) && Object.values((await store(sw, "items")).items).every(i => !i.ref || i.ref.low === 499), "spoofed text (review area, wrapper around review area, other product, nonsense) is ignored");
 }));
@@ -534,7 +534,12 @@ test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy 
   const { panel } = await product(ctx, { id, price: 1050, mrp: 0 }); await panel.open();
   const word = () => panel.text(".vcard .vw"), pick = async h => { await panel.click(`.hz [data-h="${h}"]`); await sleep(500); };
   t.check(/Fair/.test(await word()), "default 1 week: fair price stays Fair: " + await word());
-  await pick("3d"); t.check(/Buy/.test(await word()), "need it in 2-3 days: Buy: " + await word());
+  await panel.run(".hero", function () { this.__keep = 1; }); await panel.run(".chips3", function () { this.__keep = 1; });
+  const tipTxt = await panel.text(".info .itip"); t.check(tipTxt.length > 10, "info button carries a hover explanation: " + tipTxt.slice(0, 80));
+  await panel.click('.hz [data-h="3d"]'); t.check(await panel.has(".bn-body .skel"), "the card shows a skeleton while it refreshes");
+  await sleep(600);
+  t.check(await panel.run(".hero", function () { return this.__keep === 1; }) && await panel.run(".chips3", function () { return this.__keep === 1; }), "only the buy-now card refreshed: the rest of the panel was not redrawn");
+  await pick("1w"); await pick("3d"); t.check(/Buy/.test(await word()), "need it in 2-3 days: Buy: " + await word());
   await pick("1m"); t.check(/Wait/.test(await word()), "can wait a month: Wait: " + await word());
   const ab = await panel.text(".btn.ghost.full"); t.check(/Set price alert at ₹1,0\d\d/.test(ab), "alert price offered between the low and today: " + ab);
   const st = await store(sw, "horizon"); t.check(st.horizon === "1m", "choice saved: " + st.horizon);
