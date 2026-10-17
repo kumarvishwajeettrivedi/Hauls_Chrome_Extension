@@ -422,6 +422,28 @@ test("26", "Amazon history: the range Amazon shows in the page is remembered and
   t.check((await store(sw, "items")) && Object.values((await store(sw, "items")).items).every(i => !i.ref || i.ref.low === 499), "spoofed text (review area, wrapper around review area, other product, nonsense) is ignored");
 }));
 
+test("27", "page report: Settings button reads only price-history wording and the chart from the Amazon tab", t => withExt({}, async ({ ctx, extId }) => {
+  const { p, panel } = await product(ctx, { id: "B0PROBE001", price: 499 }); await sleep(800);
+  await p.evaluate(() => {
+    const a = document.createElement("div"); a.id = "rufus-panel"; a.className = "rufus-answer"; a.innerHTML = "<p>Over the past 30 days, the price of Gadget has ranged from ₹499 to ₹579. Contact me at someone@example.com or 9876543210123.</p>";
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.setAttribute("d", "M0 0 L10 10"); svg.append(path);
+    const tx = document.createElementNS("http://www.w3.org/2000/svg", "text"); tx.textContent = "₹579"; svg.append(tx); a.append(svg);
+    const secret = document.createElement("p"); secret.textContent = "Deliver to Vishwajeet Muzaffarpur 842001 SECRETNAME"; a.append(secret); document.body.append(a);
+    const host = document.createElement("div"); host.attachShadow({ mode: "open" }).innerHTML = "<span>Price history: lowest featured offer price each day</span>"; document.body.append(host); });
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await o.waitForSelector("#probe");
+  await o.click("#probe"); await poll(async () => !(await o.$eval("#preport", e => e.hidden)), 8000, 300);
+  const rep = await o.$eval("#preport", e => e.textContent), j = JSON.parse(rep), hits = j.frames.flatMap(f => f.hits), all = JSON.stringify(j);
+  t.check(j.kind === "amazon-history-probe" && /dp\/B0PROBE001|B0PROBE001/.test(j.product), "report header: " + j.product);
+  t.check(hits.some(h => /ranged from ₹499 to ₹579/.test(h.text) && h.path.some(x => /#rufus-panel/.test(x))), "found the sentence with its container path: " + JSON.stringify(hits[0]));
+  t.check(hits.some(h => h.inShadow && /Price history/.test(h.text)), "also reads inside a shadow root");
+  t.check(!/someone@example|9876543210123/.test(all) && /\[email\]/.test(all), "emails and long numbers are scrubbed");
+  t.check(!/SECRETNAME|Vishwajeet/.test(all), "unrelated page text is never included");
+  t.check(j.frames.some(f => f.charts.length && f.charts[0].labels.includes("₹579")), "chart labels captured");
+  t.check(j.frames.some(f => f.rufus.some(x => /rufus/.test(x))), "rufus elements listed");
+  const none = await ctx.newPage(); await none.goto("about:blank"); await p.close(); await o.click("#probe"); await sleep(1500);
+  t.check(/Open an Amazon.in product page first/.test(await o.$eval("#pmsg", e => e.textContent)), "no Amazon tab: clear message");
+}));
+
 // ---------------------------------------------------------------- 14 range selector
 test("14", "range selector: 30D/90D/1Y/All changes label, x-axis, y labels, chips; persists", t => withExt({}, async ({ ctx, sw }) => {
   const now = Date.now(), H = [[now - 380 * D, 1500], [now - 200 * D, 1300], [now - 60 * D, 1100], [now - 20 * D, 900], [now - 36e5, 830]];

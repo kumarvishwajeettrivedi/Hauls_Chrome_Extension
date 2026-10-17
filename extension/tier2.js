@@ -1,7 +1,7 @@
 // Tier 2: stores whose search can only be read from their own page (signed requests / bot protection).
 // HAULS opens the store's search page in a background tab the USER connected, copies the page's own search response via t2-hook.js, and closes the tab.
 // Everything here is local; nothing is sent anywhere. Parsers are added per store only after a real response has been inspected (see Test in Settings).
-const T2_BUILD = "2026-10-17.r11"; // bump when the background code changes; Settings compares it to detect a stale background
+const T2_BUILD = "2026-10-17.r12"; // bump when the background code changes; Settings compares it to detect a stale background
 const T2 = (() => {
   const STORES = {
     Zepto: { origins: ["https://*.zepto.com/*"], hosts: ["zepto.com"], search: q => "https://www.zepto.com/search?query=" + encodeURIComponent(q) + "&haulsprobe=1" },

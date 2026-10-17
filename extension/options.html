@@ -35,9 +35,16 @@ ul{margin:8px 0 0;padding-left:20px;color:#545459}li{margin:4px 0}.row{display:f
     <div class="row"><button id="copy" class="ghost" hidden>Copy report</button></div>
   </section>
   <section class="card">
+    <h2>Amazon price history</h2>
+    <p>Open an Amazon.in product, open Amazon's own "Price history", then press the button. HAULS reads only the price-history wording and chart on that tab so it can learn to use it.</p>
+    <p id="pmsg" role="status" class="meta"></p>
+    <pre id="preport" hidden></pre>
+    <div class="row"><button id="probe">Copy page report</button><button id="pcopy" class="ghost" hidden>Copy again</button></div>
+  </section>
+  <section class="card">
     <h2>Your data</h2>
     <ul><li>Your watchlist and price history live in this browser first.</li><li>Signed in, they sync to your account. Export or delete from the account button.</li></ul>
   </section>
 </main>
 <footer id="ver" style="max-width:640px;margin:0 auto;padding:0 20px 24px;font-size:12px;opacity:.6"></footer>
-<script src="options.js"></script>
+<script src="probe.js"></script><script src="options.js"></script>

@@ -36,9 +36,26 @@ const showPin = pin => { $("pinval").textContent = pin || "not set"; };
 chrome.storage.local.get("pin").then(v => showPin(v.pin)); chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.pin) showPin(ch.pin.newValue); });
 
 // Is the background (service worker) the same build as this page? A stale one rejects the unknown message.
-const PAGE_BUILD = "2026-10-17.r11";
+const PAGE_BUILD = "2026-10-17.r12";
 chrome.runtime.sendMessage({ type: "t2-version" }).then(r => { const ok = r && r.build === PAGE_BUILD; $("ver").textContent = "HAULS " + chrome.runtime.getManifest().version + (ok ? " · up to date" : ""); $("stale").hidden = !!ok; }).catch(() => { $("stale").hidden = false; });
 $("reload").onclick = () => chrome.runtime.reload();
 
 // Back goes to the extension home screen (the same panel, full page).
 $("back").onclick = () => { location.href = "home.html"; };
+
+// ---- Amazon price-history page report: runs only on click, only on an Amazon.in tab the user already has open ----
+let lastProbe = "";
+$("probe").onclick = async () => {
+  $("pmsg").textContent = "Looking at your Amazon tab…"; $("preport").hidden = true; $("pcopy").hidden = true;
+  try {
+    const tabs = (await chrome.tabs.query({ url: ["https://www.amazon.in/*"] })).filter(t => /\/(dp|gp\/product)\//.test(t.url || ""));
+    const tab = tabs.find(t => t.active) || tabs[0]; if (!tab) { $("pmsg").textContent = "Open an Amazon.in product page first, then come back."; return; }
+    const res = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: historyProbe });
+    const frames = res.map(r => r.result).filter(Boolean), found = frames.reduce((n, f) => n + f.hits.length, 0);
+    lastProbe = JSON.stringify({ kind: "amazon-history-probe", build: PAGE_BUILD, at: new Date().toISOString(), product: new URL(tab.url).pathname.slice(0, 60), frames }, null, 2);
+    $("preport").textContent = lastProbe; $("preport").hidden = false; $("pcopy").hidden = false;
+    try { await navigator.clipboard.writeText(lastProbe); $("pmsg").textContent = found ? `Copied. Found ${found} price-history line${found > 1 ? "s" : ""}. Paste it in the chat.` : "Copied, but no price-history wording was on the tab. Open Amazon's Price history first, then press again."; }
+    catch { $("pmsg").textContent = "Select the report text below and copy it."; }
+  } catch (e) { $("pmsg").textContent = "Couldn't read the tab: " + String(e && e.message).slice(0, 100); }
+};
+$("pcopy").onclick = async () => { try { await navigator.clipboard.writeText(lastProbe); $("pmsg").textContent = "Copied."; } catch { $("pmsg").textContent = "Select the text and copy it."; } };
