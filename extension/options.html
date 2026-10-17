@@ -20,38 +20,34 @@ ul{margin:8px 0 0;padding-left:20px;color:#545459}li{margin:4px 0}.row{display:f
 <main>
   <section class="card" id="stale" hidden><h2>HAULS needs a reload</h2><p>The background part is out of date, so some buttons will fail.</p><div class="row"><button id="reload">Reload HAULS</button></div></section>
   <section class="card">
-    <h2>Independent stores (Shopify) <span class="pill" id="state">checking…</span></h2>
-    <p>Track boAt, Mamaearth and other brand sites. Chrome asks for your approval first.</p>
+    <h2>Stores <span class="pill" id="state">checking…</span></h2>
+    <p>Brand sites (boAt, Mamaearth…) need your approval once.</p>
     <div class="row"><button id="on">Enable independent stores</button><button id="off" class="ghost" hidden>Turn off</button></div>
     <p id="msg" role="status"></p>
-  </section>
-  <section class="card" id="grocery">
-    <h2>Grocery stores</h2>
-    <p>Connect a store once so HAULS can read its prices in a background tab.</p>
-    <p class="meta">Delivery pincode: <b id="pinval">…</b>. Change it in the Grocery tab.</p>
+    <h2 style="margin-top:18px">Grocery</h2>
+    <p class="meta">Pincode: <b id="pinval">…</b> (change it in the Grocery tab)</p>
     <div id="stores"></div>
     <p id="smsg" role="status"></p>
     <pre id="report" hidden></pre>
     <div class="row"><button id="copy" class="ghost" hidden>Copy report</button></div>
   </section>
   <section class="card">
-    <h2>Background price checks</h2>
-    <p>While the browser is open, HAULS re-reads the price of items you watch or track a few times a day, so history and alerts keep going without a visit.</p>
+    <h2>Price tracking</h2>
+    <p>While the browser is open, HAULS re-reads prices of items you watch.</p>
     <div id="trk"></div>
+    <p class="meta"><label><input type="checkbox" id="ahauto"> Read Amazon's price history automatically (experimental, needs Amazon sign-in). While you are away, one watched product at a time opens in a small window, then closes.</label></p>
     <p id="tmsg" role="status" class="meta"></p>
-    <div class="row"><button id="trkrun" class="ghost">Check now</button></div>
-  </section>
-  <section class="card">
-    <h2>Amazon price history</h2>
-    <p class="meta"><label><input type="checkbox" id="ahauto"> Read Amazon's price history automatically (experimental). It opens Amazon's own "Price history" out of sight, reads the chart, and closes it. Works only when you are signed in to Amazon.</label></p>
-    <p>Open an Amazon.in product, open Amazon's own "Price history", then press the button. HAULS reads only the price-history wording and chart on that tab so it can learn to use it.</p>
-    <p id="pmsg" role="status" class="meta"></p>
-    <pre id="preport" hidden></pre>
-    <div class="row"><button id="probe">Copy page report</button><button id="pcopy" class="ghost" hidden>Copy again</button></div>
+    <div class="row"><button id="trkrun" class="ghost">Check now</button><button id="abgrun" class="ghost">Read Amazon history now</button></div>
+    <details style="margin-top:14px"><summary>Advanced</summary>
+      <p>Open Amazon's own "Price history" on a product tab, then press the button and paste the report in the chat.</p>
+      <p id="pmsg" role="status" class="meta"></p>
+      <pre id="preport" hidden></pre>
+      <div class="row"><button id="probe" class="ghost">Copy page report</button><button id="pcopy" class="ghost" hidden>Copy again</button></div>
+    </details>
   </section>
   <section class="card">
     <h2>Your data</h2>
-    <ul><li>Your watchlist and price history live in this browser first.</li><li>Signed in, they sync to your account. Export or delete from the account button.</li></ul>
+    <p>Stays in this browser. Signed in, it syncs to your account; export or delete from the account button.</p>
   </section>
 </main>
 <footer id="ver" style="max-width:640px;margin:0 auto;padding:0 20px 24px;font-size:12px;opacity:.6"></footer>

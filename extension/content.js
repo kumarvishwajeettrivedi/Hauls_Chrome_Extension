@@ -246,9 +246,11 @@
     // low / avg / high + history chart, both following the selected range
     const c3 = el("div", "chips3"), cb = el("div", "chartbox"), seg = el("div", "seg"), now = Date.now();
     const paintRange = () => {
-      const days = (RANGES.find(r => r[0] === range) || RANGES[1])[1], ws = windowStats(H, now, days || 99999) || { min: s.min, avg: s.avg, max: s.max }, sl = downsample(sliceHistory(H, days, now), 200);
-      c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3"), sm = el("small"); sm.append(ico(i), n); x.append(sm, el("b", "num", fmt(v))); c3.append(x); });
-      cb.replaceChildren(el("p", "lbl", `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), sl.length > 1 || !refUsable(it.ref, p.price, now) ? chart(sl, now, days ? range : "") : refBar(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : cch.points.length ? [el("p", "meta", `Includes shared history from ${cch.n} HAULS reader${cch.n === 1 ? "" : "s"}.`)] : []));
+      const days = (RANGES.find(r => r[0] === range) || RANGES[1])[1]; let ws = windowStats(H, now, days || 99999) || { min: s.min, avg: s.avg, max: s.max }, sl = downsample(sliceHistory(H, days, now), 200);
+      const useRef = sl.length < 2 && refUsable(it.ref, p.price, now); // too little own history in this tab: the numbers are Amazon's range for the days it covers, not one price repeated three times
+      if (useRef) ws = { min: Math.min(it.ref.low, p.price), avg: null, max: Math.max(it.ref.high, p.price) };
+      c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3"), sm = el("small"); sm.append(ico(i), n); x.append(sm, el("b", "num", v == null ? "—" : fmt(v))); c3.append(x); });
+      cb.replaceChildren(el("p", "lbl", `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), !useRef ? chart(sl, now, days ? range : "") : refBar(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : cch.points.length ? [el("p", "meta", `Includes shared history from ${cch.n} HAULS reader${cch.n === 1 ? "" : "s"}.`)] : []));
       [...seg.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.r === range)));
     };
     RANGES.forEach(([k]) => { const b = el("button", "", k); b.dataset.r = k; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
@@ -416,7 +418,7 @@
       const btn = el("button", "btn full"), msg = el("p", "meta"); btn.append("Continue with Google"); btn.onclick = async () => { btn.textContent = "Opening Google…"; const r = await chrome.runtime.sendMessage({ type: "signin", gesture: gesture() }); if (r && r.ok) { refresh(); draw(); } else { btn.replaceChildren("Continue with Google"); msg.textContent = r && r.error ? r.error : "Sign-in failed."; } };
       nodes.push(btn, msg); { const cc = el("button", "link-btn", "Clear cache"); cc.onclick = async () => { await send({ type: "invalidate", reason: "user-clear-cache", gesture: gesture() }); cc.textContent = "Cache cleared"; }; nodes.push(cc); }
       { const sg = el("button", "btn ghost"); sg.append(ico("gear"), "Independent stores & settings"); sg.onclick = () => send({ type: "open-options" }); nodes.push(sg); }
-      nodes.push(el("p", "meta", "We store your name, email and watchlist. Prices you see, and the Amazon price charts you open, are shared only if you switch sharing on. They are kept apart from your name and email and shown only as combined history. Your data stays in this browser first. You can erase your cloud data anytime."));
+      nodes.push(el("p", "meta", "We store your name, email and watchlist. Prices you see (and the ones HAULS re-checks for your watched items), and the Amazon price charts you open, are shared only if you switch sharing on. They are kept apart from your name and email and shown only as combined history. Your data stays in this browser first. You can erase your cloud data anytime."));
       return openSheet("Sign in to HAULS", nodes);
     }
     const who = el("div", "row2"), av = el("span", "sc", (a.user.name || a.user.email || "?")[0].toUpperCase()); av.style.setProperty("--c", "var(--mint)");
@@ -583,15 +585,17 @@
   let href = location.href;
   // Amazon's own price-history answer appears inside the page when the user opens it. We read its text, nothing else, and remember the range for this product.
   if (S && dom === "amazon.in") {
+    const featOff = async n => { try { const d = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features; return Array.isArray(d) && d.includes(n); } catch { return false; } }, health = (event, reason) => send({ type: "ahist-health", event, reason }).catch(() => {}); // counters for Settings
     let hrT = null; const pend = []; // every batch is kept: a later batch (for example the panel closing) must not discard the chart added just before it
     new MutationObserver(mu => { pend.push(...mu); if (pend.length > 500) pend.splice(0, pend.length - 500); clearTimeout(hrT); hrT = setTimeout(async () => { const muts = pend.splice(0);
-      if (!cur || !cur.p) return;
+      if (!cur || !cur.p || await featOff("chart-read")) return;
       for (const m of muts) for (const n of m.addedNodes) { const root = n.nodeType === 1 ? n : null; if (!root) continue;
         const svgs = root.matches && root.matches("svg") ? [root] : [...(root.querySelectorAll ? root.querySelectorAll("svg[aria-label]") : [])];
         for (const sv of svgs) { if (!/price history/i.test(sv.getAttribute("aria-label") || "") || (sv.closest && sv.closest(HISTORY_UNTRUSTED))) continue;
-          const ch = ahParseChart(sv.outerHTML, Date.now()); if (!ch || !ch.current || Math.abs(ch.current - cur.p.price) > 1) continue; // must announce today's price on THIS product
+          const ch = ahParseChart(sv.outerHTML, Date.now()); if (!ch) { health("refused", "unreadable"); continue; } if (!ch.current || Math.abs(ch.current - cur.p.price) > 1) { health("refused", "other-product"); continue; } // must announce today's price on THIS product
+          health("read");
           const r = await send({ type: "ahist", key: cur.p.key, range: ch.range, days: ch.days, points: ch.points, current: ch.current, offer: ch.offer, highest: ch.highest }).catch(() => null);
-          if (r && r.ok) { cur.it = r.it; idleRedraw(); } } }
+          if (r && r.ok) { cur.it = r.it; idleRedraw(); health("stored"); } else health("refused", "price-mismatch"); } }
       let found = null;
       for (const m of muts) for (const n of m.addedNodes) { const el1 = n.nodeType === 1 ? n : n.parentElement, t = n.nodeType === 1 ? n.textContent : n.nodeType === 3 ? n.nodeValue : "";
         if (!t || t.length >= 4000 || !/ranged from/i.test(t) || !el1 || (el1.closest && el1.closest(HISTORY_UNTRUSTED)) || (n.nodeType === 1 && n.querySelector && n.querySelector(HISTORY_UNTRUSTED))) continue;
@@ -604,11 +608,11 @@
   // Fail-safes: only with an ingress button present, once per product per 12 h, panel hidden by CSS while it runs, every step has a timeout, on any doubt it stops and stays quiet.
   let ahBusy = false;
   async function ahAutoRead() {
-    if (ahBusy || !cur || !cur.p || dom !== "amazon.in") return; const { ahAuto } = await chrome.storage.local.get("ahAuto"); if (ahAuto !== true) return;
+    if (ahBusy || !cur || !cur.p || dom !== "amazon.in") return; const dis = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features || []; if (dis.includes("chart-auto") || dis.includes("chart-read")) return; const { ahAuto } = await chrome.storage.local.get("ahAuto"); if (ahAuto !== true) return;
     const last = cur.it && cur.it.ahist && Math.max(cur.it.ahist.at || 0, cur.it.ahist.tried || 0); if (last && Date.now() - last < 12 * 3600e3) return;
-    const trig = document.querySelector('#rufus-price-ingress-bb [data-action="show-rufus-price-ingress"], .rufus-ph-ingress-pill [data-action="show-rufus-price-ingress"]'); if (!trig) return;
-    ahBusy = true; const key = cur.p.key, hide = document.createElement("style"); hide.id = "hauls-ah-hide"; hide.textContent = "#nav-flyout-rufus,.rufus-panel-container,#rufus-conversation-papyrus-container{opacity:0!important;pointer-events:none!important;transition:none!important}"; document.documentElement.append(hide);
     const wait = (f, ms) => new Promise(res => { const t0 = Date.now(), iv = setInterval(() => { let v; try { v = f(); } catch { v = null; } if (v || Date.now() - t0 > ms) { clearInterval(iv); res(v || null); } }, 150); });
+    ahBusy = true; let trig; try { trig = await wait(() => document.querySelector('#rufus-price-ingress-bb [data-action="show-rufus-price-ingress"], .rufus-ph-ingress-pill [data-action="show-rufus-price-ingress"]'), 10000); } finally { if (!trig) ahBusy = false; } if (!trig) return; // Amazon draws the button after the page loads
+    const key = cur.p.key, hide = document.createElement("style"); hide.id = "hauls-ah-hide"; hide.textContent = "#nav-flyout-rufus,.rufus-panel-container,#rufus-conversation-papyrus-container{opacity:0!important;pointer-events:none!important;transition:none!important}"; document.documentElement.append(hide);
     const chart = () => document.querySelector('#rufus-react-renderer svg[aria-label*="price history" i]');
     try {
       await send({ type: "ahist-tried", key }).catch(() => {});

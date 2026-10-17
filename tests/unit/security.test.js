@@ -51,7 +51,7 @@ check("no JWT-like / secret strings", [
 // manifest
 const hosts = [...(manifest.host_permissions || []), ...(manifest.optional_host_permissions || []), ...(manifest.content_scripts || []).flatMap(c => c.matches || [])];
 check("manifest has no <all_urls>", hosts.filter(h => h === "<all_urls>"));
-const PERMS = ["storage", "alarms", "notifications", "scripting", "identity"];
+const PERMS = ["storage", "alarms", "notifications", "scripting", "identity", "idle"]; // idle: lets the opt-in Amazon history reader wait until you are away (no install warning)
 check("permissions subset of allowlist", (manifest.permissions || []).filter(p => !PERMS.includes(p)));
 // EXPECTED RED until Task 4 integration adds the CSP to manifest.json.
 const csp = manifest.content_security_policy && manifest.content_security_policy.extension_pages;

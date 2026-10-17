@@ -149,6 +149,8 @@ function safeItems(raw) {
   for (const [k, v] of Object.entries(raw)) { if (!k || k.length > 200) continue; const s = safeItem(v); if (s) out[k] = s; }
   return out;
 }
+// Remote kill switch (data only): flags.disabled_features may contain "chart-read", "chart-upload", "chart-auto", "bg-upload".
+const featureOff = (flags, name) => !!(flags && Array.isArray(flags.disabled_features) && flags.disabled_features.includes(name));
 const safeOutbox = raw => (Array.isArray(raw) ? raw : []).filter(o => o && typeof o === "object" && (o.t === "watch" || o.t === "obs" || (o.t === "chart" && Array.isArray(o.series) && o.series.length >= 2 && o.series.length <= 130 && o.series.every(q => Array.isArray(q) && q.length === 2 && isFinite(q[0]) && isFinite(q[1])))) && typeof o.key === "string" && o.key.length <= 200).map(o => (typeof o.id === "string" && o.id ? o : { ...o, id: _uid() })).slice(-500);
 const safeUsage = raw => raw && typeof raw === "object" && typeof raw.month === "string" && Array.isArray(raw.keys) ? { month: raw.month, keys: raw.keys.filter(k => typeof k === "string").slice(0, 5000) } : null;
 // The Product tab's heart/trap must mirror the stored watchlist (it changes from the Watchlist tab, another tab, or a sync). Missing item = not wished, no trap.
@@ -198,4 +200,4 @@ const locConsistent = (loc, centroid, maxKm = 40) => !loc || !centroid || typeof
 const canRedraw = ({ open, tab, typing }) => !!open && tab === "product" && !typing;
 // Pincode field next to "Use my location": clean = nothing to save, dirty = a different valid pincode waiting for the sync icon, bad = not 6 digits.
 const pinFieldState = (draft, saved) => { const d = String(draft == null ? "" : draft).trim(); return !PIN6.test(d) ? "bad" : d === saved ? "clean" : "dirty"; };
-if (typeof module !== "undefined") module.exports = { pinFieldState, canRedraw, MAX_PLACES, safePlaces, addPlace, updatePlace, removePlace, placeForPin, distKm, locConsistent, sortGrocery, packChips, filterPack, withStoredFlags, liveUpdate, safeItem, safeItems, safeOutbox, safeUsage, cleanProduct, trapStep, validateTrap, sliceHistory, downsample, notchAmount, mergeHistory, smartLinks, parsePack, unitPrice, SITES, siteFor, num, parseLd, addPoint, stats };
+if (typeof module !== "undefined") module.exports = { featureOff, pinFieldState, canRedraw, MAX_PLACES, safePlaces, addPlace, updatePlace, removePlace, placeForPin, distKm, locConsistent, sortGrocery, packChips, filterPack, withStoredFlags, liveUpdate, safeItem, safeItems, safeOutbox, safeUsage, cleanProduct, trapStep, validateTrap, sliceHistory, downsample, notchAmount, mergeHistory, smartLinks, parsePack, unitPrice, SITES, siteFor, num, parseLd, addPoint, stats };

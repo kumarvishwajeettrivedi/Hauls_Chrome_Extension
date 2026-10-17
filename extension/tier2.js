@@ -1,7 +1,7 @@
 // Tier 2: stores whose search can only be read from their own page (signed requests / bot protection).
 // HAULS opens the store's search page in a background tab the USER connected, copies the page's own search response via t2-hook.js, and closes the tab.
 // Everything here is local; nothing is sent anywhere. Parsers are added per store only after a real response has been inspected (see Test in Settings).
-const T2_BUILD = "2026-10-17.r22"; // bump when the background code changes; Settings compares it to detect a stale background
+const T2_BUILD = "2026-10-17.r24"; // bump when the background code changes; Settings compares it to detect a stale background
 const T2 = (() => {
   const STORES = {
     Zepto: { origins: ["https://*.zepto.com/*"], hosts: ["zepto.com"], search: q => "https://www.zepto.com/search?query=" + encodeURIComponent(q) + "&haulsprobe=1" },
@@ -205,6 +205,6 @@ const T2 = (() => {
     try { return { ok: true, report: report(name, await capture(name, "milk", opts)) }; }
     catch (e) { return { ok: false, code: e.code || "error", message: String(e.message).slice(0, 160) }; }
   }
-  return { build: T2_BUILD, STORES, ensure, healAll, shapeOf, findProducts, report, connected, connect, disconnect, status, capture, onCapture, test, parseZepto, zeptoLocation, parseJioPage, parseBigBasket, search };
+  return { build: T2_BUILD, openProbe, STORES, ensure, healAll, shapeOf, findProducts, report, connected, connect, disconnect, status, capture, onCapture, test, parseZepto, zeptoLocation, parseJioPage, parseBigBasket, search };
 })();
 if (typeof module !== "undefined") module.exports = T2;

@@ -427,6 +427,7 @@ test("26", "Amazon history: the range Amazon shows in the page is remembered and
   const sc = await panel.text(".scan"); t.check(/At Amazon's 30-day low/.test(sc) && /Real Deal|Fair Deal/.test(sc) && /price range this page showed/.test(sc), "scanner uses Amazon's range: " + sc.slice(0, 200));
   await poll(async () => await panel.has(".refbar"), 6000, 300);
   const rb = await panel.text(".chartbox"); t.check(/₹499/.test(rb) && /₹579/.test(rb) && /last 30 days/.test(rb) && await panel.has(".rb-dot"), "history card shows Amazon's range bar with today's price: " + rb.slice(0, 120));
+  for (const tab of ["30D", "90D", "All"]) { await panel.click(`.seg:not(.hz) button[data-r="${tab}"]`); const c3 = await panel.text(".chips3"); t.check(/Low\s*₹499/.test(c3) && /High\s*₹579/.test(c3) && /Avg\s*—/.test(c3), `${tab}: chips show Amazon's range (Avg unknown), not one price three times: ` + c3); }
   await p.evaluate(() => { const r = document.createElement("div"); r.id = "reviewsMedley"; r.textContent = "Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹10 to ₹20. The current price is ₹499."; const wrap = document.createElement("section"); const inner = document.createElement("div"); inner.id = "reviewsMedley"; inner.textContent = "x"; wrap.append(inner); wrap.append(document.createTextNode("Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹11 to ₹22. The current price is ₹499.")); document.body.append(wrap); document.body.append(r); const q = document.createElement("div"); q.textContent = "Over the past 30 days, the price of some other gadget has ranged from ₹30 to ₹40. The current price is ₹499."; document.body.append(q); const d = document.createElement("div"); d.textContent = "The price of Y has ranged from ₹900 to ₹100 over time"; document.body.append(d); }); await sleep(1500);
   t.check((await store(sw, "items")) && Object.values((await store(sw, "items")).items).every(i => !i.ref || i.ref.low === 499), "spoofed text (review area, wrapper around review area, other product, nonsense) is ignored");
 }));
@@ -439,7 +440,7 @@ test("27", "page report: Settings button reads only price-history wording and th
     const tx = document.createElementNS("http://www.w3.org/2000/svg", "text"); tx.textContent = "₹579"; svg.append(tx); a.append(svg);
     const secret = document.createElement("p"); secret.textContent = "Deliver to Vishwajeet Muzaffarpur 842001 SECRETNAME"; a.append(secret); document.body.append(a);
     const host = document.createElement("div"); host.attachShadow({ mode: "open" }).innerHTML = "<span>Price history: lowest featured offer price each day</span>"; document.body.append(host); });
-  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await o.waitForSelector("#probe");
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await o.waitForSelector("#probe", { state: "attached" }); await o.evaluate(() => { document.querySelector("details").open = true; });
   await o.click("#probe"); await poll(async () => !(await o.$eval("#preport", e => e.hidden)), 8000, 300);
   const rep = await o.$eval("#preport", e => e.textContent), j = JSON.parse(rep), hits = j.frames.flatMap(f => f.hits), all = JSON.stringify(j);
   t.check(j.kind === "amazon-history-probe" && /dp\/B0PROBE001|B0PROBE001/.test(j.product), "report header: " + j.product);
@@ -511,6 +512,23 @@ test("32", "Amazon chart: the real Price-history SVG, when Amazon draws it, beco
   await sleep(1500); const it2 = Object.values((await store(sw, "items")).items).find(i => i.ahist); t.check(it2.ahist.ranges["1M"].points.length === it.ahist.ranges["1M"].points.length, "chart announcing a different price is ignored");
 }));
 
+test("36", "chart reader: health counters tick (read/stored/refused), Settings shows them, and a remote disabled_features flag stops reading", t => withExt({}, async ({ ctx, sw, extId }) => {
+  const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
+  const add = (p, h) => p.evaluate(h => { const w = document.createElement("div"); w.innerHTML = h; document.body.append(w); }, h);
+  const { p, panel } = await product(ctx, { id: "B0AMZHEALT", price: 4499, mrp: 5999 }); await panel.open(); await sleep(600);
+  await add(p, svg.replace(/price ₹4,499/, "price ₹1,111")); await poll(async () => ((await store(sw, "chartHealth")).chartHealth || {}).reasons, 6000, 300);
+  let h = (await store(sw, "chartHealth")).chartHealth || {}; t.check(h.refused >= 1 && (h.reasons.unreadable || h.reasons["other-product"]) >= 1 && !h.stored, "a chart for another price is counted as refused: " + JSON.stringify(h));
+  await add(p, svg); await poll(async () => ((await store(sw, "chartHealth")).chartHealth || {}).stored, 8000, 300);
+  h = (await store(sw, "chartHealth")).chartHealth || {}; t.check(h.read >= 1 && h.stored === 1, "good chart counted read + stored: " + JSON.stringify(h));
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await o.waitForSelector("#trk .srow:nth-child(5)");
+  t.check(/Amazon chart.*1 saved/.test(await o.$eval("#trk", e => e.textContent)), "Settings shows the chart reader count: " + (await o.$eval("#trk", e => e.textContent)).slice(-80));
+  await seed(sw, { flags: { disabled_features: ["chart-read"] } });
+  const { p: p2, panel: pn2 } = await product(ctx, { id: "B0AMZKILL01", price: 4499, mrp: 5999 }); await pn2.open(); await sleep(600);
+  await add(p2, svg); await sleep(2500);
+  t.check(!Object.entries((await store(sw, "items")).items || {}).some(([k, i]) => /B0AMZKILL01/.test(k + (i.url || "")) && i.ahist), "kill switch: chart on a product is not read while chart-read is disabled");
+  await o.reload(); await o.waitForSelector("#trk .srow:nth-child(5)"); t.check(/Paused by HAULS/.test(await o.$eval("#trk", e => e.textContent)), "Settings says the reader is paused");
+}));
+
 test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy to Wait, saves the choice, and offers an alert price", t => withExt({}, async ({ ctx, sw }) => {
   const now = Date.now(), id = "B0HORIZON1"; await seed(sw, { items: seedItem(id, [[now - 60 * D, 1050], [now - 40 * D, 1000], [now - 20 * D, 1050], [now - 36e5, 1050]]) });
   const { panel } = await product(ctx, { id, price: 1050, mrp: 0 }); await panel.open();
@@ -541,6 +559,25 @@ test("34", "auto-read (opt-in): clicks Amazon's own Price-history button out of 
   t.check((await r.p.evaluate(() => window.__clicked)) >= 1, "button clicked"); t.check(got.ahist.ranges["1M"].points[0][1] === 5499, "chart read");
   t.check((await r.p.evaluate(() => window.__closed)) >= 1 && !(await r.p.evaluate(() => document.getElementById("hauls-ah-hide"))), "panel closed and the hiding style removed");
   t.check(!!got.ahist.tried, "attempt recorded (no repeat within 12 h)");
+}));
+
+test("37", "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in", t => withExt({}, async ({ ctx, sw, extId }) => {
+  const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8"), id = "B0AMZBGRD1", now = Date.now();
+  await ctx.addInitScript(h => { if (!/B0AMZBGRD1/.test(location.pathname)) return; document.addEventListener("DOMContentLoaded", () => { const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; document.body.append(d);
+    d.querySelector(".a-declarative").addEventListener("click", () => setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; f.innerHTML = '<div id="rufus-panel-header-container"><button aria-label="Close panel"></button></div><div id="rufus-react-renderer"><span class="rufus-pricing-chart-container">' + h + '</span></div>'; document.body.append(f); f.querySelector("button").addEventListener("click", () => f.remove()); }, 300)); }); }, svg);
+  await routeProduct(ctx, { id, price: 4499, mrp: 5999 });
+  await seed(sw, { items: seedItem(id, [[now - 5 * D, 4499], [now - 3600e3, 4499]], { wish: true, seenAt: now - 3600e3 }) });
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`);
+  const run = () => o.evaluate(() => chrome.runtime.sendMessage({ type: "abg-run", gesture: true }));
+  let r = await run(); t.check(r && r.ok === false && r.why === "off", "not opted in: nothing opens: " + JSON.stringify(r));
+  await seed(sw, { ahAuto: true }); const pagesBefore = ctx.pages().length;
+  ctx.on("page", pg => { pg.reload().catch(() => {}); }); // Playwright attaches its route after an extension-made window has already started loading: reload once so the fake Amazon page is served
+  r = await run(); t.check(r && r.ok === true && r.key.endsWith(id), "opted in: the chart was read in the background: " + JSON.stringify(r));
+  const it = (await store(sw, "items")).items["amazon.in:" + id]; t.check(it.ahist && it.ahist.ranges["1M"] && it.ahist.ranges["1M"].points[0][1] === 5499, "series stored from the background read");
+  await sleep(800); t.check(ctx.pages().length <= pagesBefore, "the window is closed again: " + ctx.pages().length + " pages");
+  r = await run(); t.check(r && r.ok === false && /nothing due/.test(r.why), "not repeated for the same product: " + JSON.stringify(r));
+  await seed(sw, { flags: { disabled_features: ["chart-auto"] }, abg: null }); r = await run(); t.check(r && r.why === "off", "kill switch chart-auto stops it: " + JSON.stringify(r));
+  const h = (await store(sw, "chartHealth")).chartHealth; t.check(h && h["bg-read"] === 1, "counted: " + JSON.stringify(h));
 }));
 
 test("35", "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {

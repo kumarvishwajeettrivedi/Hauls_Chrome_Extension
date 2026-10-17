@@ -36,7 +36,7 @@ const showPin = pin => { $("pinval").textContent = pin || "not set"; };
 chrome.storage.local.get("pin").then(v => showPin(v.pin)); chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.pin) showPin(ch.pin.newValue); });
 
 // Is the background (service worker) the same build as this page? A stale one rejects the unknown message.
-const PAGE_BUILD = "2026-10-17.r22";
+const PAGE_BUILD = "2026-10-17.r24";
 chrome.runtime.sendMessage({ type: "t2-version" }).then(r => { const ok = r && r.build === PAGE_BUILD; $("ver").textContent = "HAULS " + chrome.runtime.getManifest().version + (ok ? " · up to date" : ""); $("stale").hidden = !!ok; }).catch(() => { $("stale").hidden = false; });
 $("reload").onclick = () => chrome.runtime.reload();
 
@@ -72,8 +72,14 @@ async function paintTrk() {
     row.append(b, pill); if (h && h.last) { const t = document.createElement("span"); t.className = "meta"; t.textContent = new Date(h.last).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) + (Object.keys(h.reasons || {}).length ? " · " + Object.entries(h.reasons).map(([k, v]) => `${k} ${v}`).join(", ") : "") + (h.starved ? ` · ${h.starved} skipped (daily limit)` : "") + (h.errors ? ` · ${h.errors} save errors` : ""); row.append(t); }
     box.append(row);
   }
+  const { chartHealth: C, flags } = await chrome.storage.local.get(["chartHealth", "flags"]), off = ((flags && flags.disabled_features) || []).some(f => /^chart-/.test(f));
+  const row = document.createElement("div"), b = document.createElement("b"), pill = document.createElement("span"), t = document.createElement("span"); row.className = "srow"; b.textContent = "Amazon chart"; pill.className = "pill" + (C && C.stored && !off ? " on" : "");
+  pill.textContent = off ? "Paused by HAULS" : !C ? "Not read yet" : `${C.stored || 0} saved · ${Object.values(C.reasons || {}).reduce((n, v) => n + v, 0)} skipped`; row.append(b, pill);
+  if (C && C.last) { t.className = "meta"; t.textContent = new Date(C.last).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) + (Object.keys(C.reasons || {}).length ? " · " + Object.entries(C.reasons).map(([k, v]) => `${k} ${v}`).join(", ") : ""); row.append(t); }
+  box.append(row);
 }
 $("trkrun").onclick = async () => { $("tmsg").textContent = "Checking…"; const r = await chrome.runtime.sendMessage({ type: "trk-run", gesture: true }).catch(() => null); $("tmsg").textContent = r && !r.error ? `Checked ${r.checked}, new prices ${r.recorded}, waiting for a second read ${r.held}, failed ${r.failed}.` : "Couldn't run the check."; paintTrk(); };
+$("abgrun").onclick = async () => { $("tmsg").textContent = "Opening one watched Amazon product in a small window…"; const r = await chrome.runtime.sendMessage({ type: "abg-run", gesture: true }).catch(() => null); $("tmsg").textContent = r && r.ok ? "Read Amazon's price history for one product." : r && r.why === "off" ? "Turn on automatic reading first." : r && r.why === "nothing due" ? "Nothing due: every watched Amazon product was read in the last day." : "Couldn't read it this time (needs Amazon sign-in and a product with a price-history button)."; paintTrk(); };
 paintTrk();
 
 chrome.storage.local.get("ahAuto").then(r => { $("ahauto").checked = r.ahAuto === true; }); $("ahauto").onchange = () => chrome.storage.local.set({ ahAuto: $("ahauto").checked });

@@ -14,7 +14,7 @@ grant usage on schema public, auth to anon, authenticated, service_role;
 grant all on all tables in schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated;`);
-for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
+for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series','0011_ext_obs_src_bg']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
 let ok=true; const T=(n,c)=>{console.log(c?'PASS':'FAIL',n); if(!c) ok=false;};
 const as=async(uid,fn)=>{await db.exec(`set role authenticated; select set_config('request.jwt.claims', '{"sub":"${uid}","role":"authenticated"}', false)`); try{return await fn()} finally{await db.exec(`reset role`)}};
 const fails=async p=>{try{await p;return false}catch(e){return true}};
@@ -292,4 +292,11 @@ await as(A,()=>db.query(`select ext_delete_my_data()`));
 const left=(await db.query(`select (select count(*) from ext_watchlist where user_id='${A}')+(select count(*) from ext_price_observations where user_id='${A}')+(select count(*) from ext_profiles where id='${A}') n`)).rows[0].n;
 T('delete erased everything', Number(left)===0);
 T('others untouched', (await db.query(`select count(*)::int c from ext_price_observations`)).rows[0].c>0);
+// ===== 0011: background readings may be shared =====
+{ const E=(await db.query(`insert into auth.users(email) values('e11@x.t') returning id`)).rows[0].id; await db.exec(`update public.ext_profiles set contribute=true where id='${E}'`);
+  const put=(src,key)=>as(E,async()=>(await db.query(`select ext_upsert_observations($1::jsonb) n`,[JSON.stringify([{product_key:key,site:'Flipkart',price:500,src}])])).rows[0].n);
+  T('0011: bg observation is stored', await put('bg','BG1')===1);
+  T('0011: unknown src still rejected', await put('evil','BG2')===0);
+  T('0011: bg and a page read on the same day are one row per user/product/day', await put('dom','BG1')===0);
+}
 process.exit(ok?0:1);

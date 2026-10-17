@@ -44,7 +44,18 @@ sandbox.__enq = []; vm.runInContext("getSession = async () => null; enqueue = o 
   ok(fetched.length === 1 && !fetched.some(u => /NOTWATCH/.test(u)), "only watched items are polled");
   out = await ctx.trkRun(t0 + 60e3, mkFetch(() => aod(766))); ok(out.checked === 0, "not due again for 6h");
   out = await ctx.trkRun(t0 + 7 * 3600e3, mkFetch(() => aod(800))); ok(out.recorded === 1 && mem.items[AK].hist.at(-1)[1] === 800 && mem.items[AK].hist.length === 2, "real change recorded");
-  ok(!sandbox.__enq.some(o => o.t === "obs"), "background reads are not uploaded as community observations"); await ctx.record({ key: AK, site: "Amazon", url: mem.items[AK].url, price: 801, src: "dom" }); ok(sandbox.__enq.some(o => o.t === "obs" && o.price === 801), "control: a page visit IS uploaded");
+  ok(!sandbox.__enq.some(o => o.t === "obs"), "a background read with no recent page visit is not shared");
+  { // sharing rules for a background read: new price, close to what the page last showed (14 days, 10%), once a day, not switched off
+    const bg = async (id, price, pv, extra = {}) => { const k = "amazon.in:" + id; mem.items[k] = { site: "Amazon", title: "X", url: "https://www.amazon.in/dp/" + id, hist: [[Date.now() - 3 * D, pv ? pv.price : 100]], pv, ...extra }; sandbox.__enq.length = 0; await ctx.record({ key: k, site: "Amazon", price, src: "bg" }); return sandbox.__enq.filter(o => o.t === "obs"); };
+    const near = { price: 1000, at: Date.now() - 2 * D };
+    const o1 = await bg("B0SHAREAAA", 950, near); ok(o1.length === 1 && o1[0].src === "bg" && o1[0].price === 950 && o1[0].site === "Amazon", "close to the last page price: shared as src bg");
+    ok((await bg("B0SHAREBBB", 800, near)).length === 0, "20% away from the page price: not shared");
+    ok((await bg("B0SHARECCC", 950, { price: 1000, at: Date.now() - 20 * D })).length === 0, "page visit older than 14 days: not shared");
+    ok((await bg("B0SHAREDDD", 950, near, { bgSent: new Date().toISOString().slice(0, 10) })).length === 0, "already shared today: not shared again");
+    ok((await bg("B0SHAREEEE", 1000, near)).length === 0, "unchanged price adds no point so nothing to share");
+    mem.flags = { disabled_features: ["bg-upload"] }; ok((await bg("B0SHAREFFF", 950, near)).length === 0, "remote switch bg-upload stops sharing"); delete mem.flags;
+    mem.profile = { contribute: false }; ok((await bg("B0SHAREGGG", 950, near)).length === 0, "sharing off: nothing leaves"); mem.profile = { contribute: true };
+  } await ctx.record({ key: AK, site: "Amazon", url: mem.items[AK].url, price: 801, src: "dom" }); ok(sandbox.__enq.some(o => o.t === "obs" && o.price === 801), "control: a page visit IS uploaded");
   ok(mem.items[AK].mrp === 3990, "mrp kept");
   let t = t0 + 14 * 3600e3; out = await ctx.trkRun(t, mkFetch(() => aod(100)));
   ok(out.held === 1 && mem.items[AK].hist.at(-1)[1] === 801 && mem.items[AK].suspect, "an 87% fall is held, not recorded");

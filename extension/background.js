@@ -1,8 +1,10 @@
-importScripts("config.js", "lib.js", "state.js", "analysis.js", "cache.js", "grocery.js", "match.js", "compare.js", "offers.js", "tracker.js", "guard.js", "tier2.js", "auth.js", "sync.js");
+importScripts("config.js", "lib.js", "state.js", "analysis.js", "cache.js", "grocery.js", "match.js", "compare.js", "offers.js", "tracker.js", "amzbg.js", "guard.js", "tier2.js", "auth.js", "sync.js");
 const ready = runMigrations().then(r => r.ran ? invalidate("schema-upgrade") : null).then(() => enforceBudget()).catch(() => {}); // repairs stored data once per update (S3), then forgets stale caches and checks the storage budget (S4)
 const get = async () => safeItems((await chrome.storage.local.get("items")).items);
 const put = items => chrome.storage.local.set({ items });
 
+// Small counters for Settings ("is this reader working?"): {read, refused, stored, uploaded, declined, last, reasons:{}}. Failures here never matter.
+async function bumpHealth(key, event, reason) { try { await withLock(async () => { const h = (await chrome.storage.local.get(key))[key] || { reasons: {} }; h[event] = (h[event] || 0) + 1; h.last = Date.now(); if (reason) h.reasons[reason] = (h.reasons[reason] || 0) + 1; await chrome.storage.local.set({ [key]: h }); }); } catch {} }
 async function record(p) {
   const items = await get(), it = items[p.key] ||= { hist: [] };
   Object.assign(it, { site: p.site || it.site, title: p.title || it.title, image: p.image || it.image, url: p.url || it.url }); if (p.mrp !== undefined) it.mrp = p.mrp; // undefined = this reader did not look at MRP: keep what we know
@@ -11,9 +13,14 @@ async function record(p) {
   if (p.checked) it.checked = p.checked; for (const k of p.clear || []) delete it[k]; // the tracker clears its hold markers in the same write as the point
   const lastP = it.hist.length ? it.hist[it.hist.length - 1][1] : null; // a page read 4x higher / 4x lower than the last point is usually an EMI, bundle or variant artefact: it needs a second read within 2h
   if (p.src !== "bg" && lastP && (p.price < lastP * 0.25 || p.price > lastP * 4)) { const v = it.vhold; if (!(v && Date.now() - v.at < 2 * 3600e3 && Math.abs(v.price - p.price) / p.price <= 0.02)) { it.vhold = { price: p.price, at: Date.now() }; await put(items); return it; } delete it.vhold; } else delete it.vhold;
-  const before = it.hist.length; it.hist = addPoint(it.hist, p.price, Date.now());
+  const before = it.hist.length; it.hist = addPoint(it.hist, p.price, Date.now()), day = new Date().toISOString().slice(0, 10);
+  if (p.src !== "bg") it.pv = { price: p.price, at: Date.now() }; // the last price a person saw on the page: background reads are shared only if they stay close to it
+  const grew = it.hist.length > before;
+  // A background (tracker) read is shared only when it is a new confirmed price, within 10% of what the page showed in the last 14 days, at most once per product per day, and not switched off remotely.
+  const bgOk = p.src === "bg" && grew && p.price !== lastP && it.pv && Date.now() - it.pv.at < 14 * 864e5 && Math.abs(p.price / it.pv.price - 1) <= 0.10 && it.bgSent !== day;
+  if (bgOk) it.bgSent = day;
   await put(items);
-  if (it.hist.length > before) { const { profile } = await chrome.storage.local.get("profile"); if (p.src !== "bg" && await getSession() && (profile && profile.contribute === true)) enqueue({ t: "obs", key: p.key, site: p.site, price: p.price, mrp: p.mrp, at: Date.now(), src: p.src }); }
+  if (grew && (p.src !== "bg" || bgOk)) { const { profile } = await chrome.storage.local.get("profile"); if (await getSession() && (profile && profile.contribute === true) && !(p.src === "bg" && featureOff((await chrome.storage.local.get("flags")).flags, "bg-upload"))) enqueue({ t: "obs", key: p.key, site: p.site || it.site, price: p.price, mrp: p.mrp, at: Date.now(), src: p.src === "bg" ? "bg" : p.src }); }
   await maybeAlert(p.key, it);
   return it;
 }
@@ -75,12 +82,14 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
         const price = it.hist[it.hist.length - 1][1], last = m.points[m.points.length - 1][1];
         if (!(last >= price * 0.6 && last <= price * 1.4)) return reply({ ok: false }); // the chart must agree with the price this product shows today
         const ah = it.ahist || { ranges: {} }; ah.at = Date.now(); ah.ranges[m.range] = { at: Date.now(), days: m.days, points: m.points }; if (m.offer) ah.offer = m.offer; if (m.highest) ah.highest = m.highest; it.ahist = ah; await put(items);
-        { const { profile } = await chrome.storage.local.get("profile"); if (profile && profile.contribute === true && await getSession()) enqueue({ t: "chart", key: m.key, range: m.days, series: m.points, current: m.current || last }); } // opt-in: share the chart Amazon itself showed this reader
+        { const { profile } = await chrome.storage.local.get("profile"); if (profile && profile.contribute === true && !featureOff((await chrome.storage.local.get("flags")).flags, "chart-upload") && await getSession()) enqueue({ t: "chart", key: m.key, range: m.days, series: m.points, current: m.current || last }); } // opt-in: share the chart Amazon itself showed this reader
         reply({ ok: true, it }); }); }
+    else if (m.type === "ahist-health") { await bumpHealth("chartHealth", m.event, m.reason); reply({ ok: true }); }
     else if (m.type === "ahist-tried") { await withLock(async () => { const items = await get(), it = items[m.key]; if (it) { it.ahist = it.ahist || { ranges: {} }; it.ahist.tried = Date.now(); await put(items); } }); reply({ ok: true }); }
     else if (m.type === "seller") reply(await offSeller({ sid: m.sid }).catch(() => ({ failed: true })));
     else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));
     else if (m.type === "compare") reply(await cmpFind({ title: m.title, brand: m.brand, mpn: m.mpn, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
+    else if (m.type === "abg-run") reply(await abgRun(Date.now(), { force: true }).catch(e => ({ ok: false, why: e.message })));
     else if (m.type === "trk-run") reply(await trkRun(Date.now()).catch(e => ({ error: e.message })));
     else if (m.type === "iplocate") reply(await ipLocate().catch(() => ({})));
     else if (m.type === "reverse") reply(await reverseGeocode(m.lat, m.lon).catch(() => ({})));
@@ -124,7 +133,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === "flags") { await loadFlags(); return; }
   if (alarm.name === "housekeeping") { await housekeeping().catch(() => {}); return; } // prune >400-day history + enforce the storage budget
   if (alarm.name === "tokens") { await getSession(REFRESH_AHEAD).catch(() => {}); return; } // keep the 1-hour access token fresh while the browser is open
-  if (alarm.name === "trk") { await trkRun().catch(() => {}); return; }
+  if (alarm.name === "trk") { await trkRun().catch(() => {}); await abgRun().catch(() => {}); return; }
 });
 
 // Toolbar click toggles the companion panel; on tabs without it, open the help page.
