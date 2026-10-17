@@ -16,6 +16,7 @@
 - **Buy-or-wait verdict.** A plain answer with the reason, and a check for discounts that were never real.
 - **Trap prices.** Set the price you want and get a notification when it is reached.
 - **Deal Scanner.** A 0–100 score with the points behind it, and a warning when a price was lifted before a "discount".
+- **Background price checks.** While the browser is open, watched items are re-read a few times a day from each store's own data, so history and alerts continue without a visit. Settings shows per-store health.
 - **Reviews and seller.** What buyers say, from the rating breakdown, and who sells and ships the item.
 - **Other sellers.** On Amazon, every seller's price for the same item, with the lowest marked and seller ratings.
 - **Best price across stores.** One click compares Amazon, Flipkart and Reliance Digital for the same product, with a match confidence on each.

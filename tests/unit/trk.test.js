@@ -10,7 +10,8 @@ ok(!T.trkParseAmazon(fx("offers", "aod-single.html"), "B0AAAAAAAA").ok, "other a
 ok(T.trkParseAmazon("<html>Enter the characters you see below</html>", "B0F8BVSK21").reason === "captcha", "captcha page");
 ok(T.trkParseAmazon("", "B0F8BVSK21").reason === "empty", "empty");
 ok(T.trkParseAmazon('<div data-asin="B0F8BVSK21">Currently unavailable.</div>', "B0F8BVSK21").unavailable === true, "unavailable is ok:true, not a failure");
-ok(T.trkParseAmazon('<div id="aod-pinned-offer" data-asin="B0F8BVSK21"><div id="aod-offer-heading"><span class="a-text-bold"> Used - Good </span></div><span class="apex-pricetopay-accessibility-label"> ₹500.00 with 10 percent</span></div>', "B0F8BVSK21").reason === "not-new", "used offer is never the tracked price");
+ok(T.trkParseAmazon('<div id="aod-pinned-offer" data-asin="B0F8BVSK21"><div id="aod-offer-heading"><span class="a-text-bold"> Used - Good </span></div><span class="apex-pricetopay-accessibility-label"> ₹500.00 with 10 percent</span></div>', "B0F8BVSK21").neutral === "not-new", "used offer is never the tracked price (neutral, not a failure)");
+ok(T.trkParseAmazon("<div data-asin=\"B0F8BVSK21\">Some page without an offer box</div>", "B0F8BVSK21").neutral === "no-offer", "no offer box: neutral, must not count as a store failure");
 // Flipkart
 r = T.trkParseFlipkart(fx("track", "flipkart-pdp.html"), "ACCHGG7ND9BRXRGZ"); ok(r.ok && r.price === 766 && r.mrp === 3990, "flipkart: " + JSON.stringify(r));
 ok(T.trkParseFlipkart(fx("track", "flipkart-pdp.html"), "ACCOTHEROTHER0000").reason === "wrong-page", "flipkart other pid");

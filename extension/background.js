@@ -7,6 +7,9 @@ async function record(p) {
   const items = await get(), it = items[p.key] ||= { hist: [] };
   Object.assign(it, { site: p.site || it.site, title: p.title || it.title, image: p.image || it.image, url: p.url || it.url }); if (p.mrp !== undefined) it.mrp = p.mrp; // undefined = this reader did not look at MRP: keep what we know
   if (p.seller && p.seller.name) { if (it.seller && it.seller !== p.seller.name) it.sellerChange = { from: it.seller, at: Date.now() }; it.seller = p.seller.name; }
+  if (p.checked) it.checked = p.checked; for (const k of p.clear || []) delete it[k]; // the tracker clears its hold markers in the same write as the point
+  const lastP = it.hist.length ? it.hist[it.hist.length - 1][1] : null; // a page read 4x higher / 4x lower than the last point is usually an EMI, bundle or variant artefact: it needs a second read within 2h
+  if (p.src !== "bg" && lastP && (p.price < lastP * 0.25 || p.price > lastP * 4)) { const v = it.vhold; if (!(v && Date.now() - v.at < 2 * 3600e3 && Math.abs(v.price - p.price) / p.price <= 0.02)) { it.vhold = { price: p.price, at: Date.now() }; await put(items); return it; } delete it.vhold; } else delete it.vhold;
   const before = it.hist.length; it.hist = addPoint(it.hist, p.price, Date.now());
   await put(items);
   if (it.hist.length > before) { const { profile } = await chrome.storage.local.get("profile"); if (p.src !== "bg" && await getSession() && (profile && profile.contribute === true)) enqueue({ t: "obs", key: p.key, site: p.site, price: p.price, mrp: p.mrp, at: Date.now(), src: p.src }); }
@@ -100,7 +103,6 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
   return true;
 });
 
-// ponytail: periodic re-check only works for pages that expose JSON-LD offers; Amazon usually doesn't, so those update on visit. Add an offscreen-document DOM parser if needed.
 chrome.alarms.clear("recheck"); // retired: replaced by the tracker below
 // Create only if absent: re-running create on every service-worker start would keep resetting the schedule.
 chrome.alarms.get("trk").then(a => { if (!a) chrome.alarms.create("trk", { periodInMinutes: 30, delayInMinutes: 5 }); });

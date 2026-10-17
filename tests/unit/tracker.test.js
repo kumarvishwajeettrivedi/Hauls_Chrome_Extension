@@ -66,6 +66,39 @@ sandbox.__enq = []; vm.runInContext("getSession = async () => null; enqueue = o 
   out = await ctx.trkRun(t0 + 1e6 + 1, mkFetch(u => AOD.replace(/B0F8BVSK21/g, u.match(/asin=([A-Z0-9]{10})/)[1]))); ok(out.checked === 2, "the rest next run, none twice: " + out.checked);
   mem.trk.counts = { "amazon.in": 60 }; mem.trk.day = new Date(t0 + 1e6).toISOString().slice(0, 10); for (const k of Object.keys(mem.items)) mem.items[k].checked = 0; fetched = [];
   out = await ctx.trkRun(t0 + 1e6 + 5, mkFetch(() => aod(766))); ok(fetched.length === 0, "daily per-domain cap holds");
+  // ---- review round: per-item backoff, hold expiry, lease, first read, visit-path hold, cap scaling, apply errors
+  const body = u => AOD.replace(/B0F8BVSK21/g, u.match(/asin=([A-Z0-9]{10})/)[1]);
+  mem.items = { "amazon.in:B0GOODITM1": { site: "Amazon", url: "https://www.amazon.in/dp/B0GOODITM1", hist: [[t0, 766]], wish: true }, "amazon.in:B0BADITEM1": { site: "Amazon", url: "https://www.amazon.in/dp/B0BADITEM1", hist: [[t0, 766]], wish: true } }; mem.trk = {};
+  const picky = u => /B0BADITEM1/.test(u) ? "<html>nothing here</html>" : body(u);
+  let T0 = t0 + 2e6; out = await ctx.trkRun(T0, mkFetch(picky)); ok(out.checked === 2 && out.failed === 1 && !(mem.trk.pause || {})["amazon.in"], "one bad item does not pause the store: " + JSON.stringify(out));
+  ok(mem.items["amazon.in:B0BADITEM1"].failN === 1, "the bad item backs off by itself");
+  fetched = []; await ctx.trkRun(T0 + 7 * 3600e3, mkFetch(picky)); ok(fetched.length === 2 && mem.items["amazon.in:B0BADITEM1"].failN === 2, "after 6h both are due again (backoff 6h for the first failure)");
+  fetched = []; await ctx.trkRun(T0 + 8 * 3600e3, mkFetch(picky)); ok(!fetched.some(u => /BADITEM1/.test(u)), "second failure waits 12h: not retried after 1h");
+  // no-offer page is neutral, not a failure
+  mem.items = { [AK]: { site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", hist: [[t0, 766]], wish: true } }; mem.trk = {};
+  out = await ctx.trkRun(T0 + 3e7, mkFetch(u => '<div data-asin="B0F8BVSK21">no offer box</div>')); ok(out.failed === 0 && mem.items[AK].checked === T0 + 3e7 && !mem.items[AK].failN, "no-offer is neutral and the item is stamped");
+  // hold expiry: a stale suspect from days ago cannot be confirmed by a later read
+  mem.items[AK] = { site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", hist: [[t0, 800]], wish: true, suspect: { price: 100, at: T0 - 5 * 3600e3 }, checked: 0 }; mem.trk = {};
+  out = await ctx.trkRun(T0, mkFetch(() => aod(100))); ok(out.held === 1 && mem.items[AK].hist.length === 1 && mem.items[AK].suspect.at === T0, "stale hold is replaced, not confirmed");
+  // first-ever reading below the target is confirmed before alerting
+  mem.items[AK] = { site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", hist: [], wish: true, target: 700, checked: 0 }; mem.trk = {}; notes.length = 0;
+  out = await ctx.trkRun(T0, mkFetch(() => aod(650))); ok(out.held === 1 && notes.length === 0, "first read below target is held");
+  // lease: a second run while one is in progress does nothing
+  mem.items[AK].checked = 0; mem.trk = {}; mem.trkLease = Date.now(); const busy = await ctx.trkRun(Date.now() + 1000, mkFetch(() => aod(650))); ok(busy.busy === true && busy.checked === 0, "overlapping run is refused");
+  delete mem.trkLease;
+  // apply errors are counted, never reported as ok
+  mem.items[AK] = { site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", hist: [[t0, 766]], wish: true, checked: 0 }; mem.trk = {};
+  const origSet = chrome.storage.local.set; let calls2 = 0; chrome.storage.local.set = async o => { if (o.items && ++calls2 >= 1) throw new Error("quota"); return origSet(o); };
+  out = await ctx.trkRun(T0 + 9e7, mkFetch(() => aod(900))); chrome.storage.local.set = origSet; ok(mem.trk.health["amazon.in"].errors === 1 && mem.trk.health["amazon.in"].ok === 0, "write failure counted as apply error, not ok: " + JSON.stringify(mem.trk.health["amazon.in"]));
+  // daily cap scales with the number of watched items (no silent starvation)
+  mem.items = {}; for (let i = 0; i < 12; i++) mem.items["amazon.in:B0CAPITM0" + String(i).padStart(1, "0") + "X"] = { site: "Amazon", url: "https://www.amazon.in/dp/B0CAPITM0" + i + "X", hist: [[t0, 766]], wish: true };
+  mem.trk = { day: new Date(T0 + 1e8).toISOString().slice(0, 10), counts: { "amazon.in": 60 } }; out = await ctx.trkRun(T0 + 1e8, mkFetch(body)); ok(out.checked > 0, "12 watched items raise the daily cap above the flat 60 (cap 72): " + JSON.stringify(out));
+  // visit-path hold in record(): a 4x jump from a page read needs a second read
+  mem.items = { [AK]: { site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", hist: [[t0, 766]] } };
+  const visit = price => ctx.record({ key: AK, site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", price, src: "dom" });
+  await visit(9000); ok(mem.items[AK].hist.length === 1 && mem.items[AK].vhold && mem.items[AK].vhold.price === 9000, "a 12x page price (EMI/bundle artefact) is held, not recorded");
+  await visit(9000); ok(mem.items[AK].hist.length === 2 && !mem.items[AK].vhold, "the same price on a second visit is accepted");
+  await visit(2531); ok(mem.items[AK].hist.length === 3 && !mem.items[AK].vhold, "a drop to 28% of the last price is a normal move below the 4x guard"); 
   vm.runInContext('getSession = async () => null', ctx);
   // a page visit with MRP null clears MRP deliberately; undefined (a poll that did not read it) keeps it
   mem.items = { [AK]: { site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", title: "Earbuds", mrp: 3990, hist: [[Date.now() - D, 766]] } };

@@ -36,7 +36,7 @@ const showPin = pin => { $("pinval").textContent = pin || "not set"; };
 chrome.storage.local.get("pin").then(v => showPin(v.pin)); chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.pin) showPin(ch.pin.newValue); });
 
 // Is the background (service worker) the same build as this page? A stale one rejects the unknown message.
-const PAGE_BUILD = "2026-10-17.r14";
+const PAGE_BUILD = "2026-10-17.r15";
 chrome.runtime.sendMessage({ type: "t2-version" }).then(r => { const ok = r && r.build === PAGE_BUILD; $("ver").textContent = "HAULS " + chrome.runtime.getManifest().version + (ok ? " · up to date" : ""); $("stale").hidden = !!ok; }).catch(() => { $("stale").hidden = false; });
 $("reload").onclick = () => chrome.runtime.reload();
 
@@ -69,7 +69,7 @@ async function paintTrk() {
     const h = H[dom], row = document.createElement("div"), b = document.createElement("b"), pill = document.createElement("span"); row.className = "srow"; b.textContent = name;
     const paused = trk && trk.pause && trk.pause[dom] > Date.now(), bad = h && h.fail > h.ok;
     pill.className = "pill" + (h && h.ok && !bad && !paused ? " on" : ""); pill.textContent = paused ? "Paused (blocked)" : !h ? "Not checked yet" : `${h.ok} ok · ${h.fail} failed`;
-    row.append(b, pill); if (h && h.last) { const t = document.createElement("span"); t.className = "meta"; t.textContent = new Date(h.last).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) + (h.fail && Object.keys(h.reasons).length ? " · " + Object.entries(h.reasons).map(([k, v]) => `${k} ${v}`).join(", ") : ""); row.append(t); }
+    row.append(b, pill); if (h && h.last) { const t = document.createElement("span"); t.className = "meta"; t.textContent = new Date(h.last).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) + (Object.keys(h.reasons || {}).length ? " · " + Object.entries(h.reasons).map(([k, v]) => `${k} ${v}`).join(", ") : "") + (h.starved ? ` · ${h.starved} skipped (daily limit)` : "") + (h.errors ? ` · ${h.errors} save errors` : ""); row.append(t); }
     box.append(row);
   }
 }
