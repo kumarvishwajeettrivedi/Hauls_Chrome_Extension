@@ -55,7 +55,12 @@ function cmpParseAmazon(html) {
 const CMP_STOP = new Set("the a an and or with for of in on to by from new latest buy online india pack set combo mobile phone smartphone camera control wireless bluetooth mic tws ear buds earbuds earphones headphones headset 3g 4g 5g".split(" "));
 const cmpTokens = t => String(t || "").toLowerCase().replace(/[™®©]/g, "").replace(/(\d)\s*(gb|tb|mb|mah|hrs?|hours?|w|mm|db|ms|inch|in|cm|kg|ml|ltr|l)\b/g, "$1$2").replace(/\bhours?\b|\bhrs?\b/g, "h").split(/[^a-z0-9]+/).filter(x => x && !CMP_STOP.has(x));
 const cmpStorage = toks => new Set(toks.filter(x => /^\d+(gb|tb)$/.test(x)));
-function cmpIdentity(title) { const toks = cmpTokens(title), head = toks.slice(0, 14); return { toks: head, brand: head[0] || "", nums: head.filter(x => /\d/.test(x)), storage: cmpStorage(head) }; }
+// Identity = the model name only: cut at the first spec separator (": , ( | -  with"), then add the storage size found anywhere in the first 140 chars.
+const cmpHead = title => String(title || "").split(/[:,(|;]|\s[-–—]\s|\swith\s/i)[0];
+function cmpIdentity(title) {
+  const head = cmpTokens(cmpHead(title)).slice(0, 8), st = [...cmpStorage(cmpTokens(String(title || "").slice(0, 140)))][0], toks = st && !head.includes(st) ? [...head, st] : head;
+  return { toks, brand: toks[0] || "", nums: toks.filter(x => /\d/.test(x)), storage: cmpStorage(toks) };
+}
 function cmpMatch(id, cand) {
   const ct = cmpTokens(cand.title), cs = new Set(ct), shared = id.toks.filter(x => cs.has(x)).length, cover = shared / Math.max(1, id.toks.length);
   if (cmpVariants(id.toks) !== cmpVariants(ct.slice(0, 14))) return null;
@@ -87,7 +92,7 @@ const CMP_STORES = {
   Flipkart: { host: "flipkart.com", search: q => "https://www.flipkart.com/search?q=" + encodeURIComponent(q), parse: cmpParseFlipkart },
   "Reliance Digital": { host: "reliancedigital.in", search: q => "https://www.reliancedigital.in/products?q=" + encodeURIComponent(q), parse: cmpParseReliance },
 };
-const cmpQuery = title => cmpTokens(title).slice(0, 7).join(" ");
+const cmpQuery = title => cmpIdentity(title).toks.join(" ");
 const cmpCache = new Map();
 
 async function cmpFetch(url, doFetch = fetch) {

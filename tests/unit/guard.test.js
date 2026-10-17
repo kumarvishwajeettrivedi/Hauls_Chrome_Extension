@@ -20,6 +20,7 @@ bad(Object.create({ type: "sync" }), /unknown/); bad(new (class X { constructor(
 // products
 ok({ type: "compare", title: "boAt Airdopes 141", site: "Amazon", price: 766 }, tab); bad({ type: "compare", title: "x", site: "Amazon", price: 766 }, null, tab); bad({ type: "compare", title: "boAt Airdopes", site: "Amazon", price: -1 }, null, tab); bad({ type: "compare", title: "boAt Airdopes", site: "Amazon", price: 5, extra: 1 }, null, tab);
 ok({ type: "history-ref", key: "k", days: 30, low: 499, high: 579 }, tab); bad({ type: "history-ref", key: "k", days: 30, low: 499 }, null, tab); bad({ type: "history-ref", key: "k", days: 2, low: 1, high: 2 }, null, tab); bad({ type: "history-ref", key: "k", days: 30, low: -1, high: 2 }, null, tab); bad({ type: "history-ref", key: "k", days: 30, low: 1, high: 2, x: 1 }, null, tab);
+ok({ type: "offers", asin: "B0DCSYTVDD" }, tab); bad({ type: "offers", asin: "bad" }, null, tab); bad({ type: "offers", asin: "B0DCSYTVDD", x: 1 }, null, tab); bad({ type: "offers" }, null, tab); bad({ type: "offers", asin: "b0dcsytvdd" }, null, tab);
 const bp = o => bad({ type: "seen", p: { ...P, ...o } });
 ok({ type: "seen", p: { ...P, seller: { name: "A", ships: "B", text: "", href: "/x" } } }, tab); ok({ type: "seen", p: { ...P, seller: null } }, tab);
 bp({ seller: { name: "x".repeat(81) } }); bp({ seller: { evil: "x" } }); bp({ seller: "str" }); bp({ seller: { name: 5 } });

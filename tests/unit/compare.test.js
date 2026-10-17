@@ -21,6 +21,12 @@ best = C.cmpPick(ip, [{ title: "Apple iPhone 16 (128 GB) Black", price: 77999, u
 ok(!C.cmpPick(ip, [{ title: "Apple iPhone 16 Plus (128 GB)", price: 87999, url: "https://b" }], 76999), "only a Plus on offer: no match");
 ok(!C.cmpPick(C.cmpIdentity("Sony WH-1000XM5 Headphones"), [{ title: "Bose QuietComfort 45 Headphones", price: 30000, url: "https://z" }], 29990), "other brand dropped");
 
+// Long Amazon phone title: identity is the model name + storage, not spec noise (this exact title returned "No confident match" live)
+const LONG = "Apple iPhone 17e 256 GB: 15.40 cm (6.1″) Super Retina XDR Display, A19 Chip, All-Day Battery Life, 48MP Fusion Camera, 256GB Starting Storage; White";
+ok(C.cmpIdentity(LONG).toks.join(" ") === "apple iphone 17e 256gb", "identity: " + C.cmpIdentity(LONG).toks.join(" "));
+ok(C.cmpIdentity("Apple iPhone 15 (128 GB) - Black").toks.join(" ") === "apple iphone 15 128gb", "storage kept when it sits in the brackets");
+const phones = [{ title: "Apple iPhone 17 (Black, 256 GB)", price: 86999, url: "https://a" }, { title: "Apple iPhone 17e (Soft Pink, 512 GB)", price: 84900, url: "https://b" }, { title: "Apple iPhone 17e (White, 256 GB)", price: 64900, url: "https://c" }, { title: "Apple iPhone 17 Pro 256 GB", price: 130490, url: "https://d" }];
+best = C.cmpPick(C.cmpIdentity(LONG), phones, 71999); ok(best && best.url === "https://c" && best.confidence === "Exact", "iPhone 17e 256 picks the right row: " + JSON.stringify(best));
 // network layer: skips the current store, parses each store's page, sorts by price, reports failures, caches
 (async () => {
   const pages = { "www.flipkart.com": fx("flipkart"), "www.reliancedigital.in": fx("reliance"), "www.amazon.in": fx("amazon") }; let calls = 0;

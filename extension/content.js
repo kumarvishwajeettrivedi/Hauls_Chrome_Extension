@@ -58,6 +58,12 @@
   const STORE_C = c => c || "#999";
 
   const dshort = t => new Date(t).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  // Too little own history: show the range this page reported (Amazon's own price history), with today's price on it. DOM only, no markup strings.
+  const refBar = (ref, price) => {
+    const w = el("div", "refbar"), track = el("div", "rb-track"), dot = el("i", "rb-dot"), lab = el("div", "rb-lab"), pos = ref.high > ref.low ? Math.min(1, Math.max(0, (price - ref.low) / (ref.high - ref.low))) : 0.5;
+    dot.style.left = `calc(${(pos * 100).toFixed(1)}% - 9px)`; track.append(dot); lab.append(el("span", "num", fmt(ref.low)), el("span", "num", fmt(ref.high)));
+    w.append(track, lab, el("p", "meta", `Range shown on this page for the last ${ref.days} days. HAULS is still building its own history.`)); return w;
+  };
   // Step chart: a price holds until the next observation, and the last price is extended to today.
   const chart = (h, now = Date.now(), win = "") => {
     if (h.length === 1 && win) return el("p", "meta num", `No price change recorded in the last ${win}: ${fmt(h[0][1])}.`);
@@ -202,7 +208,7 @@
     const paintRange = () => {
       const days = (RANGES.find(r => r[0] === range) || RANGES[1])[1], ws = windowStats(H, now, days || 99999) || { min: s.min, avg: s.avg, max: s.max }, sl = downsample(sliceHistory(H, days, now), 200);
       c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3"), sm = el("small"); sm.append(ico(i), n); x.append(sm, el("b", "num", fmt(v))); c3.append(x); });
-      cb.replaceChildren(el("p", "lbl", `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), chart(sl, now, days ? range : ""));
+      cb.replaceChildren(el("p", "lbl", `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), sl.length > 1 || !refUsable(it.ref, p.price, now) ? chart(sl, now, days ? range : "") : refBar(it.ref, p.price));
       [...seg.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.r === range)));
     };
     RANGES.forEach(([k]) => { const b = el("button", "", k); b.dataset.r = k; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
@@ -260,6 +266,22 @@
         openSheet("About this seller", nodes); };
       main.append(sb);
     }
+    // other sellers on this Amazon product (one click, one request)
+    const asinM = dom === "amazon.in" && /^amazon\.in:([A-Z0-9]{10})$/.exec(p.key);
+    if (asinM) {
+      const ob = el("div", "offers"), obtn = el("button", "btn ghost full", "See other sellers"), paintOff = r => {
+        ob.replaceChildren(); if (r.failed) return void ob.append(el("p", "meta", "Couldn't load other sellers right now."), obtn);
+        if (!r.offers.length) return void ob.append(el("p", "meta", "Only one seller for this product."));
+        const best = offBest(r.offers, p.price), here = (p.seller && p.seller.name || "").toLowerCase();
+        if (best && best.saving > 0) ob.append(el("p", "off-save", `${fmt(best.saving)} less from ${best.lowest.seller}${best.lowest.rating && best.lowest.rating <= 2 ? ` (seller rated ${best.lowest.rating}★)` : ""}`));
+        r.offers.slice(0, 8).forEach(o => { const row = el(o.sid ? "a" : "div", "off-r" + (best && o === best.lowest ? " low" : "")); if (o.sid) { row.href = new URL(p.url).origin + "/sp?seller=" + o.sid; row.target = "_blank"; row.rel = "noopener"; }
+          const mine = here && o.seller.toLowerCase() === here; row.append(el("span", "on", o.seller + (mine ? " (here)" : "")), el("b", "num", fmt(o.price)),
+            el("small", "", [o.cond !== "New" ? o.cond : "", o.ships ? "Ships from " + o.ships : "", o.rating ? `Seller ${o.rating}★ (${o.ratings} rating${o.ratings === 1 ? "" : "s"})` : ""].filter(Boolean).join(" · "))); ob.append(row); });
+        ob.append(el("p", "meta", "Read from Amazon's own seller list for this item. Delivery, returns and seller quality can differ."));
+      };
+      obtn.onclick = async () => { obtn.disabled = true; obtn.textContent = "Loading sellers…"; offDone[p.key] = await send({ type: "offers", asin: asinM[1] }).catch(() => ({ failed: true, offers: [] })); if (cur && cur.p && cur.p.key === p.key) paintOff(offDone[p.key]); };
+      if (offDone[p.key]) paintOff(offDone[p.key]); else ob.append(obtn); main.append(ob);
+    }
     // stores
     const { links } = smartLinks(p.title, S ? S.name : ""), SHOW = 5, sec = el("div"), st = el("div", "stores");
     sec.append(el("p", "lbl", "Compare"));
@@ -294,7 +316,7 @@
   }
 
   // Review quality signals + themes. Rating shape comes from the page's rating breakdown (large sample); text signals from visible reviews (+ more if the user asks).
-  let revExtra = null; const cmpDone = {};
+  let revExtra = null; const cmpDone = {}, offDone = {};
   function reviewsInfo() {
     if (typeof Reviews_ === "undefined") return null;
     const site = dom === "amazon.in" ? "amazon" : dom === "flipkart.com" ? "flipkart" : ""; if (!site) return null;

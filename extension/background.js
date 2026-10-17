@@ -1,4 +1,4 @@
-importScripts("config.js", "lib.js", "state.js", "analysis.js", "cache.js", "grocery.js", "compare.js", "guard.js", "tier2.js", "auth.js", "sync.js");
+importScripts("config.js", "lib.js", "state.js", "analysis.js", "cache.js", "grocery.js", "compare.js", "offers.js", "guard.js", "tier2.js", "auth.js", "sync.js");
 const ready = runMigrations().then(r => r.ran ? invalidate("schema-upgrade") : null).then(() => enforceBudget()).catch(() => {}); // repairs stored data once per update (S3), then forgets stale caches and checks the storage budget (S4)
 const get = async () => safeItems((await chrome.storage.local.get("items")).items);
 const put = items => chrome.storage.local.set({ items });
@@ -68,6 +68,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "grocery") reply(await noteLocation(m.loc).then(() => groceryAt(m.q, m.loc, { more: !!m.more })).catch(e => ({ items: [], errors: [e.message] })));
     else if (m.type === "history-ref") { const items = await get(), it = items[m.key]; const price = it && it.hist.length ? it.hist[it.hist.length - 1][1] : 0;
       if (it && m.low <= m.high && price >= m.low * 0.6 && price <= m.high * 1.4) { it.ref = { days: Math.round(m.days), low: m.low, high: m.high, at: Date.now() }; await put(items); reply({ ok: true, it }); } else reply({ ok: false }); }
+    else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));
     else if (m.type === "compare") reply(await cmpFind({ title: m.title, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
     else if (m.type === "iplocate") reply(await ipLocate().catch(() => ({})));
     else if (m.type === "reverse") reply(await reverseGeocode(m.lat, m.lon).catch(() => ({})));
