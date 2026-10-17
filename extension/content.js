@@ -204,6 +204,21 @@
       const nodes = [ul]; if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") nodes.push(note("Discount context", `Advertised ${Math.round(d.adv * 100)}% off the listed MRP. Against recent observed prices it's ${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"}.`));
       openSheet(bw.title, nodes); };
     main.append(vc);
+    // Deal Scanner: 0-100 score with the exact points behind it
+    const sc = dealScan(H, p.price, p.mrp), scard = el("div", "scan " + sc.tone), sh = el("div", "scan-h");
+    sh.append(el("b", "", "Deal Scanner"), el("span", "meta", sc.score == null ? "" : `${sc.score}/100`)); scard.append(sh);
+    if (sc.score == null) scard.append(el("p", "meta", sc.headline));
+    else {
+      const top = el("div", "scan-top"), pill = el("span", "scan-pill", sc.label), g = el("div", "gauge"), ang = Math.PI * (1 - sc.score / 100), nx = 50 + 36 * Math.cos(ang), ny = 50 - 36 * Math.sin(ang);
+      const NS = "http://www.w3.org/2000/svg", mk = (tag, at) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); return e; }, svg = mk("svg", { viewBox: "0 0 100 58", "aria-hidden": "true" });
+      ["#E5484D", "#F5A524", "#FFD93D", "#7ED957", "#19B968"].forEach((c, i) => { const a0 = Math.PI * (1 - i / 5), a1 = Math.PI * (1 - (i + 1) / 5), pt = (a, r) => `${50 + r * Math.cos(a)} ${50 - r * Math.sin(a)}`; svg.append(mk("path", { d: `M${pt(a0, 42)} A42 42 0 0 1 ${pt(a1, 42)}`, stroke: c, "stroke-width": 9, fill: "none" })); });
+      svg.append(mk("line", { x1: 50, y1: 50, x2: nx, y2: ny, stroke: "#131316", "stroke-width": 3, "stroke-linecap": "round" }), mk("circle", { cx: 50, cy: 50, r: 4.5, fill: "#fff", stroke: "#131316", "stroke-width": 2.5 }));
+      const gn = el("div", "gnum num", String(sc.score)); gn.append(el("small", "", "Deal score")); g.append(svg, gn);
+      top.append(pill, g); scard.append(top, el("div", "scan-head", sc.headline));
+      const list = el("div", "scan-rows"); sc.rows.forEach(r => { const li = el("div", "scan-r" + (r.bad ? " bad" : "")); li.append(el("span", "", r.label), el("span", "num", r.value), el("b", "num", `${r.pts}/${r.max}`)); list.append(li); });
+      scard.append(list, el("p", "meta", "Observed by this extension from the prices it has seen. Not a seller statement."));
+    }
+    main.append(scard);
     // deal strength meter + chips
     const row = el("div", "row2"), mt = el("div", "meter4" + (["weak", "higher"].includes(d.badge) ? " lo" : "")), lvl = { strong: 4, normal: 3, weak: 2, higher: 1, unknown: 0 }[d.badge];
     mt.title = d.label; for (let i = 0; i < 4; i++) mt.append(el("i", i < lvl ? "on" : "")); row.append(mt);

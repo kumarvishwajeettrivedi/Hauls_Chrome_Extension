@@ -36,11 +36,40 @@ function buyWait(hist, price, mrp, now = Date.now()) {
   reasons.push(d.vsAvg > 0.005 ? `${inr(price)} is ${pct}% above the ${w.days}-day average of ${inr(w.avg)}.` : d.vsAvg < -0.005 ? `${inr(price)} is ${pct}% below the ${w.days}-day average of ${inr(w.avg)}.` : `${inr(price)} matches the ${w.days}-day average of ${inr(w.avg)}.`);
   reasons.push(`Lowest observed: ${inr(w.min)} on ${new Date(w.minAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.`);
   const near = price <= w.min * 1.02;
-  let verdict = near || d.badge === "strong" ? "buy" : d.badge === "higher" || price > w.min * 1.08 ? "wait" : "okay";
+  const pump = pumpCheck(hist, price, now); if (pump) reasons.unshift(`The price was lifted to ${inr(pump.peak)} recently and then brought back to about its older level, so this drop is less of a bargain than it looks.`);
+  let verdict = pump ? "wait" : near || d.badge === "strong" ? "buy" : d.badge === "higher" || price > w.min * 1.08 ? "wait" : "okay";
   if (d.adv >= 0.25 && d.badge === "weak") reasons.push(`The advertised ${Math.round(d.adv * 100)}% off is measured against the listed MRP, not recent observed prices.`);
   if (verdict === "wait" && price > w.min) reasons.push(`It was ${inr(price - w.min)} cheaper at its lowest.`);
   reasons.push(`Based on ${w.n} observations over ${w.days} days (${d.coverage} coverage). Observed by this extension, not seller-verified.`);
-  return { verdict, title: { buy: "Good time to buy", wait: "Wait if you can", okay: "Fair price" }[verdict], short: { buy: near ? "Near its lowest. Grab it." : "Well below usual. Grab it.", wait: "Above its usual. Hold off.", okay: "Fair price right now." }[verdict], reasons, deal: d };
+  return { verdict, title: { buy: "Good time to buy", wait: "Wait if you can", okay: "Fair price" }[verdict], short: { buy: near ? "Near its lowest. Grab it." : "Well below usual. Grab it.", wait: pump ? "Price was pumped before this drop." : "Above its usual. Hold off.", okay: "Fair price right now." }[verdict], reasons, deal: d };
+}
+
+// Deal Scanner: a 0-100 score from observed prices only. Rows carry earned/max points so the card can show exactly why.
+const median = a => { const b = [...a].sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+// A pump = the price was lifted 15%+ above its older baseline in the last 45 days and is now "discounted" back to that baseline.
+function pumpCheck(hist, price, now = Date.now()) {
+  const recent = hist.filter(h => h[0] >= now - 45 * DAY && h[0] < now - DAY), older = hist.filter(h => h[0] < (recent[0] ? recent[0][0] : now - 45 * DAY) && h[0] >= now - 150 * DAY);
+  if (!recent.length || older.length < 2) return null;
+  const base = median(older.map(h => h[1])), peak = recent.reduce((a, h) => (h[1] > a[1] ? h : a), recent[0]);
+  return peak[1] >= base * 1.15 && price <= base * 1.03 ? { base, peak: peak[1], at: peak[0] } : null;
+}
+function dealScan(hist, price, mrp, now = Date.now()) {
+  const w = windowStats(hist, now), cov = coverage(w);
+  if (cov === "insufficient") return { score: null, label: "Not enough history", tone: "unknown", headline: "Keep browsing, the scanner needs a few more days of prices.", rows: [] };
+  const med = median(hist.filter(h => h[0] >= now - 90 * DAY).map(h => h[1])), pump = pumpCheck(hist, price, now), adv = mrp && mrp > price ? (mrp - price) / mrp : 0;
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const vsMed = clamp((med - price) / med, -0.2, 0.2), fromLow = w.min ? clamp((price - w.min) / w.min, 0, 0.3) : 0;
+  const rows = [
+    { label: "Price vs 90-day typical", value: inr(med), max: 30, pts: Math.round(30 * (vsMed + 0.2) / 0.4) },
+    { label: "Distance from lowest", value: inr(w.min), max: 25, pts: Math.round(25 * (1 - fromLow / 0.3)) },
+    pump ? { label: "Price pump detected", value: inr(pump.peak), max: 20, pts: 0, bad: true } : { label: "No price pump seen", value: "", max: 20, pts: 20 },
+    adv >= 0.25 && price >= med * 0.95 ? { label: "MRP discount looks inflated", value: Math.round(adv * 100) + "% off MRP", max: 15, pts: 0, bad: true } : { label: "Discount vs MRP", value: adv ? Math.round(adv * 100) + "% off" : "", max: 15, pts: adv ? 15 : 8 },
+    { label: "Data behind this", value: `${w.n} prices, ${w.days} days`, max: 10, pts: cov === "high" ? 10 : 5 },
+  ];
+  const raw = clamp(rows.reduce((a, r) => a + r.pts, 0), 0, 100), score = pump ? Math.min(raw, 20) : raw, tone = score >= 75 ? "real" : score >= 50 ? "fair" : score >= 30 ? "meh" : "mirage";
+  const label = { real: "Real Deal", fair: "Fair Deal", meh: "Think Twice", mirage: "Deal Mirage" }[tone];
+  const headline = pump ? "Price pump detected" : adv >= 0.25 && price >= med * 0.95 ? "Discount looks inflated" : price <= w.min * 1.02 ? "Near its lowest" : vsMed > 0.05 ? "Below its usual price" : vsMed < -0.05 ? "Above its usual price" : "Priced as usual";
+  return { score, label, tone, headline, rows, pump, coverage: cov };
 }
 
 // Observations only: we never claim a scarcity message is untrue.
@@ -76,4 +105,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };

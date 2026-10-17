@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-17T10:30:32.228Z",
+  "at": "2026-10-17T10:34:40.751Z",
   "summary": {
     "pass": 1,
     "fail": 0,
@@ -7,10 +7,10 @@
   },
   "results": [
     {
-      "id": "10",
-      "name": "dark browser setting: panel stays light and readable (no dark theme)",
+      "id": "S",
+      "name": "shot",
       "status": "PASS",
-      "ms": 4463,
+      "ms": 2484,
       "failures": [],
       "notes": [],
       "attempts": 1

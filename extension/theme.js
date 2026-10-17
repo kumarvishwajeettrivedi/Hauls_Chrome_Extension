@@ -103,6 +103,12 @@ const TT = {
   .pgo{flex:none;width:32px;height:32px;padding:0;border-radius:50%;border:2px solid var(--bd);display:grid;place-items:center;background:var(--chip);color:var(--ink-3);cursor:pointer;font:inherit}.pgo svg{width:16px;height:16px}
   .pgo.dirty{background:var(--mint);color:#131316;animation:pgopulse 1.6s ease-out infinite}.pgo.bad{opacity:.4;cursor:not-allowed}.pgo.done{background:var(--mint);color:#131316}
   @media (max-width:600px){.pgo{width:44px;height:44px}.wtop .t a{padding:13px 0;margin:-13px 0}}
+  .scan{border:2px solid var(--bd);border-radius:16px;box-shadow:3px 3px 0 var(--sh);padding:12px;background:var(--surface);margin-top:12px}.scan-h{display:flex;justify-content:space-between;align-items:center;font-weight:800}
+  .scan-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0}.scan-pill{border:2px solid currentColor;border-radius:999px;padding:6px 14px;font-weight:800;font-size:15px}
+  .scan.mirage .scan-pill,.scan.mirage .scan-head{color:#C62E34}.scan.meh .scan-pill{color:#B45F06}.scan.fair .scan-pill{color:#8A6D00}.scan.real .scan-pill{color:#0B7A47}
+  .gauge{width:120px;flex:none}.gauge svg{display:block;width:120px;height:70px}.gnum{text-align:center;font-weight:800;font-size:20px;line-height:1;margin-top:-4px}.gnum small{display:block;font-size:10px;font-weight:600;color:var(--ink-3);margin-top:2px}
+  .scan-head{background:var(--chip);border-radius:12px;padding:10px 12px;font-weight:800}.scan.real .scan-head{color:#0B7A47}
+  .scan-rows{margin-top:8px}.scan-r{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:13px;align-items:center}.scan-r b{min-width:42px;text-align:right}.scan-r.bad span:first-child{color:#C62E34;font-weight:800}
   @keyframes pgopulse{0%{box-shadow:0 0 0 0 rgba(25,230,140,.7)}100%{box-shadow:0 0 0 10px rgba(25,230,140,0)}}
   .plc{display:inline-flex;align-items:center}.plc .cp{border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:1px}.cp-x{width:30px;height:100%;min-height:34px;border:2px solid var(--bd);border-left-width:1px;border-radius:0 99px 99px 0;background:var(--surface);color:var(--ink-2);display:grid;place-items:center;cursor:pointer;padding:0;box-shadow:2px 2px 0 var(--sh)}.cp-x svg{width:12px;height:12px}
   .gbox{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}.gbox>:empty,.gbox>[hidden]{display:none}.gbox .meta,.gbox .meta.strong{margin:0}.gbox .btn.full{margin:0}

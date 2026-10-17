@@ -34,6 +34,21 @@ assert.equal(bw.verdict, "wait"); assert.ok(/observations/.test(bw.reasons.at(-1
 assert.deepEqual(A.urgencySignals('Only 2 left in stock. 14 people are viewing this. Deal ends in 01:23:45').length, 3);
 assert.equal(A.urgencySignals("a normal product page").length, 0);
 assert.equal(A.priceConfidence("jsonld", 100).level, "high"); assert.equal(A.priceConfidence(null, null).level, "none");
+
+// Deal Scanner
+const base = [[NOW-120*D,1000],[NOW-100*D,1010],[NOW-80*D,990]];
+const pumped = [...base, [NOW-30*D,1300],[NOW-20*D,1320],[NOW-2*D,1005]];
+let sc = A.dealScan(pumped, 1005, 2000, NOW);
+assert.ok(A.pumpCheck(pumped, 1005, NOW), "lifted 30% then back to baseline is a pump");
+assert.equal(sc.tone, "mirage", "pumped price is not a real deal: " + sc.score); assert.equal(sc.headline, "Price pump detected");
+const real = [[NOW-80*D,1500],[NOW-60*D,1490],[NOW-40*D,1510],[NOW-20*D,1500],[NOW-2*D,1200]];
+sc = A.dealScan(real, 1200, 1800, NOW); assert.equal(sc.tone, "real", "genuine low scores high: " + sc.score); assert.ok(sc.score >= 75 && sc.score <= 100);
+assert.equal(A.pumpCheck(real, 1200, NOW), null);
+assert.equal(A.dealScan([[NOW-D,100]], 100, 0, NOW).score, null);
+assert.ok(sc.rows.every(r => r.pts >= 0 && r.pts <= r.max), "points within max");
+assert.equal(A.buyWait(pumped, 1005, 2000, NOW).verdict, "wait", "a pumped drop is never a Buy");
+assert.equal(A.buyWait(real, 1200, 1800, NOW).verdict, "buy");
+console.log("dealScan ok");
 let u = null; for (let i = 0; i < 50; i++) u = A.useLookup(u && u.usage, "k" + i, "free", new Date(NOW));
 assert.ok(u.allowed && u.used === 50); assert.ok(!A.useLookup(u.usage, "k51", "free", new Date(NOW)).allowed);
 assert.ok(A.useLookup(u.usage, "k3", "free", new Date(NOW)).allowed, "revisiting a counted product is free");
