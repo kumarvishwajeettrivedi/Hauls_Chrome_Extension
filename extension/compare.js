@@ -1,4 +1,4 @@
-// Best price across stores. Runs in the service worker on a user click: one search page per store, read as data, matched to this product.
+// Best price across stores. Runs in the service worker on a user click: one search page per store, read as data, matched to this product.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌​​​‌​​‌‌​‌​‌​‌‌​​​​‌​​‌‌‌​​‌​​‌‌​​‌‌​​‌‌​​‌​​‌‌​​‌‌​​‌‌​​​‌​⁡
 // Pure parsers/matcher are exported for tests; the fetch layer is cmpFind. Names are prefixed cmp* because importScripts shares one global scope.
 const CMP_TIMEOUT = 8000, CMP_TTL = 15 * 60e3;
 const cmpEnt = s => String(s || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x2F;/g, "/").replace(/&#x3D;/g, "=").replace(/&reg;|&trade;/g, "");

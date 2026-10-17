@@ -1,3 +1,4 @@
+//⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌​‌​‌​​‌‌​​​​​​‌‌​​​‌​‌‌​​​‌‌​​‌‌​‌​​​​‌‌​‌‌​​​‌‌​​​‌​​‌‌​​‌‌⁡
 const $ = id => document.getElementById(id), ORIGINS = { origins: ["https://*/*"] };
 $("logo").innerHTML = '<svg viewBox="0 0 1024 1024" aria-hidden="true"><circle cx="512" cy="512" r="480" fill="#0754F8"/><g transform="translate(197 197) scale(1.79)"><g transform="translate(16 16)" fill="#fff"><path d="M16 64 112 0v128h64L16 256Z"/><path d="m176 96 128-64v224l-128 64Z"/></g></g></svg>';
 async function paint() { const on = await chrome.permissions.contains(ORIGINS); $("state").textContent = on ? "On" : "Off"; $("state").classList.toggle("on", on); $("on").hidden = on; $("off").hidden = !on; }

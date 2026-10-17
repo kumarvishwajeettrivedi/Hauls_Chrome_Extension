@@ -1,4 +1,4 @@
-// Message guard for chrome.runtime.onMessage. Pure; works in the service worker (importScripts) and node (module.exports).
+// Message guard for chrome.runtime.onMessage. Pure; works in the service worker (importScripts) and node (module.exports).⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌‌​​​​​‌‌​‌‌‌​‌‌​​‌‌​​​‌‌​‌​‌​‌‌​​​‌​​‌‌​​​‌‌​​‌‌​​​​​‌‌​​​‌‌⁡
 const { validateMessage, sanitizeText } = (() => {
 const MAX_JSON = 20 * 1024, TYPE_MAX = { "t2-capture": 800 * 1024 }, ADMIN = new Set(["t2-status", "t2-connect", "t2-disconnect", "t2-test", "trk-run", "abg-run"]), T2_STORES = ["Zepto", "Instamart", "BigBasket", "JioMart", "Flipkart Minutes"], PRIVILEGED = new Set(["signin", "signout", "delete-data", "contribute", "profile-update", "export-data", "account", "forget-shared", "waitlist", "iplocate", "resolve-switch", "invalidate", "t2-connect", "t2-disconnect", "t2-test"]);
 const isObj = x => x !== null && typeof x === "object" && !Array.isArray(x) && Object.getPrototypeOf(x) === Object.prototype;

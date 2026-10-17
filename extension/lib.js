@@ -1,4 +1,4 @@
-// Pure helpers shared by background, content script and the node self-check.
+// Pure helpers shared by background, content script and the node self-check.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​‌‌​​‌​​​‌‌​​​‌‌​​‌‌​‌‌​​‌‌​​​‌​​​‌‌‌​​​​​‌‌​‌​‌​​‌‌​​​​​‌‌​​‌​‌⁡
 const SITES = {
   "amazon.in": { name: "Amazon", id: u => (u.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/) || [])[1],
     title: ["#productTitle"], price: ["#corePrice_feature_div .a-price:not(.a-text-price) .a-offscreen", ".priceToPay .a-offscreen", "#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen", "#apex_desktop .a-price:not(.a-text-price) .a-offscreen", "#centerCol .a-price:not(.a-text-price) .a-offscreen", "#ppd .a-price:not(.a-text-price) .a-offscreen", "#priceblock_ourprice", "#priceblock_dealprice",

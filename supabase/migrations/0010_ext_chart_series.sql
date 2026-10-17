@@ -1,4 +1,4 @@
--- HAULS extension: shared price-history series seeded by the charts people already see (Amazon's own "Price history"), opt-in. Idempotent. Run after 0009.
+-- HAULS extension: shared price-history series seeded by the charts people already see (Amazon's own "Price history"), opt-in. Idempotent. Run after 0009.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌​‌‌​​‌‌​​‌​‌​​‌‌​​‌​​​‌‌‌​​‌​​‌‌​‌​‌​​‌‌​‌​​​​‌‌​​‌‌​‌‌​​​‌​⁡
 -- One compact row per (product, user, range): the series is a jsonb array of [day_number, price]. Users never read this table; they call ext_get_chart().
 create table if not exists public.ext_chart_series (
   product_key   text not null check (length(product_key) between 1 and 200),

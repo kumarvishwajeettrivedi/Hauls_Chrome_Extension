@@ -1,21 +1,45 @@
 {
-  "at": "2026-10-17T16:15:48.466Z",
+  "at": "2026-10-17T16:33:30.837Z",
   "summary": {
-    "pass": 1,
+    "pass": 4,
     "fail": 0,
     "skip": 0
   },
   "results": [
     {
-      "id": "11",
-      "name": "privacy: manifest has no <all_urls>; network only to allowlist",
+      "id": "1",
+      "name": "smoke: loads, SW up, knob shows, no console errors",
       "status": "PASS",
-      "ms": 35955,
+      "ms": 4714,
       "failures": [],
-      "notes": [
-        "optional_host_permissions requests [\"https://*/*\"] (user-granted, not install-time)",
-        "hosts contacted: www.amazon.in(1) xesmxpwcmbimhngdufje.supabase.co(1,sw) nominatim.openstreetmap.org(1,sw) digital.dmart.in(3,sw) blinkit.com(2,sw) www.jiomart.com(1,sw) cdn.dmart.in(2)"
-      ],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "33",
+      "name": "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy to Wait, saves the choice, and offers an alert price",
+      "status": "PASS",
+      "ms": 4117,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "39",
+      "name": "Impulse Check (Amazon): real page markup -> stock/deal/popularity cues from the product zones only; carousels and reviews ignored; memory + price context drive the verdict; no cue = no card",
+      "status": "PASS",
+      "ms": 10733,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "41",
+      "name": "Impulse Check (Flipkart, Myntra): messages near the product title are read (timer d/h/m/s, per-size stock); menus, banners, reviews, carousels, pop-ups are not; a timer that restarts is reported",
+      "status": "PASS",
+      "ms": 5164,
+      "failures": [],
+      "notes": [],
       "attempts": 1
     }
   ]

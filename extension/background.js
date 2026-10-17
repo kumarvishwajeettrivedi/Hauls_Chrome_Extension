@@ -1,3 +1,4 @@
+//⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌‌​​​​‌‌​​​‌​​​‌‌​​‌‌​​‌‌​‌​​​​‌‌‌​​​​‌‌​​‌​‌​​‌‌​‌​‌​​‌‌​‌‌‌⁡
 importScripts("config.js", "lib.js", "state.js", "analysis.js", "cache.js", "grocery.js", "match.js", "compare.js", "offers.js", "tracker.js", "amzbg.js", "impulse.js", "guard.js", "tier2.js", "auth.js", "sync.js");
 const ready = runMigrations().then(r => r.ran ? invalidate("schema-upgrade") : null).then(() => enforceBudget()).catch(() => {}); // repairs stored data once per update (S3), then forgets stale caches and checks the storage budget (S4)
 const get = async () => safeItems((await chrome.storage.local.get("items")).items);

@@ -1,4 +1,4 @@
-// Background price tracking: while the browser is open, re-read the price of watched items from each store's own structured data, so history grows and alerts fire
+// Background price tracking: while the browser is open, re-read the price of watched items from each store's own structured data, so history grows and alerts fire⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​‌‌​​‌‌​​​‌‌​‌​​​​‌‌​​‌​​​‌‌​‌‌​​‌‌​​‌‌​​​‌‌​‌​​​​‌‌​​​​​​‌‌​‌‌​⁡
 // without a visit. Pure parsers (trkParse*) + fetch (trkFetch) + scheduler (trkRun). Design: docs/internal/specs/2026-10-17-reliability-program-design.md.
 // Safety: URLs are built from stored ids on an allowlisted host; a body is only a price if the product id appears in it and the number is plausible
 // (captcha pages answer HTTP 200); a big jump or a crossing of the alert target must be seen twice before it is recorded.

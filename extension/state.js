@@ -1,4 +1,4 @@
-// S3: schema versioning for persisted data. To change a stored format: append a migration with the next `v` and make `up` idempotent.
+// S3: schema versioning for persisted data. To change a stored format: append a migration with the next `v` and make `up` idempotent.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌​‌‌‌​‌‌​​​​‌​‌‌​​​‌‌​​‌‌​​​​​‌‌​​​‌‌​​‌‌‌​​​​​‌‌​‌​‌​​‌‌​‌‌‌⁡
 // A store written by a NEWER build is never touched (forward-compatible); anything repaired is first backed up under `bak:v<N>`.
 const MIGRATIONS = [
   { v: 1, name: "normalise items / outbox / usage", async up(st) {

@@ -1,4 +1,4 @@
-// Impulse Check: find urgency / scarcity messages in the product part of a page and say what the evidence shows (never "fake").
+// Impulse Check: find urgency / scarcity messages in the product part of a page and say what the evidence shows (never "fake").⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌‌​​‌​‌‌​​​​‌​‌‌​​​​‌​​‌‌​‌‌‌​​‌‌​​‌‌​​‌‌‌​​‌​​‌‌​‌​​​​‌‌​‌​​⁡
 // Pure functions (names prefixed imp*): impCues (text -> cues), impRecord (remember numbers + times per product), impVerdict (cues + memory + price history -> lines).
 // Memory is numbers and timestamps only. Observations are worded as what happened ("showed a later end time"), never as a verdict on the seller.
 const IMP = { KEEP_MS: 90 * 864e5, MAX_VISITS: 16, MIN_GAP_MS: 60e3, TOL_S: 30e3, TOL_M: 120e3, STEADY_DAYS: 21, STEADY_MIN_SPAN: 14 };

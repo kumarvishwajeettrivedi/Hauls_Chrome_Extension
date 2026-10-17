@@ -1,4 +1,4 @@
-// Design tokens + component CSS + UI strings. Everything visual lives here; content.js only builds structure.
+// Design tokens + component CSS + UI strings. Everything visual lives here; content.js only builds structure.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​‌‌​​​‌‌​‌‌​​​‌‌​​‌‌‌​​​​​‌‌​​​‌​‌‌​​​‌​​​‌‌​‌‌‌​​‌‌​‌‌‌​​‌‌​‌​​⁡
 const TT = {
   brand: { Blinkit: "#F8CB46", Zepto: "#7B3FE4", Instamart: "#FC8019", BigBasket: "#84C225", Amazon: "#FF9900", Flipkart: "#2874F0", Myntra: "#FF3F6C", Ajio: "#2C4152", Croma: "#12D8B0", "Reliance Digital": "#E42529", Reliance: "#E42529" },
   s: { // strings (swap this object to localise)

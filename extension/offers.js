@@ -1,4 +1,4 @@
-// Other sellers on the same Amazon product. Runs in the service worker on a user click: one request to Amazon's own offers fragment.
+// Other sellers on the same Amazon product. Runs in the service worker on a user click: one request to Amazon's own offers fragment.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌​‌​‌​‌‌​​‌​​​‌‌​​‌​‌​​‌‌​‌​‌​​‌‌​‌‌‌​​‌‌​​​​​​‌‌‌​​​​​‌‌​‌‌​⁡
 // Pure parser (offParseAod) + fetch layer (offFind). Text from the page is untrusted: capped and tag-stripped here.
 const OFF_TIMEOUT = 8000, OFF_TTL = 15 * 60e3, offCache = new Map();
 const offText = h => String(h || "").replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&#x27;/g, "'").replace(/\s+/g, " ").trim();

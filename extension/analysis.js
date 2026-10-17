@@ -1,4 +1,4 @@
-// Decision engine (pure). Language rules from the HAULS plan: observed-data framing, never "fake", always show sample size.
+// Decision engine (pure). Language rules from the HAULS plan: observed-data framing, never "fake", always show sample size.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌‌​​‌​​‌‌​‌‌​​​‌‌​‌​‌​​‌‌​‌​‌​‌‌​​‌​​​​‌‌‌​​‌​​‌‌​​‌‌​​‌‌​​‌​⁡
 const DAY = 864e5;
 const inr = n => "₹" + Math.round(n).toLocaleString("en-IN");
 

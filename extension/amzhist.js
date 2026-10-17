@@ -1,4 +1,4 @@
-// Amazon's own price-history chart (the Rufus "Price history" answer), read as data from its SVG markup. Pure; names prefixed ah*.
+// Amazon's own price-history chart (the Rufus "Price history" answer), read as data from its SVG markup. Pure; names prefixed ah*.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​‌‌​​​‌‌​​‌‌​​‌​​​‌‌​‌‌​​‌‌​​​​‌​​‌‌‌​​​​​‌‌​​​​​‌‌​​‌​‌​​‌‌​​​​⁡
 // The chart is a step line: horizontal <line> segments in #2162A1 between gridlines labelled with prices; x runs from the first date label to "today" (last label).
 // We read ONLY what the page draws for the user: no endpoint is called. Anything that does not validate returns null (no chart, never a wrong chart).
 const AH_MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };

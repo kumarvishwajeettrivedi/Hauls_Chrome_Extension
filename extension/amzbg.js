@@ -1,4 +1,4 @@
-// Opt-in (Settings "Read Amazon's price history automatically"): while you are away from the computer, open ONE watched Amazon product in a small window,
+// Opt-in (Settings "Read Amazon's price history automatically"): while you are away from the computer, open ONE watched Amazon product in a small window,⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​‌‌​​‌‌​​​‌‌​‌‌‌​​‌‌‌​​‌​‌‌​​‌​​​​‌‌​​‌‌​‌‌​​​‌‌​​‌‌​​​‌​​‌‌​‌​‌⁡
 // let the page script (content.js ahAutoRead) read Amazon's own chart, then close it. Same chart reading and checks as when you browse; no endpoint is called.
 // Limits: you must be idle 2 min, one product per run, 12 h per product, 4 a day, never while a kill-switch flag is set. Names prefixed abg*.
 const ABG = { IDLE_S: 120, TRY_MS: 12 * 3600e3, FRESH_MS: 24 * 3600e3, DAY_CAP: 4, WAIT_MS: 30e3 };

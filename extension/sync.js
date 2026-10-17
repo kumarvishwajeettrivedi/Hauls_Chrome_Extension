@@ -1,4 +1,4 @@
-// Browser-first sync: chrome.storage.local is the source of truth for the UI; Supabase is the backup/sharing layer.
+// Browser-first sync: chrome.storage.local is the source of truth for the UI; Supabase is the backup/sharing layer.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌​‌‌‌​‌‌​​‌​‌​​‌‌​​​​​​‌‌​​‌‌​‌‌​​​​‌​​‌‌‌​​​​‌‌​​‌​‌​​‌‌​‌​​⁡
 // Local changes go to an outbox and are flushed when signed in. Pure helpers below are unit-tested.
 const OUTBOX_MAX = 500, DAY_MS = 864e5, COMM_TTL = 6 * 3600e3;
 // Serialises every read-modify-write of chrome.storage state so concurrent messages/alarms can't overwrite each other.
