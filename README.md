@@ -15,6 +15,9 @@
 - **Price history.** Lowest, average and highest price over 30 days, 90 days, a year or all time, drawn as a chart.
 - **Buy-or-wait verdict.** A plain answer with the reason, and a check for discounts that were never real.
 - **Trap prices.** Set the price you want and get a notification when it is reached.
+- **Deal Scanner.** A 0–100 score with the points behind it, and a warning when a price was lifted before a "discount".
+- **Reviews and seller.** What buyers say, from the rating breakdown, and who sells and ships the item.
+- **Best price across stores.** One click compares Amazon, Flipkart and Reliance Digital for the same product, with a match confidence on each.
 - **Grocery comparison.** Search once and compare Blinkit, DMart and more at your exact pincode. Only stores that confirm delivery to that pincode show a price.
 - **Watchlist and sync.** Keep products on a watchlist. Signing in with Google is optional and only syncs your watchlist, saved places and settings.
 

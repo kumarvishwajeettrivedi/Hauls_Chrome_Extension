@@ -18,6 +18,7 @@ bad({ type: "sync" }, /sender/, { id: "evil" }); bad({ type: "sync" }, /sender/,
 bad({ type: "__proto__" }, /unknown/); bad({ type: "toString" }, /unknown/); bad({ type: "constructor" }, /unknown/); bad({ type: "sync", extra: 1 }, /unexpected/);
 bad(Object.create({ type: "sync" }), /unknown/); bad(new (class X { constructor() { this.type = "sync"; } })(), /unknown/);
 // products
+ok({ type: "compare", title: "boAt Airdopes 141", site: "Amazon", price: 766 }, tab); bad({ type: "compare", title: "x", site: "Amazon", price: 766 }, null, tab); bad({ type: "compare", title: "boAt Airdopes", site: "Amazon", price: -1 }, null, tab); bad({ type: "compare", title: "boAt Airdopes", site: "Amazon", price: 5, extra: 1 }, null, tab);
 const bp = o => bad({ type: "seen", p: { ...P, ...o } });
 ok({ type: "seen", p: { ...P, seller: { name: "A", ships: "B", text: "", href: "/x" } } }, tab); ok({ type: "seen", p: { ...P, seller: null } }, tab);
 bp({ seller: { name: "x".repeat(81) } }); bp({ seller: { evil: "x" } }); bp({ seller: "str" }); bp({ seller: { name: 5 } });

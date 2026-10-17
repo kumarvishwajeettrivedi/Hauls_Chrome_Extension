@@ -263,6 +263,22 @@
     // stores
     const { links } = smartLinks(p.title, S ? S.name : ""), SHOW = 5, sec = el("div"), st = el("div", "stores");
     sec.append(el("p", "lbl", "Compare"));
+    // best price across stores: runs only when asked, one search page per store
+    const cbox = el("div", "cmp"), cbtn = el("button", "btn ghost full", "Find the best price across stores");
+    const paintCmp = r => {
+      cbox.replaceChildren(); const here = p.price;
+      if (r.error) return void cbox.append(el("p", "meta", "Couldn't compare right now. Try again later."), cbtn);
+      const all = [...r.results.map(x => x.price), here], low = Math.min(...all);
+      if (!r.results.length) cbox.append(el("p", "meta", "No confident match at other stores."));
+      else { const hr = el("div", "cmp-r" + (here <= low ? " low" : "")); hr.append(el("span", "", `${p.site} (here)`), el("b", "num", fmt(here)), el("span", "tag", here <= low ? "Lowest" : "")); cbox.append(hr); }
+      r.results.forEach(x => { const a = el("a", "cmp-r" + (x.price <= low ? " low" : "")), d = x.price - here; a.href = x.url; a.target = "_blank"; a.rel = "noopener";
+        a.append(el("span", "", x.store), el("b", "num", fmt(x.price)), el("span", "tag", x.price <= low ? "Lowest" : d > 0 ? `${fmt(d)} more` : d < 0 ? `${fmt(-d)} less` : "Same"), el("small", "", x.confidence + " match")); cbox.append(a); });
+      if (r.failed.length) cbox.append(el("p", "meta", `Couldn't check: ${r.failed.join(", ")}.`));
+      cbox.append(el("p", "meta", "Prices come from each store's search page. Offers, shipping and seller may differ."));
+    };
+    cbtn.onclick = async () => { cbtn.disabled = true; cbtn.textContent = "Checking other stores…"; const r = await send({ type: "compare", title: p.title, site: p.site, price: p.price }).catch(() => ({ error: "x" })); cmpDone[p.key] = r || { error: "x" }; if (cur && cur.p && cur.p.key === p.key) paintCmp(cmpDone[p.key]); };
+    if (cmpDone[p.key]) paintCmp(cmpDone[p.key]); else cbox.append(cbtn);
+    sec.append(cbox);
     const mk = ([n, h, col]) => { const a = el("a", "store"); a.href = h; a.target = "_blank"; a.rel = "noopener"; a.style.setProperty("--c", STORE_C(col)); a.append(el("i"), n); return a; };
     links.slice(0, SHOW).forEach(l => st.append(mk(l)));
     if (links.length > SHOW) { const more = el("button", "more", `+${links.length - SHOW} more`); more.onclick = () => { st.classList.add("wrap"); more.remove(); links.slice(SHOW).forEach(l => st.append(mk(l))); }; st.append(more); }
@@ -278,7 +294,7 @@
   }
 
   // Review quality signals + themes. Rating shape comes from the page's rating breakdown (large sample); text signals from visible reviews (+ more if the user asks).
-  let revExtra = null;
+  let revExtra = null; const cmpDone = {};
   function reviewsInfo() {
     if (typeof Reviews_ === "undefined") return null;
     const site = dom === "amazon.in" ? "amazon" : dom === "flipkart.com" ? "flipkart" : ""; if (!site) return null;

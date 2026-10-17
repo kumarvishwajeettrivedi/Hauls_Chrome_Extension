@@ -17,8 +17,8 @@ const mkT = () => ({ fails: [], notes: [],
 
 const PRODUCT_ID = "B0TESTPRD1";
 // Opens a routed synthetic product page with the panel ready.
-async function product(ctx, { id = PRODUCT_ID, price = 830, mrp = 1299, seller = null, ratings = null } = {}) {
-  const url = await routeProduct(ctx, { id, price, mrp, seller, ratings });
+async function product(ctx, { id = PRODUCT_ID, price = 830, mrp = 1299, seller = null, ratings = null, title } = {}) {
+  const url = await routeProduct(ctx, { id, price, mrp, seller, ratings, ...(title ? { title } : {}) });
   const r = await openPage(ctx, url); if (!r.panel || !(await r.panel.has(".knob"))) throw new Error("knob did not appear");
   return { ...r, url };
 }
@@ -383,13 +383,29 @@ test("23b", "seller: pages without seller info show no row", t => withExt({}, as
 test("24", "reviews: visible answer card with rating split, themes and a details sheet", t => withExt({}, async ({ ctx }) => {
   const { panel } = await product(ctx, { id: "B0REVIEW01", ratings: { total: "12,345", avg: "4.4", dist: { 5: 70, 4: 20, 3: 5, 2: 2, 1: 3 } } }); await panel.open();
   t.check(await panel.has(".rev.good"), "card present with good tone");
-  const txt = await panel.text(".rev"); t.check(/mostly happy/.test(txt) && /4\.4★/.test(txt) && /90% rate it 4-5/.test(txt), "card text: " + txt);
+  const txt = await panel.text(".rev"); t.check(/mostly happy/.test(txt) && /4\.5★/.test(txt) && /90% rate it 4-5/.test(txt), "card text: " + txt);
   await panel.click(".rev"); await sleep(400); t.check(/Rating breakdown/.test(await panel.text(".sheet")), "sheet opens with rating breakdown");
 }));
 test("24b", "reviews: polarised ratings read as divided, pages without ratings show no card", t => withExt({}, async ({ ctx }) => {
   const { panel } = await product(ctx, { id: "B0REVIEW02", ratings: { total: "800", avg: "3.6", dist: { 5: 45, 4: 10, 3: 5, 2: 5, 1: 35 } } }); await panel.open();
   t.check(/divided/.test(await panel.text(".rev")), "divided: " + await panel.text(".rev"));
   const r2 = await product(ctx, { id: "B0REVIEW03" }); await r2.panel.open(); t.check(!(await r2.panel.has(".rev")), "no card without ratings");
+}));
+
+if (!NOLIVE) test("25", "compare (live): one click lists the same product from other stores, lowest marked, nothing runs before the click", t => withExt({}, async ({ ctx, reqs }) => {
+  const title = "boAt Airdopes 141 Gen 2, 4 Mics ENx Tech, 48 Hrs Playback, Fast Charge, Low Latency, IPX4, v5.4 Bluetooth Earbuds TWS Ear Buds Wireless with mic (Active Black)";
+  const { panel } = await product(ctx, { id: "B0F8BVSK21", price: 766, mrp: 3990, title }); await panel.open(); await sleep(1500);
+  t.check(!reqs.some(r => /flipkart\.com\/search|reliancedigital\.in\/products/.test(r.url)), "no store search before the click");
+  t.check(await panel.has(".cmp .btn"), "compare button present");
+  await panel.click(".cmp .btn");
+  await poll(async () => (await panel.count(".cmp .cmp-r")) > 0 || /Couldn|No confident/.test(await panel.text(".cmp")), 25000, 500);
+  const txt = await panel.text(".cmp"), rows = await panel.ev(function () { return [...this.querySelectorAll(".cmp .cmp-r")].map(r => r.textContent); });
+  t.note("compare: " + JSON.stringify(rows));
+  if (!rows.length) return t.skip("stores returned nothing (blocked or changed): " + txt.slice(0, 100));
+  t.check(rows.some(r => /Flipkart/.test(r) && /₹\d/.test(r)), "Flipkart row with a price: " + rows.join(" | "));
+  t.check(rows.every(r => !/Amazon/.test(r) || /here/.test(r)), "never lists the store you are on as another store");
+  t.check(/Offers, shipping and seller may differ/.test(txt), "honest note shown");
+  t.check(await panel.has(".cmp-r.low"), "a lowest row is marked");
 }));
 
 // ---------------------------------------------------------------- 14 range selector

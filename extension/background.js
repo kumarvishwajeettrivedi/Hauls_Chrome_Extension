@@ -1,4 +1,4 @@
-importScripts("config.js", "lib.js", "state.js", "analysis.js", "cache.js", "grocery.js", "guard.js", "tier2.js", "auth.js", "sync.js");
+importScripts("config.js", "lib.js", "state.js", "analysis.js", "cache.js", "grocery.js", "compare.js", "guard.js", "tier2.js", "auth.js", "sync.js");
 const ready = runMigrations().then(r => r.ran ? invalidate("schema-upgrade") : null).then(() => enforceBudget()).catch(() => {}); // repairs stored data once per update (S3), then forgets stale caches and checks the storage budget (S4)
 const get = async () => safeItems((await chrome.storage.local.get("items")).items);
 const put = items => chrome.storage.local.set({ items });
@@ -66,6 +66,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (it) { it.u = Date.now(); enqueue(watchOp(m.key, { ...it, wish: false, target: null }, { deleted: true })); flush(); delete items[m.key]; await put(items); } return true; })); }
     else if (m.type === "invalidate") reply(await invalidate(m.reason));
     else if (m.type === "grocery") reply(await noteLocation(m.loc).then(() => groceryAt(m.q, m.loc, { more: !!m.more })).catch(e => ({ items: [], errors: [e.message] })));
+    else if (m.type === "compare") reply(await cmpFind({ title: m.title, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
     else if (m.type === "iplocate") reply(await ipLocate().catch(() => ({})));
     else if (m.type === "reverse") reply(await reverseGeocode(m.lat, m.lon).catch(() => ({})));
     else if (m.type === "geocode") reply(await geocode(m.pin).catch(e => ({ error: e.message })));

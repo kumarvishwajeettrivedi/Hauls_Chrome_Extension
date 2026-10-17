@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-17T10:38:47.892Z",
+  "at": "2026-10-17T10:49:50.128Z",
   "summary": {
     "pass": 2,
     "fail": 0,
@@ -10,7 +10,7 @@
       "id": "24",
       "name": "reviews: visible answer card with rating split, themes and a details sheet",
       "status": "PASS",
-      "ms": 3097,
+      "ms": 2081,
       "failures": [],
       "notes": [],
       "attempts": 1
@@ -19,7 +19,7 @@
       "id": "24b",
       "name": "reviews: polarised ratings read as divided, pages without ratings show no card",
       "status": "PASS",
-      "ms": 2300,
+      "ms": 2295,
       "failures": [],
       "notes": [],
       "attempts": 1
