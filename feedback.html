@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline' https://api.fontshare.com; font-src https://cdn.fontshare.com; img-src 'self' data:; connect-src https://xesmxpwcmbimhngdufje.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="robots" content="noindex">
+<title>Sorry to see you go – HAULS</title>
+<link rel="icon" href="img/favicon.png">
+<link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,700,800&f[]=satoshi@500,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f8f3f0;--blue:#014baa;--mute:rgba(1,75,170,.62);--line:rgba(1,75,170,.16);--soft:rgba(1,75,170,.08);--display:'Clash Display','Helvetica Neue',sans-serif;--body:'Satoshi',system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--blue);font:500 17px/1.6 var(--body)}
+main{max-width:620px;margin:0 auto;padding:40px 20px 60px}
+h1{font:800 clamp(30px,6vw,44px)/1.1 var(--display);margin:0 0 8px}p.lead{color:var(--mute);margin:0 0 28px}
+fieldset{border:0;padding:0;margin:0 0 26px}legend,label.h{font:700 17px var(--body);margin:0 0 10px;padding:0}
+.stars{display:flex;gap:8px}.star{all:unset;box-sizing:border-box;cursor:pointer;width:52px;height:52px;border-radius:50%;border:2px solid var(--blue);display:grid;place-items:center;font:800 20px var(--display);background:#fff}
+.star.on{background:var(--blue);color:#fff}.star:focus-visible,.chk:focus-within,button.go:focus-visible,textarea:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+.hint{display:flex;justify-content:space-between;color:var(--mute);font-size:14px;max-width:312px;margin-top:6px}
+.chks{display:grid;gap:8px}.chk{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer}.chk input{width:20px;height:20px;accent-color:var(--blue)}
+textarea{width:100%;min-height:130px;padding:14px;border:1px solid var(--line);border-radius:14px;font:500 16px/1.5 var(--body);color:var(--blue);background:#fff;resize:vertical}
+.count{color:var(--mute);font-size:13px;text-align:right}
+button.go{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 34px;border-radius:999px;background:var(--blue);color:#fff;font:700 17px var(--body)}
+button.go:disabled{opacity:.6;cursor:default}.err{color:#b3261e;min-height:24px;margin:10px 0 0;font-weight:700}
+.fine{color:var(--mute);font-size:14px;margin-top:28px}.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+</style>
+</head>
+<body>
+<main>
+<h1>Sorry to see you go.</h1>
+<p class="lead">Two quick questions help make HAULS better for the next person. Everything is optional except the rating.</p>
+<form id="form" novalidate>
+  <fieldset>
+    <legend id="rl">How was your experience?</legend>
+    <div class="stars" role="radiogroup" aria-labelledby="rl">
+      <button type="button" class="star" role="radio" aria-checked="false" aria-label="1 out of 5">1</button>
+      <button type="button" class="star" role="radio" aria-checked="false" aria-label="2 out of 5">2</button>
+      <button type="button" class="star" role="radio" aria-checked="false" aria-label="3 out of 5">3</button>
+      <button type="button" class="star" role="radio" aria-checked="false" aria-label="4 out of 5">4</button>
+      <button type="button" class="star" role="radio" aria-checked="false" aria-label="5 out of 5">5</button>
+    </div>
+    <div class="hint"><span>Poor</span><span>Great</span></div>
+  </fieldset>
+  <fieldset>
+    <legend>What should we improve? <span style="color:var(--mute);font-weight:500">(pick any)</span></legend>
+    <div class="chks">
+      <label class="chk"><input type="checkbox" name="reason" value="prices_wrong"> Prices or history were wrong</label>
+      <label class="chk"><input type="checkbox" name="reason" value="missing_feature"> A feature I need was missing</label>
+      <label class="chk"><input type="checkbox" name="reason" value="bugs"> Bugs or things that broke</label>
+      <label class="chk"><input type="checkbox" name="reason" value="too_slow"> It was slow</label>
+      <label class="chk"><input type="checkbox" name="reason" value="confusing"> It was confusing to use</label>
+      <label class="chk"><input type="checkbox" name="reason" value="permissions"> It asks for too many permissions</label>
+      <label class="chk"><input type="checkbox" name="reason" value="privacy"> I worry about privacy</label>
+      <label class="chk"><input type="checkbox" name="reason" value="found_better"> I found something better</label>
+      <label class="chk"><input type="checkbox" name="reason" value="not_needed"> I don't need it any more</label>
+      <label class="chk"><input type="checkbox" name="reason" value="other"> Something else</label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <label class="h" for="msg">Anything else you'd like to tell us?</label>
+    <textarea id="msg" maxlength="2000" placeholder="What went wrong, or what would have made you stay?"></textarea>
+    <div class="count" id="count">0 / 2000</div>
+  </fieldset>
+  <div class="hp" aria-hidden="true"><label>Website <input id="website" tabindex="-1" autocomplete="off"></label></div>
+  <button type="submit" class="go" id="send">Send feedback</button>
+  <p class="err" id="err" role="alert"></p>
+</form>
+<div id="thanks" hidden><h1>Thank you.</h1><p class="lead">Your feedback was sent. If you ever want HAULS back, the download is on the <a href="./">website</a>.</p></div>
+<p class="fine">Anonymous: no account, no email, no cookies. We keep only your answers and the version number. Built by <a href="https://github.com/kumarvishwajeettrivedi" rel="author">Vishwajeet</a>.</p>
+</main>
+<script src="feedback-config.js"></script>
+<script src="feedback.js"></script>
+</body>
+</html>

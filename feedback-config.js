@@ -1,0 +1,2 @@
+// Public values only: the project URL and the anon key (safe to ship; row-level security protects the data, and the table is closed to everything except ext_submit_feedback).
+window.HAULS_FEEDBACK = { url: "https://xesmxpwcmbimhngdufje.supabase.co", anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhlc214cHdjbWJpbWhuZ2R1ZmplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NjczMTUsImV4cCI6MjEwMzI0MzMxNX0.WnDEo7ALF5YT248My3QQu79lf_TZKlFDAvATFCDNoq0" };
