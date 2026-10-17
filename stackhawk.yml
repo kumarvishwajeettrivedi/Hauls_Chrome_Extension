@@ -1,0 +1,11 @@
+# StackHawk scan of the static HAULS website, served from the local site/ folder (no load on GitHub Pages).
+app:
+  applicationId: 8fa048a7-1cd6-4d7a-8592-eff99c63e8a1
+  env: Development
+  host: ${APP_HOST:http://localhost:8099}
+hawk:
+  spider:
+    base: true
+    maxDurationMinutes: 3
+  scan:
+    maxDurationMinutes: 5
