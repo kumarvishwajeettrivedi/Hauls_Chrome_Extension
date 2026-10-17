@@ -103,6 +103,7 @@ const TT = {
   .rp2{text-align:right;white-space:nowrap}.rp2 b{font-size:16px;font-weight:800;display:block}.rp2 small{font-size:11px;color:var(--ink-2)}
   .pgo{flex:none;width:32px;height:32px;padding:0;border-radius:50%;border:2px solid var(--bd);display:grid;place-items:center;background:var(--chip);color:var(--ink-3);cursor:pointer;font:inherit}.pgo svg{width:16px;height:16px}
   .pgo.dirty{background:var(--mint);color:#131316;animation:pgopulse 1.6s ease-out infinite}.pgo.bad{opacity:.4;cursor:not-allowed}.pgo.done{background:var(--mint);color:#131316}
+  @media (max-width:600px){.pgo{width:44px;height:44px}.wtop .t a{padding:13px 0;margin:-13px 0}}
   @keyframes pgopulse{0%{box-shadow:0 0 0 0 rgba(25,230,140,.7)}100%{box-shadow:0 0 0 10px rgba(25,230,140,0)}}
   .plc{display:inline-flex;align-items:center}.plc .cp{border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:1px}.cp-x{width:30px;height:100%;min-height:34px;border:2px solid var(--bd);border-left-width:1px;border-radius:0 99px 99px 0;background:var(--surface);color:var(--ink-2);display:grid;place-items:center;cursor:pointer;padding:0;box-shadow:2px 2px 0 var(--sh)}.cp-x svg{width:12px;height:12px}
   .gbox{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}.gbox>:empty,.gbox>[hidden]{display:none}.gbox .meta,.gbox .meta.strong{margin:0}.gbox .btn.full{margin:0}

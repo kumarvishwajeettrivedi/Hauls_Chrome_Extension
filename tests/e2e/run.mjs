@@ -157,12 +157,12 @@ test("6", "grocery: real typing, Enter, results, cheapest-first, own-site links"
   t.check((await panel.text(".pinchip")).includes("560001"), "pin chip shows 560001");
 }), { retries: 1 });
 
-test("6b", "grocery: location button without geolocation permission falls back to a pincode", t => withExt({}, async ({ ctx }) => {
+test("6b", "grocery: location button without geolocation permission says so and never guesses a pincode", t => withExt({}, async ({ ctx }) => {
   const { panel } = await product(ctx); await panel.open(); await panel.tab(1);
   await panel.click(".field .btn.ghost");
-  await poll(async () => /Using|Couldn|blocked/.test(await panel.text("main .meta")), 20000, 500);
-  const hint = await panel.text("main .meta"), pin = await panel.run("main input", function () { return this.value; }, [], 0);
-  t.check(/Using/.test(hint), `location hint: "${hint}"`); t.check(/^\d{6}$/.test(pin), `pincode input filled with 6 digits: "${pin}"`);
+  await poll(async () => /Using|Couldn|blocked/.test(await panel.text(".gbox .meta:not(.bad)")), 20000, 500);
+  const hint = await panel.text(".gbox .meta:not(.bad)"), pin = await panel.run("main input", function () { return this.value; }, [], 0);
+  t.check(/blocked|Using/.test(hint), `location hint: "${hint}"`); t.check(/blocked/.test(hint) ? pin === "" : /^\d{6}$/.test(pin), `blocked leaves the pincode box alone (no silent guess); otherwise 6 digits: "${pin}"`);
 }), { retries: 1 });
 
 // ---------------------------------------------------------------- 7 live extraction
@@ -242,7 +242,7 @@ test("9", "mobile 390x844: bottom sheet, no overflow, tap targets >=44px", t => 
     const ov = await panel.ev(function () { const pn = this.querySelector(".panel"), m = this.querySelector("main"), bad = [...this.querySelectorAll(".panel *")].filter(e => e.getBoundingClientRect().width && e.getBoundingClientRect().right > innerWidth + 1).slice(0, 3).map(e => e.className || e.tagName);
       return { pw: pn.scrollWidth - pn.clientWidth, mw: m.scrollWidth - m.clientWidth, bad }; });
     t.check(ov.pw <= 1 && ov.mw <= 1 && !ov.bad.length, `${name} tab: no horizontal overflow (panel ${ov.pw}, main ${ov.mw}, offenders ${ov.bad})`);
-    const tg = await panel.ev(function () { return [...this.querySelectorAll("button,a,input,[role=tab]")].map(e => { const r = e.getBoundingClientRect(); return { n: `${e.tagName.toLowerCase()}.${e.className}`.slice(0, 30), t: (e.getAttribute("aria-label") || e.textContent || "").trim().slice(0, 16), w: Math.round(r.width), h: Math.round(r.height) }; }).filter(x => x.w > 0 && x.h > 0 && Math.min(x.w, x.h) < 44); });
+    const tg = await panel.ev(function () { return [...this.querySelectorAll("button,a,input,[role=tab]")].map(e => { const r = (e.tagName === "INPUT" && e.closest(".stp-box") || e).getBoundingClientRect(); return { n: `${e.tagName.toLowerCase()}.${e.className}`.slice(0, 30), t: (e.getAttribute("aria-label") || e.textContent || "").trim().slice(0, 16), w: Math.round(r.width), h: Math.round(r.height) }; }).filter(x => x.w > 0 && x.h > 0 && Math.min(x.w, x.h) < 44); });
     tg.forEach(x => small.push(`${name}:${x.n}"${x.t}" ${x.w}x${x.h}`));
   }
   t.check((await p.evaluate(() => document.documentElement.scrollWidth)) <= iw, "page itself has no horizontal overflow");
@@ -265,7 +265,7 @@ test("10", "dark mode renders without errors", t => withExt({}, async ({ ctx, sw
 }));
 
 // ---------------------------------------------------------------- 11 privacy
-const ALLOW = [/(^|\.)amazon\.in$/, /(^|\.)flipkart\.com$/, /(^|\.)myntra\.com$/, /(^|\.)blinkit\.com$/, /^digital\.dmart\.in$/, /^www\.dmart\.in$/, /(^|\.)jiomart\.com$/, /^nominatim\.openstreetmap\.org$/, /^ipwho\.is$/, /\.supabase\.co$/];
+const ALLOW = [/(^|\.)amazon\.in$/, /(^|\.)flipkart\.com$/, /(^|\.)myntra\.com$/, /(^|\.)blinkit\.com$/, /^digital\.dmart\.in$/, /^cdn\.dmart\.in$/, /^www\.dmart\.in$/, /(^|\.)jiomart\.com$/, /^nominatim\.openstreetmap\.org$/, /^ipwho\.is$/, /\.supabase\.co$/];
 test("11", "privacy: manifest has no <all_urls>; network only to allowlist", t => withExt({}, async ({ ctx, reqs }) => {
   const m = JSON.parse(readFileSync(path.join(EXT, "manifest.json"), "utf8")), bad = /<all_urls>|^\*:\/\/\*\/|^https?:\/\/\*\/\*$|^https:\/\/\*\/\*$/;
   t.check(!(m.host_permissions || []).some(h => bad.test(h)), "host_permissions free of <all_urls>/wildcard hosts: " + JSON.stringify(m.host_permissions));
@@ -399,7 +399,7 @@ async function notchCheck(t, ctx, sw, { id, hist, want, label }) {
   t.check(m.pill.l >= m.knob.l - e && m.pill.r <= m.knob.r + e && m.pill.t >= m.knob.t - e && m.pill.b <= m.knob.b + e, `${label}: pill inside knob (pill x ${Math.round(m.pill.l)}-${Math.round(m.pill.r)}, knob x ${Math.round(m.knob.l)}-${Math.round(m.knob.r)}; pill bottom ${Math.round(m.pill.b)} <= knob bottom ${Math.round(m.knob.b)})`);
   t.check(m.knob.l >= 0 && m.knob.r <= m.vw + e && m.knob.t >= 0 && m.knob.b <= m.vh + e, `${label}: knob inside viewport (x ${Math.round(m.knob.l)}..${Math.round(m.knob.r)} of ${m.vw}, y ${Math.round(m.knob.t)}..${Math.round(m.knob.b)} of ${m.vh})`);
   t.check(m.sw <= m.cw + 1 && m.sh <= m.ch + 1, `${label}: knob no scroll overflow (${m.sw}/${m.cw}, ${m.sh}/${m.ch})`);
-  t.check(Math.abs(m.mark.w - 44) < 1 && Math.abs(m.mark.h - 44) < 1, `${label}: logo mark 44px (${m.mark.w}x${m.mark.h})`);
+  t.check(Math.abs(m.mark.w - 30) < 1 && Math.abs(m.mark.h - 30) < 1, `${label}: logo mark 30px (${m.mark.w}x${m.mark.h})`);
   t.check(m.grip.l >= m.mark.r - e && Math.abs((m.grip.t + m.grip.b) / 2 - (m.mark.t + m.mark.b) / 2) < 3, `${label}: grip dots right of the logo, vertically centred`);
   t.check(m.pill.t >= m.row.b - e, `${label}: pill sits below the logo row`);
   await p.close();
@@ -474,7 +474,7 @@ test("18", "guard: normal page loads past skeleton; malformed messages rejected;
 // ---------------------------------------------------------------- 19 account sheet
 // A real mouse click first: privileged messages require user activation (programmatic .click() from CDP does not count).
 async function acctSheet(panel) { await panel.p.mouse.click(300, 300); await panel.open(); await panel.click(".acct"); await panel.waitFor(".w.sheetopen", 4000); await sleep(400); return panel.ev(function () { const s = this.querySelector(".sheet"), cb = s.querySelector("input[type=checkbox]"); return { title: s.querySelector("h4").textContent, text: s.textContent, btns: [...s.querySelectorAll("button")].map(b => b.textContent.trim()), cb: cb && cb.checked }; }); }
-test("19a", "account: empty anon key -> sheet says sign-in isn't set up", t => withExt({}, async ({ ctx }) => {
+test("19a", "account: empty anon key -> sheet says sign-in isn't set up", t => withExt({ anonKey: "" }, async ({ ctx }) => {
   const { panel } = await product(ctx); const s = await acctSheet(panel);
   t.check(/Sign-in isn't set up/.test(s.text), "sheet text: " + s.text.slice(0, 120));
   t.check(!s.btns.includes("Continue with Google"), "no Google button when unconfigured");

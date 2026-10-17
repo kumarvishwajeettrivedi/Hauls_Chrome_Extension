@@ -23,7 +23,7 @@ export async function withExt(opts, fn) {
   const dir = mkdtempSync(path.join(tmpdir(), "hauls-e2e-"));
   // anonKey: run a temp COPY of extension/ whose config.js carries a dummy anon key (the repo ships it empty). The real source is never touched.
   let extDir = EXT;
-  if (anonKey) { extDir = path.join(dir, "ext-copy"); cpSync(EXT, extDir, { recursive: true }); const f = path.join(extDir, "config.js"); writeFileSync(f, readFileSync(f, "utf8").replace(/("SUPABASE_ANON_KEY":\s*)"[^"]*"/, `$1"${anonKey}"`)); }
+  if (anonKey !== undefined) { extDir = path.join(dir, "ext-copy"); cpSync(EXT, extDir, { recursive: true }); const f = path.join(extDir, "config.js"); writeFileSync(f, readFileSync(f, "utf8").replace(/("SUPABASE_ANON_KEY":\s*)"[^"]*"/, `$1"${anonKey}"`)); }
   const ctx = await chromium.launchPersistentContext(path.join(dir, "profile"), { headless: false, executablePath: CHROME, viewport, colorScheme,
     args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, "--no-first-run", "--no-default-browser-check", ...headlessArgs()] });
   const errs = [], reqs = [];

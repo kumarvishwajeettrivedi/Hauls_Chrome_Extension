@@ -118,7 +118,9 @@
     if (u.pin !== undefined) { pinChip.replaceChildren(ico("pin"), u.pin || "Pin"); pinHook(u.pin); } if (u.range) range = u.range; if (u.who) whoHook(); if (u.redraw) draw(); });
 
   const idleRedraw = () => { const a = sr.activeElement; if (canRedraw({ open: wrap.classList.contains("open"), tab, typing: !!a && /^(INPUT|TEXTAREA)$/.test(a.tagName) })) draw(); };
-  async function draw() {
+  // Draws run one after another: two overlapping draws each appended their rows after an await, which doubled the watchlist.
+  let drawQ = Promise.resolve(); const draw = () => (drawQ = drawQ.then(drawNow, drawNow));
+  async function drawNow() {
     tabs.style.setProperty("--i", TABS.indexOf(tab));
     tabs.replaceChildren(el("i"), ...TABS.map(k => { const b = el("button", "", T.tabs[k]); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(k === tab)); b.tabIndex = k === tab ? 0 : -1; b.onclick = () => { if (tab !== k) { tab = k; draw(); } }; b.onkeydown = e => { const i = TABS.indexOf(k), n = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0; if (n) { e.preventDefault(); tab = TABS[(i + n + TABS.length) % TABS.length]; draw().then(() => { const t2 = tabs.querySelectorAll("button")[TABS.indexOf(tab)]; if (t2) t2.focus(); }); } }; return b; }));
     const { pin } = await chrome.storage.local.get("pin"); pinChip.replaceChildren(ico("pin"), pin || "Pin");
