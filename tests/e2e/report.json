@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-17T11:02:06.051Z",
+  "at": "2026-10-17T11:07:20.792Z",
   "summary": {
     "pass": 1,
     "fail": 0,
@@ -7,10 +7,10 @@
   },
   "results": [
     {
-      "id": "26",
-      "name": "Amazon history: the range Amazon shows in the page is remembered and drives the scanner when HAULS has little history",
+      "id": "10",
+      "name": "dark browser setting: panel stays light and readable (no dark theme)",
       "status": "PASS",
-      "ms": 6204,
+      "ms": 4533,
       "failures": [],
       "notes": [],
       "attempts": 1

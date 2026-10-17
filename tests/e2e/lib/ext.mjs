@@ -25,7 +25,7 @@ export async function withExt(opts, fn) {
   let extDir = EXT;
   if (anonKey !== undefined) { extDir = path.join(dir, "ext-copy"); cpSync(EXT, extDir, { recursive: true }); const f = path.join(extDir, "config.js"); writeFileSync(f, readFileSync(f, "utf8").replace(/("SUPABASE_ANON_KEY":\s*)"[^"]*"/, `$1"${anonKey}"`)); }
   const ctx = await chromium.launchPersistentContext(path.join(dir, "profile"), { headless: false, executablePath: CHROME, viewport, colorScheme,
-    args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, "--no-first-run", "--no-default-browser-check", ...headlessArgs()] });
+    args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, "--no-first-run", "--no-default-browser-check", ...headlessArgs(), ...(process.env.HAULS_ARGS || "").split(" ").filter(Boolean)] });
   const errs = [], reqs = [];
   try {
     if (geolocation) { await ctx.grantPermissions(["geolocation"]); await ctx.setGeolocation(geolocation); }

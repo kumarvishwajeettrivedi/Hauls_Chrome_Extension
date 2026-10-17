@@ -11,7 +11,7 @@ const TT = {
     history0: "History starts now. Revisit this page to build the trend.", signals: "Review signals", dealStrength: "Deal strength",
   },
   css: `
-  :host{all:initial;
+  :host{all:initial;color-scheme:only light;
     --bg:#fff;--surface:#fff;--chip:#F7F7F7;--blue:#0754F8;--blue-dk:#0643C9;--wash:#E3ECFF;--wash-2:rgba(255,255,255,.22);--ink:#131316;--ink-2:#545459;--ink-3:#8E8E99;--on-ink:#fff;--bd:#131316;--sh:#131316;
     --mint:#19E68C;--yellow:#FFD93D;--line:#EAEAF0;
     --f:"Be Vietnam Pro","Inter","SF Pro Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
