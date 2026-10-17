@@ -59,3 +59,19 @@ $("probe").onclick = async () => {
   } catch (e) { $("pmsg").textContent = "Couldn't read the tab: " + String(e && e.message).slice(0, 100); }
 };
 $("pcopy").onclick = async () => { try { await navigator.clipboard.writeText(lastProbe); $("pmsg").textContent = "Copied."; } catch { $("pmsg").textContent = "Select the text and copy it."; } };
+
+// ---- background price checks: per-store health + manual run
+async function paintTrk() {
+  const { trk, items } = await chrome.storage.local.get(["trk", "items"]), box = $("trk"); box.replaceChildren();
+  const watched = Object.entries(items || {}).filter(([k, i]) => i && (i.target || i.wish)).length, H = (trk && trk.health) || {};
+  const head = document.createElement("p"); head.className = "meta"; head.textContent = `${watched} item${watched === 1 ? "" : "s"} watched.`; box.append(head);
+  for (const [dom, name] of [["amazon.in", "Amazon"], ["flipkart.com", "Flipkart"], ["myntra.com", "Myntra"]]) {
+    const h = H[dom], row = document.createElement("div"), b = document.createElement("b"), pill = document.createElement("span"); row.className = "srow"; b.textContent = name;
+    const paused = trk && trk.pause && trk.pause[dom] > Date.now(), bad = h && h.fail > h.ok;
+    pill.className = "pill" + (h && h.ok && !bad && !paused ? " on" : ""); pill.textContent = paused ? "Paused (blocked)" : !h ? "Not checked yet" : `${h.ok} ok · ${h.fail} failed`;
+    row.append(b, pill); if (h && h.last) { const t = document.createElement("span"); t.className = "meta"; t.textContent = new Date(h.last).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) + (h.fail && Object.keys(h.reasons).length ? " · " + Object.entries(h.reasons).map(([k, v]) => `${k} ${v}`).join(", ") : ""); row.append(t); }
+    box.append(row);
+  }
+}
+$("trkrun").onclick = async () => { $("tmsg").textContent = "Checking…"; const r = await chrome.runtime.sendMessage({ type: "trk-run", gesture: true }).catch(() => null); $("tmsg").textContent = r && !r.error ? `Checked ${r.checked}, new prices ${r.recorded}, waiting for a second read ${r.held}, failed ${r.failed}.` : "Couldn't run the check."; paintTrk(); };
+paintTrk();

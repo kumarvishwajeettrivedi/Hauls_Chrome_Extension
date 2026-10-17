@@ -1,6 +1,6 @@
 // Message guard for chrome.runtime.onMessage. Pure; works in the service worker (importScripts) and node (module.exports).
 const { validateMessage, sanitizeText } = (() => {
-const MAX_JSON = 20 * 1024, TYPE_MAX = { "t2-capture": 800 * 1024 }, ADMIN = new Set(["t2-status", "t2-connect", "t2-disconnect", "t2-test"]), T2_STORES = ["Zepto", "Instamart", "BigBasket", "JioMart", "Flipkart Minutes"], PRIVILEGED = new Set(["signin", "signout", "delete-data", "contribute", "profile-update", "export-data", "account", "forget-shared", "waitlist", "iplocate", "resolve-switch", "invalidate", "t2-connect", "t2-disconnect", "t2-test"]);
+const MAX_JSON = 20 * 1024, TYPE_MAX = { "t2-capture": 800 * 1024 }, ADMIN = new Set(["t2-status", "t2-connect", "t2-disconnect", "t2-test", "trk-run"]), T2_STORES = ["Zepto", "Instamart", "BigBasket", "JioMart", "Flipkart Minutes"], PRIVILEGED = new Set(["signin", "signout", "delete-data", "contribute", "profile-update", "export-data", "account", "forget-shared", "waitlist", "iplocate", "resolve-switch", "invalidate", "t2-connect", "t2-disconnect", "t2-test"]);
 const isObj = x => x !== null && typeof x === "object" && !Array.isArray(x) && Object.getPrototypeOf(x) === Object.prototype;
 const str = (v, min, max) => typeof v === "string" && v.length >= min && v.length <= max;
 const num = (v, lo, hi) => typeof v === "number" && Number.isFinite(v) && v > lo && v < hi;
@@ -16,6 +16,7 @@ const loc = l => isObj(l) && Object.keys(l).every(k => ["lat", "lon", "pin"].inc
 const S = {
   seen: { p: product }, track: { key, target: v => num(v, 0, 1e7) }, untrack: { key }, wish: { key, on: v => typeof v === "boolean" }, remove: { key },
   "history-ref": { key, days: v => num(v, 6, 401), low: v => num(v, 0, 1e7), high: v => num(v, 0, 1e7) },
+  "trk-run": {},
   offers: { asin: v => typeof v === "string" && /^[A-Z0-9]{10}$/.test(v) },
   compare: { title: v => str(v, 3, 500), site: v => str(v, 1, 60), price: v => num(v, 0, 1e7) },
   grocery: { q: v => str(v, 1, 120), loc, more: v => v === undefined || typeof v === "boolean" }, geocode: { pin }, reverse: { lat: v => num(v, -91, 91), lon: v => num(v, -181, 181) },

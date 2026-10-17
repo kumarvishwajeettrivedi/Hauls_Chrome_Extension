@@ -464,6 +464,30 @@ if (!NOLIVE) test("28b", "other sellers (live): a single-seller product says so"
   const txt = await panel.text(".offers"); if (/Couldn/.test(txt)) return t.skip("Amazon blocked: " + txt); t.check(/Only one seller/.test(txt), "single seller text: " + txt);
 }));
 
+if (!NOLIVE) test("29", "tracker (live): the service worker reads real Amazon, Flipkart and Myntra prices with no tab open and grows history", t => withExt({}, async ({ sw }) => {
+  const now = Date.now(), items = {
+    "amazon.in:B0F8BVSK21": { site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", title: "boAt", hist: [], wish: true },
+    "flipkart.com:ACCHGG7ND9BRXRGZ": { site: "Flipkart", url: "https://www.flipkart.com/boat-airdopes-141-gen-2-4-mics-enx-tech-48h-battery-asap-charge-low-latency-bt-v5-4-bluetooth/p/itm97186a453279a?pid=ACCHGG7ND9BRXRGZ", title: "boAt", hist: [], wish: true },
+    "myntra.com:12027436": { site: "Myntra", url: "https://www.myntra.com/lounge-tshirts/levis/levis-men-soft-pure-cotton-round-neck-half-sleeve-tshirt/12027436/buy", title: "Levis", hist: [], wish: true } };
+  const read = {}; for (const [k, it] of Object.entries(items)) read[k] = await sw.evaluate(([k2, it2]) => trkFetch(k2, it2), [k, it]);
+  const blocked = Object.entries(read).filter(([, r]) => !r.ok).map(([k, r]) => k + ":" + r.reason); t.note("live reads: " + JSON.stringify(read));
+  const good = Object.keys(read).filter(k => read[k].ok && read[k].price); if (good.length < 2) return t.skip("fewer than 2 stores readable right now (blocked/changed): " + blocked.join(", "));
+  for (const k of good) items[k].hist = [[now - 30 * D, Math.round(read[k].price * 1.1)]]; // a plausible earlier price (+10%)
+  const seeded = {}; for (const k of good) seeded[k] = items[k]; await seed(sw, { items: seeded });
+  const out = await sw.evaluate(() => trkRun(Date.now())); t.note("trkRun: " + JSON.stringify(out));
+  const st = (await store(sw, "items")).items, trk = (await store(sw, "trk")).trk;
+  for (const k of good) { t.check(st[k].hist.length === 2 && st[k].hist[1][1] === read[k].price, `${k}: history grew to the live price ${read[k].price}`); t.check(typeof st[k].checked === "number", k + ": checked stamped"); }
+  t.check(good.every(k => trk.health[k.split(":")[0]].ok >= 1), "health counters per store: " + JSON.stringify(trk.health).slice(0, 160));
+  if (good.length < 3) t.note("not readable this run: " + blocked.join(", "));
+}));
+
+test("30", "settings: background price check card shows per-store health and runs on demand (admin message accepted from the extension page)", t => withExt({}, async ({ ctx, sw, extId }) => {
+  await seed(sw, { trk: { health: { "amazon.in": { ok: 3, fail: 1, held: 0, unavailable: 0, last: Date.now(), reasons: { captcha: 1 } } }, pause: { "flipkart.com": Date.now() + 3600e3 } }, items: {} });
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await o.waitForSelector("#trk .srow");
+  const txt = await o.$eval("#trk", e => e.textContent); t.check(/Amazon/.test(txt) && /3 ok · 1 failed/.test(txt) && /captcha 1/.test(txt), "amazon health shown: " + txt.slice(0, 160)); t.check(/Flipkart.*Paused/.test(txt) && /Myntra.*Not checked yet/.test(txt), "paused and unchecked states");
+  await o.click("#trkrun"); await poll(async () => /Checked 0/.test(await o.$eval("#tmsg", e => e.textContent)), 8000, 300); t.check(/Checked 0, new prices 0/.test(await o.$eval("#tmsg", e => e.textContent)), "run-now answered: " + await o.$eval("#tmsg", e => e.textContent));
+}));
+
 // ---------------------------------------------------------------- 14 range selector
 test("14", "range selector: 30D/90D/1Y/All changes label, x-axis, y labels, chips; persists", t => withExt({}, async ({ ctx, sw }) => {
   const now = Date.now(), H = [[now - 380 * D, 1500], [now - 200 * D, 1300], [now - 60 * D, 1100], [now - 20 * D, 900], [now - 36e5, 830]];

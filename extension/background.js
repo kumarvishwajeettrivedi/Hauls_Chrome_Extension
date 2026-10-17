@@ -1,4 +1,4 @@
-importScripts("config.js", "lib.js", "state.js", "analysis.js", "cache.js", "grocery.js", "compare.js", "offers.js", "guard.js", "tier2.js", "auth.js", "sync.js");
+importScripts("config.js", "lib.js", "state.js", "analysis.js", "cache.js", "grocery.js", "compare.js", "offers.js", "tracker.js", "guard.js", "tier2.js", "auth.js", "sync.js");
 const ready = runMigrations().then(r => r.ran ? invalidate("schema-upgrade") : null).then(() => enforceBudget()).catch(() => {}); // repairs stored data once per update (S3), then forgets stale caches and checks the storage budget (S4)
 const get = async () => safeItems((await chrome.storage.local.get("items")).items);
 const put = items => chrome.storage.local.set({ items });
@@ -9,7 +9,7 @@ async function record(p) {
   if (p.seller && p.seller.name) { if (it.seller && it.seller !== p.seller.name) it.sellerChange = { from: it.seller, at: Date.now() }; it.seller = p.seller.name; }
   const before = it.hist.length; it.hist = addPoint(it.hist, p.price, Date.now());
   await put(items);
-  if (it.hist.length > before) { const { profile } = await chrome.storage.local.get("profile"); if (await getSession() && (profile && profile.contribute === true)) enqueue({ t: "obs", key: p.key, site: p.site, price: p.price, mrp: p.mrp, at: Date.now(), src: p.src }); }
+  if (it.hist.length > before) { const { profile } = await chrome.storage.local.get("profile"); if (p.src !== "bg" && await getSession() && (profile && profile.contribute === true)) enqueue({ t: "obs", key: p.key, site: p.site, price: p.price, mrp: p.mrp, at: Date.now(), src: p.src }); }
   await maybeAlert(p.key, it);
   return it;
 }
@@ -69,6 +69,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       if (it && m.low <= m.high && price >= m.low * 0.6 && price <= m.high * 1.4) { it.ref = { days: Math.round(m.days), low: m.low, high: m.high, at: Date.now() }; await put(items); reply({ ok: true, it }); } else reply({ ok: false }); }
     else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));
     else if (m.type === "compare") reply(await cmpFind({ title: m.title, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
+    else if (m.type === "trk-run") reply(await trkRun(Date.now()).catch(e => ({ error: e.message })));
     else if (m.type === "iplocate") reply(await ipLocate().catch(() => ({})));
     else if (m.type === "reverse") reply(await reverseGeocode(m.lat, m.lon).catch(() => ({})));
     else if (m.type === "geocode") reply(await geocode(m.pin).catch(e => ({ error: e.message })));
@@ -100,7 +101,9 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
 });
 
 // ponytail: periodic re-check only works for pages that expose JSON-LD offers; Amazon usually doesn't, so those update on visit. Add an offscreen-document DOM parser if needed.
-chrome.alarms.create("recheck", { periodInMinutes: 120 });
+chrome.alarms.clear("recheck"); // retired: replaced by the tracker below
+// Create only if absent: re-running create on every service-worker start would keep resetting the schedule.
+chrome.alarms.get("trk").then(a => { if (!a) chrome.alarms.create("trk", { periodInMinutes: 30, delayInMinutes: 5 }); });
 chrome.alarms.create("sync", { periodInMinutes: 15 });
 chrome.alarms.create("tokens", { periodInMinutes: 45 });
 // A user edit of a synced setting gets a timestamp; a sync write carries setStamps in the same change, so it is skipped (no echo loop).
@@ -110,17 +113,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === "flags") { await loadFlags(); return; }
   if (alarm.name === "housekeeping") { await housekeeping().catch(() => {}); return; } // prune >400-day history + enforce the storage budget
   if (alarm.name === "tokens") { await getSession(REFRESH_AHEAD).catch(() => {}); return; } // keep the 1-hour access token fresh while the browser is open
-  if (alarm.name !== "recheck") return; // an unknown alarm name must never trigger a scan
-  const items = await get();
-  for (const [key, it] of Object.entries(items)) {
-    if (!it.target) continue;
-    try {
-      const r = await fetch(it.url, { credentials: "omit", signal: AbortSignal.timeout(10000) });
-      if (+(r.headers.get("content-length") || 0) > 3e6) continue;
-      const ld = parseLd((await r.text()).slice(0, 1.5e6));
-      if (ld) await record({ key, site: it.site, url: it.url, title: ld.title, image: ld.image, price: ld.price });
-    } catch {}
-  }
+  if (alarm.name === "trk") { await trkRun().catch(() => {}); return; }
 });
 
 // Toolbar click toggles the companion panel; on tabs without it, open the help page.
