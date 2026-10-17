@@ -1,54 +1,112 @@
 <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HAULS settings</title><meta name="color-scheme" content="only light">
 <style>
-html{color-scheme:only light}body{background:#fff}
-:root{--ink:#131316;--blue:#0754F8;--mint:#19E68C;--yellow:#FFD93D;--line:#EAEAF0;--chip:#F7F7F7}
+html{color-scheme:only light}body{background:#F4F1FF}
+:root{--ink:#131316;--blue:#0754F8;--mint:#19E68C;--yellow:#FFD93D;--lav:#E9E3FF;--line:#E4E0F3;--chip:#F7F7F7;--mute:#545459}
 *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;font:500 15px/1.5 "Be Vietnam Pro",system-ui,sans-serif;color:var(--ink)}
-header{background:var(--blue);color:#fff;padding:28px 20px}header div{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:14px}
-.back{margin-left:auto;background:#fff;color:#131316;box-shadow:none;border:2px solid #131316;min-height:38px;padding:0 14px}.logo{width:48px;height:48px;border-radius:50%;box-shadow:0 0 0 3px #fff,3px 3px 0 3px rgba(0,0,0,.3)}.logo svg{width:100%;height:100%;display:block}
-h1{margin:0;font-size:26px;font-weight:800}main{max-width:640px;margin:0 auto;padding:24px 20px 60px;display:grid;gap:18px}
-.card{border:2px solid var(--ink);border-radius:16px;box-shadow:3px 3px 0 var(--ink);padding:18px}.card h2{margin:0 0 6px;font-size:17px;font-weight:800}.card p{margin:6px 0;color:#545459}
-button{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:99px;background:#131316;color:#fff;font-weight:800;font-size:13px;letter-spacing:.05em;text-transform:uppercase;box-shadow:3px 3px 0 var(--mint)}
-button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--mint)}button.ghost{background:var(--chip);color:var(--ink);box-shadow:none;border:2px solid var(--ink)}
-button:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
-.pill{display:inline-block;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:800;border:2px solid var(--ink);background:var(--chip);color:var(--ink)}.pill.on{background:var(--mint);color:#131316}
-.srow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 0;border-top:2px dashed var(--line)}.srow:first-of-type{border-top:0}.srow b{min-width:92px;font-weight:800}.srow button{min-height:38px;padding:0 14px;font-size:13px}
+header{background:var(--blue);color:#fff;padding:22px 20px}header>div{max-width:680px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:50%;box-shadow:0 0 0 3px #fff,3px 3px 0 3px rgba(0,0,0,.3);flex:none}.logo svg{width:100%;height:100%;display:block}
+h1{margin:0;font-size:24px;font-weight:800;flex:1}
+main{max-width:680px;margin:0 auto;padding:22px 20px 50px;display:grid;gap:16px}
+.card{background:#fff;border:2px solid var(--ink);border-radius:18px;box-shadow:3px 3px 0 var(--ink);padding:18px}
+.card h2{margin:0;font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.card p{margin:6px 0;color:var(--mute)}
+.sub{margin:2px 0 0;color:var(--mute);font-size:14px}.meta{font-size:13px;color:var(--mute)}
+button{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 18px;border-radius:99px;background:var(--ink);color:#fff;font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;box-shadow:3px 3px 0 var(--mint)}
+button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--mint)}button.ghost{background:var(--chip);color:var(--ink);box-shadow:none;border:2px solid var(--ink)}button.ghost:active{transform:none}
+button.back{background:#fff;color:var(--ink);box-shadow:none;border:2px solid var(--ink);min-height:36px;padding:0 14px}button.tourbtn{background:var(--yellow);color:var(--ink);box-shadow:none;border:2px solid var(--ink);min-height:36px;padding:0 14px}
+button:focus-visible,.sw input:focus-visible+.knobtrack{outline:3px solid var(--mint);outline-offset:2px}
+.pill{display:inline-block;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:800;border:2px solid var(--ink);background:var(--chip);color:var(--ink)}.pill.on{background:var(--mint)}.pill.rec{background:var(--yellow)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.srow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:11px 0;border-top:2px dashed var(--line)}.srow:first-of-type{border-top:0}.srow b{min-width:110px;font-weight:800}.srow button{min-height:36px;padding:0 14px}
 pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px solid var(--ink);border-radius:12px;padding:12px;font:12px/1.45 ui-monospace,Menlo,monospace;max-height:320px;overflow:auto;margin:10px 0 0}
-input{font:inherit;min-height:44px;padding:0 14px;border:2px solid var(--ink);border-radius:99px;background:var(--chip);color:var(--ink);width:150px}
-ul{margin:8px 0 0;padding-left:20px;color:#545459}li{margin:4px 0}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+/* toggle switch with a visible On/Off */
+.sw{display:inline-flex;align-items:center;gap:10px;cursor:pointer;flex:none;position:relative}.sw input{position:absolute;opacity:0;width:1px;height:1px}
+.knobtrack{width:56px;height:32px;border-radius:99px;border:2px solid var(--ink);background:var(--chip);position:relative;transition:background .2s}.knobtrack::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ink);transition:transform .2s}
+.sw input:checked+.knobtrack{background:var(--mint)}.sw input:checked+.knobtrack::after{transform:translateX(24px)}
+.onoff{font-weight:800;font-size:13px;min-width:26px}.onoff::after{content:"Off"}.sw input:checked~.onoff::after{content:"On"}
+.top{display:flex;align-items:center;gap:14px;justify-content:space-between}.top>div:first-child{min-width:0}
+/* hero card: Amazon price history */
+.hero{background:var(--lav)}.hero .stat{margin-top:12px;padding:10px 12px;background:#fff;border:2px solid var(--ink);border-radius:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.hero .stat .srow{border:0;padding:0}
+/* get started */
+.start h2{justify-content:space-between}.bar{height:10px;border:2px solid var(--ink);border-radius:99px;background:#fff;margin:10px 0 14px;overflow:hidden}.bar i{display:block;height:100%;background:var(--mint);width:0;transition:width .4s}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.step{border:2px solid var(--ink);border-radius:16px;padding:10px;background:#fff;display:grid;gap:6px;align-content:start;position:relative}.step.done{background:#E8FBF2}
+.step .n{position:absolute;top:8px;left:8px;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font:800 12px/24px system-ui;text-align:center}.step.done .n{background:var(--mint);color:var(--ink)}
+.step svg{width:100%;height:92px;display:block}.step b{font-size:14px}.step small{color:var(--mute);font-size:12px;line-height:1.3}
+.step button{min-height:32px;padding:0 12px;font-size:11px;justify-self:start}
+@media (max-width:560px){.steps{grid-template-columns:1fr}.step svg{height:80px}}
+/* animated scenes */
+.a-tg{animation:tg 2.4s ease-in-out infinite}@keyframes tg{0%,25%{transform:translateX(0)}45%,85%{transform:translateX(24px)}100%{transform:translateX(0)}}
+.a-bg{animation:bg 2.4s ease-in-out infinite}@keyframes bg{0%,25%{fill:#F7F7F7}45%,85%{fill:#19E68C}100%{fill:#F7F7F7}}
+.a-ptr{animation:ptr 2.4s ease-in-out infinite}@keyframes ptr{0%{transform:translate(0,14px)}25%{transform:translate(0,0)}35%{transform:translate(0,3px)}50%,85%{transform:translate(0,0)}100%{transform:translate(0,14px)}}
+.a-ring{transform-origin:center;transform-box:fill-box;animation:ring 1.8s ease-out infinite}@keyframes ring{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.7);opacity:0}}
+.a-pop{transform-origin:center;transform-box:fill-box;animation:pop 1.8s ease-in-out infinite}@keyframes pop{0%,40%{transform:scale(1);fill:#fff}55%{transform:scale(1.3);fill:#FF4D6D}75%,100%{transform:scale(1);fill:#FF4D6D}}
+.a-bounce{animation:bounce 1.2s ease-in-out infinite}@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+/* tour */
+.tour-dim{position:fixed;inset:0;z-index:50}.tour-spot{position:fixed;z-index:51;border-radius:18px;box-shadow:0 0 0 9999px rgba(19,19,22,.62);border:3px solid var(--yellow);pointer-events:none;transition:all .35s ease}
+.tour-tip{position:fixed;z-index:52;width:min(330px,calc(100vw - 24px));background:#fff;border:2px solid var(--ink);border-radius:16px;box-shadow:4px 4px 0 var(--ink);padding:14px}.tour-tip h3{margin:0 0 4px;font-size:16px}.tour-tip p{margin:0 0 12px;color:var(--mute)}
+.tour-tip .dots{display:flex;gap:6px;margin-bottom:10px}.tour-tip .dots i{width:9px;height:9px;border-radius:50%;border:2px solid var(--ink);background:#fff}.tour-tip .dots i.on{background:var(--ink)}
+.tour-tip .acts{display:flex;gap:8px;justify-content:flex-end;align-items:center}.tour-tip .skip{margin-right:auto;color:var(--mute);font-size:12px;text-transform:none;letter-spacing:0;background:none;box-shadow:none;min-height:30px;padding:0}
+.tour-hand{position:fixed;z-index:53;font-size:30px;pointer-events:none;animation:bounce 1s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
-<header><div><span class="logo" id="logo"></span><h1>HAULS settings</h1><button id="back" class="back" aria-label="Home">← Home</button></div></header>
+<header><div><span class="logo" id="logo"></span><h1>Settings</h1><button id="tour" class="tourbtn" title="A 30-second walkthrough">Take the tour</button><button id="back" class="back" aria-label="Home">← Home</button></div></header>
 <main>
   <section class="card" id="stale" hidden><h2>HAULS needs a reload</h2><p>The background part is out of date, so some buttons will fail.</p><div class="row"><button id="reload">Reload HAULS</button></div></section>
-  <section class="card">
-    <h2>Stores <span class="pill" id="state">checking…</span></h2>
-    <p>Brand sites (boAt, Mamaearth…) need your approval once.</p>
-    <div class="row"><button id="on">Enable independent stores</button><button id="off" class="ghost" hidden>Turn off</button></div>
-    <p id="msg" role="status"></p>
-    <h2 style="margin-top:18px">Grocery</h2>
-    <p class="meta">Pincode: <b id="pinval">…</b> (change it in the Grocery tab)</p>
+
+  <section class="card start" id="start" hidden>
+    <h2><span>Get started <span class="pill" id="startcount">0 of 3</span></span><button class="ghost" id="starthide" style="min-height:30px;padding:0 12px;font-size:11px">Hide</button></h2>
+    <div class="bar" aria-hidden="true"><i id="startbar"></i></div>
+    <div class="steps">
+      <div class="step" id="st1"><span class="n">1</span>
+        <svg viewBox="0 0 160 92" aria-hidden="true"><rect x="38" y="32" width="84" height="28" rx="14" fill="#fff" stroke="#131316" stroke-width="3"/><rect class="a-bg" x="40" y="34" width="80" height="24" rx="12" fill="#F7F7F7"/><g class="a-tg"><circle cx="53" cy="46" r="9" fill="#131316"/></g><g class="a-ptr"><path d="M110 70 l0 -16 l5 4 l4 -3 l3 12 z" fill="#FFD93D" stroke="#131316" stroke-width="2.5" stroke-linejoin="round"/></g></svg>
+        <b>Turn on Amazon history</b><small>One switch below. It fetches real price charts for you.</small><button id="st1go">Show me</button></div>
+      <div class="step" id="st2"><span class="n">2</span>
+        <svg viewBox="0 0 160 92" aria-hidden="true"><rect x="22" y="10" width="116" height="72" rx="10" fill="#fff" stroke="#131316" stroke-width="3"/><rect x="34" y="22" width="40" height="30" rx="6" fill="#E9E3FF" stroke="#131316" stroke-width="2"/><rect x="82" y="24" width="44" height="6" rx="3" fill="#131316"/><rect x="82" y="36" width="30" height="6" rx="3" fill="#C9C4DA"/><circle class="a-ring" cx="128" cy="68" r="10" fill="none" stroke="#19E68C" stroke-width="3"/><circle cx="128" cy="68" r="8" fill="#0754F8" stroke="#131316" stroke-width="2"/><g class="a-ptr"><path d="M112 86 l0 -14 l5 4 l4 -3 l3 11 z" fill="#FFD93D" stroke="#131316" stroke-width="2.5" stroke-linejoin="round"/></g></svg>
+        <b>Open any product</b><small>On Amazon, Flipkart or Myntra, tap the blue HAULS button.</small></div>
+      <div class="step" id="st3"><span class="n">3</span>
+        <svg viewBox="0 0 160 92" aria-hidden="true"><circle class="a-ring" cx="80" cy="46" r="18" fill="none" stroke="#FF4D6D" stroke-width="3"/><path class="a-pop" d="M80 66 C54 50 56 30 70 30 C76 30 80 35 80 38 C80 35 84 30 90 30 C104 30 106 50 80 66 Z" fill="#fff" stroke="#131316" stroke-width="3" stroke-linejoin="round"/><g class="a-bounce"><circle cx="124" cy="22" r="9" fill="#FFD93D" stroke="#131316" stroke-width="2.5"/><path d="M124 17 v6 M124 26 v0" stroke="#131316" stroke-width="2.5" stroke-linecap="round"/></g></svg>
+        <b>Heart it to watch</b><small>HAULS then tracks the price and tells you when it drops.</small></div>
+    </div>
+  </section>
+
+  <section class="card hero" id="s-history" data-tour="1">
+    <div class="top"><div><h2>Amazon price history <span class="pill rec">Recommended</span></h2><p class="sub">Reads Amazon's own price chart so you see the real history from day one.</p></div>
+      <label class="sw" title="Read Amazon's price history automatically"><input type="checkbox" id="ahauto" aria-label="Read Amazon's price history automatically"><span class="knobtrack"></span><span class="onoff"></span></label></div>
+    <p class="meta">Needs you signed in to Amazon. While you are away, one watched product at a time opens in a small window, then closes.</p>
+    <div class="stat"><div id="hstat" style="display:contents"></div><button id="abgrun" class="ghost" style="margin-left:auto">Read now</button></div>
+    <p id="hmsg" role="status" class="meta"></p>
+  </section>
+
+  <section class="card" id="s-track" data-tour="2">
+    <h2>Price tracking</h2><p class="sub">While the browser is open, HAULS re-reads the prices of items you watch.</p>
+    <div id="trk"></div>
+    <p id="tmsg" role="status" class="meta"></p>
+    <div class="row"><button id="trkrun" class="ghost">Check now</button></div>
+  </section>
+
+  <section class="card" id="s-stores" data-tour="3">
+    <h2>More stores <span class="pill">Optional</span></h2>
+    <div class="srow" style="border-top:0"><div style="flex:1;min-width:200px"><b style="min-width:0">Independent stores</b><p class="sub" style="margin:2px 0 0">boAt, Mamaearth and other brand sites. Chrome asks first.</p></div><span class="pill" id="state">checking…</span><button id="on">Turn on</button><button id="off" class="ghost" hidden>Turn off</button></div>
+    <p id="msg" role="status" class="meta"></p>
+    <h2 style="margin-top:14px">Grocery</h2>
+    <p class="sub">Pincode: <b id="pinval">…</b> (change it in the Grocery tab). Connect a store once so HAULS can read its prices.</p>
     <div id="stores"></div>
     <p id="smsg" role="status"></p>
     <pre id="report" hidden></pre>
     <div class="row"><button id="copy" class="ghost" hidden>Copy report</button></div>
   </section>
-  <section class="card">
-    <h2>Price tracking</h2>
-    <p>While the browser is open, HAULS re-reads prices of items you watch.</p>
-    <div id="trk"></div>
-    <p class="meta"><label><input type="checkbox" id="ahauto"> Read Amazon's price history automatically (experimental, needs Amazon sign-in). While you are away, one watched product at a time opens in a small window, then closes.</label></p>
-    <p id="tmsg" role="status" class="meta"></p>
-    <div class="row"><button id="trkrun" class="ghost">Check now</button><button id="abgrun" class="ghost">Read Amazon history now</button></div>
-    <details style="margin-top:14px"><summary>Advanced</summary>
-      <p>Open Amazon's own "Price history" on a product tab, then press the button and paste the report in the chat.</p>
-      <p id="pmsg" role="status" class="meta"></p>
-      <pre id="preport" hidden></pre>
-      <div class="row"><button id="probe" class="ghost">Copy page report</button><button id="pcopy" class="ghost" hidden>Copy again</button></div>
-    </details>
-  </section>
+
   <section class="card">
     <h2>Your data</h2>
-    <p>Stays in this browser. Signed in, it syncs to your account; export or delete from the account button.</p>
+    <p>Stays in this browser. Signed in, it syncs to your account; export or delete it from the account button in the panel.</p>
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:800">Advanced</summary>
+      <p>For support. Open Amazon's own "Price history" on a product tab, then press a button and paste the result in the chat.</p>
+      <p id="pmsg" role="status" class="meta"></p>
+      <pre id="preport" hidden></pre>
+      <div class="row"><button id="probe" class="ghost">Copy page report</button><button id="pcopy" class="ghost" hidden>Copy again</button><button id="sumcopy" class="ghost">Copy storage summary</button></div>
+    </details>
   </section>
 </main>
-<footer id="ver" style="max-width:640px;margin:0 auto;padding:0 20px 24px;font-size:12px;opacity:.6"></footer>
+<footer id="ver" style="max-width:680px;margin:0 auto;padding:0 20px 24px;font-size:12px;opacity:.6"></footer>
 <script src="probe.js"></script><script src="options.js"></script>

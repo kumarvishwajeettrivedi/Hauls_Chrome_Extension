@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-17T17:40:50.676Z",
+  "at": "2026-10-17T17:59:00.935Z",
   "summary": {
     "pass": 2,
     "fail": 0,
@@ -7,19 +7,19 @@
   },
   "results": [
     {
-      "id": "1",
-      "name": "smoke: loads, SW up, knob shows, no console errors",
+      "id": "36",
+      "name": "chart reader: health counters tick (read/stored/refused), Settings shows them, and a remote disabled_features flag stops reading",
       "status": "PASS",
-      "ms": 3949,
+      "ms": 8088,
       "failures": [],
       "notes": [],
       "attempts": 1
     },
     {
-      "id": "45",
-      "name": "uninstall feedback: the extension registers the feedback page; the page needs a rating, sends rating + known reasons + text + version once, shows thanks, and never calls anything else",
+      "id": "49",
+      "name": "Settings: first install opens the guided tour; Amazon history is the first card with a clear On/Off switch; the Get started card ticks itself",
       "status": "PASS",
-      "ms": 2789,
+      "ms": 4301,
       "failures": [],
       "notes": [],
       "attempts": 1

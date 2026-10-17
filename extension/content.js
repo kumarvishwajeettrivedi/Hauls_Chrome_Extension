@@ -179,7 +179,9 @@
   chrome.storage.onChanged.addListener((ch, area) => { if (area !== "local") return; const a = sr.activeElement, fc = !!(ch.items && cur && cur.it && cur.p && (n => n.wish !== !!cur.it.wish || n.target !== cur.it.target)(withStoredFlags(cur.it, safeItems(ch.items.newValue), cur.p.key))), u = liveUpdate(ch, { tab, range, flagsChanged: fc, typing: !!a && /^(INPUT|TEXTAREA)$/.test(a.tagName) });
     if (u.pin !== undefined) { pinChip.replaceChildren(ico("pin"), u.pin || "Pin"); pinHook(u.pin); } if (u.range) range = u.range; if (u.who) whoHook(); if (u.redraw) draw(); });
 
-  const idleRedraw = () => { const a = sr.activeElement; if (canRedraw({ open: wrap.classList.contains("open"), tab, typing: !!a && /^(INPUT|TEXTAREA)$/.test(a.tagName) })) draw(); };
+  let redrawPending = false; // a redraw that had to wait (panel closed, or you were typing) runs as soon as it can
+  const idleRedraw = () => { const a = sr.activeElement; if (canRedraw({ open: wrap.classList.contains("open"), tab, typing: !!a && /^(INPUT|TEXTAREA)$/.test(a.tagName) })) { redrawPending = false; draw(); } else redrawPending = true; };
+  sr.addEventListener("focusout", () => { if (redrawPending) setTimeout(() => { const a = sr.activeElement; if (redrawPending && !(a && /^(INPUT|TEXTAREA)$/.test(a.tagName))) idleRedraw(); }, 150); });
   // Draws run one after another: two overlapping draws each appended their rows after an await, which doubled the watchlist.
   let drawQ = Promise.resolve(); const draw = () => (drawQ = drawQ.then(drawNow, drawNow));
   async function drawNow() {
@@ -636,7 +638,9 @@
       let found = null;
       for (const m of muts) for (const n of m.addedNodes) { const el1 = n.nodeType === 1 ? n : n.parentElement, t = n.nodeType === 1 ? n.textContent : n.nodeType === 3 ? n.nodeValue : "";
         if (!t || t.length >= 4000 || !/ranged from/i.test(t) || !el1 || (el1.closest && el1.closest(HISTORY_UNTRUSTED)) || (n.nodeType === 1 && n.querySelector && n.querySelector(HISTORY_UNTRUSTED))) continue;
-        const f = parseAmazonHistoryText(t); if (f && historyTextTrusted(f, cur.p)) { found = f; break; } }
+        let f = parseAmazonHistoryText(t); // Amazon splits the sentence over several elements ("...the price of" / title / "has ranged from..."): when the fragment alone is not enough, read the nearest enclosing block that holds the whole sentence
+        for (let a = el1, i = 0; !f && a && a !== document.body && i < 6; a = a.parentElement, i++) { const tt = a.textContent || ""; if (tt.length > 1500) break; if (a.closest && a.closest(HISTORY_UNTRUSTED)) break; f = parseAmazonHistoryText(tt); }
+        if (f && historyTextTrusted(f, cur.p)) { found = f; break; } }
       if (!found) return; const r = await send({ type: "history-ref", key: cur.p.key, days: found.days, low: found.low, high: found.high }).catch(() => null);
       if (r && r.ok) { cur.it = r.it; idleRedraw(); }
     }, 700); }).observe(document.body, { childList: true, subtree: true, characterData: true });

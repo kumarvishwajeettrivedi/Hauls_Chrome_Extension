@@ -521,12 +521,12 @@ test("36", "chart reader: health counters tick (read/stored/refused), Settings s
   await add(p, svg); await poll(async () => ((await store(sw, "chartHealth")).chartHealth || {}).stored, 8000, 300);
   h = (await store(sw, "chartHealth")).chartHealth || {}; t.check(h.read >= 1 && h.stored === 1, "good chart counted read + stored: " + JSON.stringify(h));
   const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await o.waitForSelector("#trk .srow:last-child");
-  t.check(/Amazon chart.*1 saved/.test(await o.$eval("#trk", e => e.textContent)), "Settings shows the chart reader count: " + (await o.$eval("#trk", e => e.textContent)).slice(-80));
+  await o.waitForSelector("#hstat .pill"); await sleep(300); t.check(/1 saved/.test(await o.$eval("#hstat", e => e.textContent)), "Settings shows the chart reader count: " + (await o.$eval("#hstat", e => e.textContent)).slice(0, 80));
   await seed(sw, { flags: { disabled_features: ["chart-read"] } });
   const { p: p2, panel: pn2 } = await product(ctx, { id: "B0AMZKILL01", price: 4499, mrp: 5999 }); await pn2.open(); await sleep(600);
   await add(p2, svg); await sleep(2500);
   t.check(!Object.entries((await store(sw, "items")).items || {}).some(([k, i]) => /B0AMZKILL01/.test(k + (i.url || "")) && i.ahist), "kill switch: chart on a product is not read while chart-read is disabled");
-  await o.reload(); await o.waitForSelector("#trk .srow:last-child"); t.check(/Paused by HAULS/.test(await o.$eval("#trk", e => e.textContent)), "Settings says the reader is paused");
+  await o.reload(); await o.waitForSelector("#hstat .pill"); t.check(/Paused by HAULS/.test(await o.$eval("#hstat", e => e.textContent)), "Settings says the reader is paused");
 }));
 
 test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy to Wait, saves the choice, and offers an alert price", t => withExt({}, async ({ ctx, sw }) => {
@@ -721,6 +721,59 @@ test("45", "uninstall feedback: the extension registers the feedback page; the p
   t.check(errs2.length === 0, "no CSP violations: " + errs2.join(" | "));
   const p2 = await ctx.newPage(); await p2.goto(url, { waitUntil: "domcontentloaded" }); await p2.click('.star[aria-label="2 out of 5"]'); await p2.fill("#website", "bot"); await p2.click("#send"); await sleep(400);
   t.check(calls.length === 1, "a filled hidden field (bot) sends nothing");
+}));
+
+test("46", "real Amazon chart captured 2026-10-17 (30-day, 9,487 -> 7,599): read, stored, drawn now AND still drawn after reloading the product page", t => withExt({}, async ({ ctx, sw }) => {
+  const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-real-2026-10-17.svg", import.meta.url), "utf8"), id = "B0F9X7Z16M";
+  let { p, panel } = await product(ctx, { id, price: 7599, mrp: 19990 }); await panel.open(); await sleep(600);
+  await p.evaluate(h => { const w = document.createElement("div"); w.id = "rufus-react-renderer"; w.innerHTML = '<span class="rufus-pricing-chart-container">' + h + '</span>'; document.body.append(w); }, svg);
+  const ok = await poll(async () => Object.values((await store(sw, "items")).items || {}).some(i => i.ahist), 8000, 300); t.check(!!ok, "chart read and stored");
+  const it = Object.values((await store(sw, "items")).items).find(i => i.ahist); t.check(it && it.ahist.ranges["1M"] && it.ahist.ranges["1M"].points[0][1] === 9487 && it.ahist.ranges["1M"].points.at(-1)[1] === 7599, "stored series 9,487 -> 7,599: " + JSON.stringify(it && it.ahist.ranges["1M"].points.map(q => q[1])));
+  await poll(async () => await panel.has(".cw svg"), 6000, 300); t.check(await panel.has(".cw svg"), "history chart drawn right after the read");
+  await p.close();
+  ({ p, panel } = await product(ctx, { id, price: 7599, mrp: 19990 })); await panel.open(); await sleep(900);
+  t.check(await panel.has(".cw svg"), "after reloading the product page the graph is still there (read from the stored series)");
+  const chips = await panel.text(".chips3"); t.check(/₹7,599/.test(chips) && /₹9,487/.test(chips), "low/high come from Amazon's series: " + chips);
+}));
+
+test("47", "Amazon's range sentence arrives split across elements (as on the real Rufus panel): the range is still read, stored, and drives the scanner and the range graph", t => withExt({}, async ({ ctx, sw }) => {
+  const id = "B0SPLITSENT", title = "boAt Airdopes 141 Bluetooth Earbuds";
+  const { p, panel } = await product(ctx, { id, price: 499, mrp: 1599 }); await panel.open(); await sleep(800);
+  await p.evaluate(ttl => { const w = document.createElement("div"); w.id = "rufus-react-renderer"; const turn = document.createElement("div"); turn.className = "rufus-papyrus-turn"; turn.innerHTML = "<span>Over the past 30 days, the price of </span><b>" + ttl + "</b>"; w.append(turn); document.body.append(w);
+    setTimeout(() => { const tail = document.createElement("span"); tail.className = "css-1jxf684"; tail.textContent = " has ranged from ₹499 to ₹579. The current price is ₹499, the lowest in the past 30 days."; turn.append(tail); }, 900); }, title);
+  const ok = await poll(async () => Object.values((await store(sw, "items")).items || {}).some(i => i.ref), 9000, 300); t.check(!!ok, "range stored although the sentence was split");
+  const it = Object.values((await store(sw, "items")).items).find(i => i.ref); t.check(it && it.ref.low === 499 && it.ref.high === 579 && it.ref.days === 30, "values " + JSON.stringify(it && it.ref));
+  await poll(async () => /Amazon's 30-day low/.test(await panel.text(".scan")), 6000, 300); t.check(/Amazon's 30-day low/.test(await panel.text(".scan")), "the scanner uses it: " + (await panel.text(".scan")).slice(0, 100));
+  // a user-written review that contains the same words, split the same way, is still ignored
+  const { p: p2 } = await product(ctx, { id: "B0SPLITREVW", price: 499, mrp: 1599 }); await sleep(800);
+  await p2.evaluate(ttl => { const r = document.createElement("div"); r.id = "reviewsMedley"; r.innerHTML = "<span>Over the past 30 days, the price of </span><b>" + ttl + "</b>"; document.body.append(r); setTimeout(() => { const s2 = document.createElement("span"); s2.textContent = " has ranged from ₹10 to ₹20. The current price is ₹499."; r.append(s2); }, 600); }, title);
+  await sleep(2500); t.check(!Object.entries((await store(sw, "items")).items).some(([k, i]) => /B0SPLITREVW/.test(k) && i.ref), "the same split sentence inside reviews is ignored");
+}));
+
+test("48", "a chart read while you are typing in the panel is drawn as soon as you leave the field (the redraw is not lost)", t => withExt({}, async ({ ctx, sw }) => {
+  const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-real-2026-10-17.svg", import.meta.url), "utf8");
+  const { p, panel } = await product(ctx, { id: "B0TYPINGRD", price: 7599, mrp: 19990 }); await panel.open(); await sleep(700);
+  await panel.run("input", function () { this.focus(); });
+  await p.evaluate(h => { const w = document.createElement("div"); w.id = "rufus-react-renderer"; w.innerHTML = '<span class="rufus-pricing-chart-container">' + h + '</span>'; document.body.append(w); }, svg);
+  await poll(async () => Object.values((await store(sw, "items")).items || {}).some(i => i.ahist), 8000, 300); await sleep(900);
+  t.check(!(await panel.has(".cw svg")), "while the field has focus the card is left alone");
+  await panel.run("input", function () { this.blur(); }); await poll(async () => await panel.has(".cw svg"), 5000, 300);
+  t.check(await panel.has(".cw svg"), "after leaving the field the graph appears without a reload");
+}));
+
+test("49", "Settings: first install opens the guided tour; Amazon history is the first card with a clear On/Off switch; the Get started card ticks itself", t => withExt({ keepWelcome: true }, async ({ ctx, sw, extId }) => {
+  let o = ctx.pages().find(p => /options\.html\?welcome=1/.test(p.url())); if (!o) o = await ctx.waitForEvent("page", { timeout: 8000, predicate: p => /options\.html/.test(p.url()) }).catch(() => null);
+  t.check(!!o, "a fresh install opens the Settings page with the welcome tour");
+  await o.waitForSelector(".tour-tip", { timeout: 6000 }); t.check(/1\. Turn this on/.test(await o.textContent(".tour-tip")), "tour step 1 points at the Amazon history switch: " + (await o.textContent(".tour-tip")).slice(0, 80));
+  await sleep(900); const spot = await o.evaluate(() => { const r = document.querySelector(".tour-spot").getBoundingClientRect(), h = document.getElementById("s-history").getBoundingClientRect(); return Math.abs(r.top - (h.top - 6)) < 8 && r.width > h.width; }); t.check(spot, "the spotlight sits on the Amazon history card");
+  await o.click('.tour-tip button:has-text("Turn it on")'); await sleep(300); t.check((await store(sw, "ahAuto")).ahAuto === true, "the tour can turn the switch on for you");
+  await o.click('.tour-tip button:has-text("Next")'); t.check(/2\. Check it is working/.test(await o.textContent(".tour-tip")), "step 2"); await o.click('.tour-tip button:has-text("Next")'); t.check(/3\. Optional extras/.test(await o.textContent(".tour-tip")), "step 3");
+  await o.click('.tour-tip button:has-text("Done")'); await sleep(200); t.check(!(await o.$(".tour-tip")) && (await store(sw, "tourDone")).tourDone === true, "tour closes and is remembered");
+  const order = await o.evaluate(() => [...document.querySelectorAll("main > section")].filter(s => !s.hidden).map(s => s.id)); t.check(order.indexOf("s-history") <= 1 && order.indexOf("s-history") < order.indexOf("s-track") && order.indexOf("s-track") < order.indexOf("s-stores"), "Amazon history is at the top: " + order.join(" > "));
+  t.check(await o.isChecked("#ahauto") && /On/.test(await o.evaluate(() => getComputedStyle(document.querySelector(".onoff"), "::after").content)), "the switch shows On");
+  await o.click(".sw"); await sleep(300); t.check((await store(sw, "ahAuto")).ahAuto === false && /Off/.test(await o.evaluate(() => getComputedStyle(document.querySelector(".onoff"), "::after").content)), "clicking the switch turns it off and it says Off");
+  t.check(/\d of 3/.test(await o.textContent("#startcount")), "Get started shows progress: " + await o.textContent("#startcount"));
+  await seed(sw, { ahAuto: true, items: seedItem("B0TOURTEST", [[Date.now() - 36e5, 500]], { wish: true }) }); await sleep(500); const hidden = await o.$eval("#start", e => e.hidden); t.check(hidden && /3 of 3/.test(await o.textContent("#startcount")), "all three steps done: the card hides itself");
 }));
 
 test("35", "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {

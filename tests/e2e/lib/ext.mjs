@@ -19,7 +19,7 @@ export async function poll(fn, timeout = 10000, every = 250) {
 
 // Runs fn({ctx, sw, errs, reqs}) in a throwaway profile, always cleaning up.
 export async function withExt(opts, fn) {
-  const { viewport = { width: 1280, height: 900 }, colorScheme, geolocation, anonKey } = opts || {};
+  const { viewport = { width: 1280, height: 900 }, colorScheme, geolocation, anonKey, keepWelcome } = opts || {};
   const dir = mkdtempSync(path.join(tmpdir(), "hauls-e2e-"));
   // anonKey: run a temp COPY of extension/ whose config.js carries a dummy anon key (the repo ships it empty). The real source is never touched.
   let extDir = EXT;
@@ -32,6 +32,8 @@ export async function withExt(opts, fn) {
     ctx.on("request", r => { let sw = false; try { sw = !!r.serviceWorker(); } catch {} reqs.push({ url: r.url(), sw, page: (() => { try { return r.frame()?.url() || ""; } catch { return ""; } })() }); });
     const hook = p => { p.on("console", m => { if (m.type() === "error" && (m.location().url || "").startsWith("chrome-extension://")) errs.push(`[page] ${m.text().slice(0, 200)}`); }); };
     ctx.pages().forEach(hook); ctx.on("page", hook);
+    // a fresh install opens the Settings welcome tab (that is the product behaviour); tests close it so page counts stay predictable, except the test that checks it
+    if (!keepWelcome) { const closeWelcome = p => p.on("framenavigated", f => { if (f === p.mainFrame() && /options\.html\?welcome=1/.test(f.url())) p.close().catch(() => {}); }); ctx.pages().forEach(closeWelcome); ctx.on("page", closeWelcome); }
     const sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent("serviceworker", { timeout: 15000 });
     sw.on("console", m => { if (m.type() === "error") errs.push(`[sw] ${m.text().slice(0, 200)}`); });
     ctx.on("serviceworker", w => w.on("console", m => { if (m.type() === "error") errs.push(`[sw] ${m.text().slice(0, 200)}`); }));

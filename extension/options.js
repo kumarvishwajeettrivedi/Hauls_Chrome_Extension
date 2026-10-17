@@ -37,7 +37,7 @@ const showPin = pin => { $("pinval").textContent = pin || "not set"; };
 chrome.storage.local.get("pin").then(v => showPin(v.pin)); chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.pin) showPin(ch.pin.newValue); });
 
 // Is the background (service worker) the same build as this page? A stale one rejects the unknown message.
-const PAGE_BUILD = "2026-10-17.r29";
+const PAGE_BUILD = "2026-10-17.r30";
 chrome.runtime.sendMessage({ type: "t2-version" }).then(r => { const ok = r && r.build === PAGE_BUILD; $("ver").textContent = "HAULS " + chrome.runtime.getManifest().version + (ok ? " · up to date" : "") + " · built by Vishwajeet · hauls.in"; $("stale").hidden = !!ok; }).catch(() => { $("stale").hidden = false; });
 $("reload").onclick = () => chrome.runtime.reload();
 
@@ -59,6 +59,10 @@ $("probe").onclick = async () => {
     catch { $("pmsg").textContent = "Select the report text below and copy it."; }
   } catch (e) { $("pmsg").textContent = "Couldn't read the tab: " + String(e && e.message).slice(0, 100); }
 };
+// What HAULS has stored about your Amazon products (keys, counts and times only: no titles, links or prices of your account), to see whether a chart or range was kept.
+$("sumcopy").onclick = async () => { const { items, chartHealth } = await chrome.storage.local.get(["items", "chartHealth"]), rows = Object.entries(items || {}).filter(([k]) => /^amazon\.in:/.test(k)).map(([k, i]) => ({ key: k, points: (i.hist || []).length, first: i.hist && i.hist[0] ? new Date(i.hist[0][0]).toISOString() : null, ref: i.ref ? { days: i.ref.days, low: i.ref.low, high: i.ref.high, at: new Date(i.ref.at).toISOString() } : null, ahist: i.ahist ? { at: new Date(i.ahist.at || 0).toISOString(), ranges: Object.fromEntries(Object.entries(i.ahist.ranges || {}).map(([r, v]) => [r, { points: v.points.length, days: v.days }])) } : null, urg: i.urg ? i.urg.v.length : 0 }));
+  lastProbe = JSON.stringify({ kind: "storage-summary", build: PAGE_BUILD, version: chrome.runtime.getManifest().version, chartHealth: chartHealth || null, amazonItems: rows.slice(0, 40) }, null, 2); $("preport").textContent = lastProbe; $("preport").hidden = false; $("pcopy").hidden = false;
+  try { await navigator.clipboard.writeText(lastProbe); $("pmsg").textContent = `Copied a summary of ${rows.length} Amazon product${rows.length === 1 ? "" : "s"}. Paste it in the chat.`; } catch { $("pmsg").textContent = "Select the text below and copy it."; } };
 $("pcopy").onclick = async () => { try { await navigator.clipboard.writeText(lastProbe); $("pmsg").textContent = "Copied."; } catch { $("pmsg").textContent = "Select the text and copy it."; } };
 
 // ---- background price checks: per-store health + manual run
@@ -73,14 +77,58 @@ async function paintTrk() {
     row.append(b, pill); if (h && h.last) { const t = document.createElement("span"); t.className = "meta"; t.textContent = new Date(h.last).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) + (Object.keys(h.reasons || {}).length ? " · " + Object.entries(h.reasons).map(([k, v]) => `${k} ${v}`).join(", ") : "") + (h.starved ? ` · ${h.starved} skipped (daily limit)` : "") + (h.errors ? ` · ${h.errors} save errors` : ""); row.append(t); }
     box.append(row);
   }
-  const { chartHealth: C, flags } = await chrome.storage.local.get(["chartHealth", "flags"]), off = ((flags && flags.disabled_features) || []).some(f => /^chart-/.test(f));
-  const row = document.createElement("div"), b = document.createElement("b"), pill = document.createElement("span"), t = document.createElement("span"); row.className = "srow"; b.textContent = "Amazon chart"; pill.className = "pill" + (C && C.stored && !off ? " on" : "");
-  pill.textContent = off ? "Paused by HAULS" : !C ? "Not read yet" : `${C.stored || 0} saved · ${Object.values(C.reasons || {}).reduce((n, v) => n + v, 0)} skipped`; row.append(b, pill);
-  if (C && C.last) { t.className = "meta"; t.textContent = new Date(C.last).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) + (Object.keys(C.reasons || {}).length ? " · " + Object.entries(C.reasons).map(([k, v]) => `${k} ${v}`).join(", ") : ""); row.append(t); }
-  box.append(row);
+  paintHist();
+}
+// Amazon history card: the on/off switch is above; this is its health in one line.
+async function paintHist() {
+  const { chartHealth: C, flags, ahAuto } = await chrome.storage.local.get(["chartHealth", "flags", "ahAuto"]), off = ((flags && flags.disabled_features) || []).some(f => /^chart-/.test(f)), box = $("hstat"); box.replaceChildren();
+  const pill = document.createElement("span"), t = document.createElement("span"), skipped = C ? Object.values(C.reasons || {}).reduce((n, v) => n + v, 0) : 0; pill.className = "pill" + (C && C.stored && !off ? " on" : ""); t.className = "meta";
+  pill.textContent = off ? "Paused by HAULS" : !C ? "Not read yet" : `${C.stored || 0} saved`;
+  t.textContent = off ? "HAULS switched chart reading off for now." : !C ? (ahAuto === true ? "Press Read now, or just browse: it also reads while you are away." : "Turn the switch on, then press Read now.") : `${skipped} skipped · last ${new Date(C.last).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` + (skipped ? " · " + Object.entries(C.reasons || {}).map(([k, v]) => `${k} ${v}`).join(", ") : "");
+  box.append(pill, t);
 }
 $("trkrun").onclick = async () => { $("tmsg").textContent = "Checking…"; const r = await chrome.runtime.sendMessage({ type: "trk-run", gesture: true }).catch(() => null); $("tmsg").textContent = r && !r.error ? `Checked ${r.checked}, new prices ${r.recorded}, waiting for a second read ${r.held}, failed ${r.failed}.` : "Couldn't run the check."; paintTrk(); };
-$("abgrun").onclick = async () => { $("tmsg").textContent = "Opening one watched Amazon product in a small window…"; const r = await chrome.runtime.sendMessage({ type: "abg-run", gesture: true }).catch(() => null); $("tmsg").textContent = r && r.ok ? "Read Amazon's price history for one product." : r && r.why === "off" ? "Turn on automatic reading first." : r && r.why === "nothing due" ? "Nothing due: every watched Amazon product was read in the last day." : "Couldn't read it this time (needs Amazon sign-in and a product with a price-history button)."; paintTrk(); };
+$("abgrun").onclick = async () => { $("hmsg").textContent = "Opening one watched Amazon product in a small window…"; const r = await chrome.runtime.sendMessage({ type: "abg-run", gesture: true }).catch(() => null); $("hmsg").textContent = r && r.ok ? "Read Amazon's price history for one product." : r && r.why === "off" ? "Turn on automatic reading first." : r && r.why === "nothing due" ? "Nothing due: every watched Amazon product was read in the last day." : "Couldn't read it this time (needs Amazon sign-in and a product with a price-history button)."; paintHist(); };
 paintTrk();
 
 chrome.storage.local.get("ahAuto").then(r => { $("ahauto").checked = r.ahAuto === true; }); $("ahauto").onchange = () => chrome.storage.local.set({ ahAuto: $("ahauto").checked });
+
+// ---- Get started card: three animated steps that tick themselves off as you do them
+async function paintStart() {
+  const S = await chrome.storage.local.get(["ahAuto", "items", "startHidden"]), items = Object.values(S.items || {}), done = [S.ahAuto === true, items.length > 0, items.some(i => i && (i.wish || i.target))], n = done.filter(Boolean).length;
+  done.forEach((d, i) => $("st" + (i + 1)).classList.toggle("done", d)); $("startcount").textContent = `${n} of 3`; $("startbar").style.width = Math.round(n / 3 * 100) + "%"; $("start").hidden = S.startHidden === true || n === 3;
+}
+$("starthide").onclick = async () => { await chrome.storage.local.set({ startHidden: true }); paintStart(); };
+$("st1go").onclick = () => { $("s-history").scrollIntoView({ behavior: "smooth", block: "center" }); setTimeout(() => $("ahauto").focus(), 300); };
+paintStart(); paintHist();
+chrome.storage.onChanged.addListener((ch, area) => { if (area !== "local") return; if (ch.ahAuto) $("ahauto").checked = ch.ahAuto.newValue === true; if (ch.ahAuto || ch.items || ch.startHidden) paintStart(); if (ch.chartHealth || ch.ahAuto || ch.flags) paintHist(); if (ch.trk || ch.items) paintTrk(); });
+
+// ---- Guided tour: a spotlight walks through the three sections that matter (starts by itself on a fresh install, or from "Take the tour")
+const TOUR = [
+  { el: "s-history", title: "Turn this on", text: "One switch gives you real Amazon price history. The rest works with the defaults.", act: ["Turn it on", async () => { await chrome.storage.local.set({ ahAuto: true }); }] },
+  { el: "s-track", title: "Check it is working", text: "Each store shows if background checks are healthy. Press Check now any time." },
+  { el: "s-stores", title: "Optional extras", text: "Brand sites and grocery stores need your OK once. Skip this if you only shop on Amazon, Flipkart or Myntra." },
+];
+function startTour(i = 0) {
+  document.querySelectorAll(".tour-dim,.tour-spot,.tour-tip,.tour-hand").forEach(e => e.remove());
+  const dim = document.createElement("div"), spot = document.createElement("div"), tip = document.createElement("div"), hand = document.createElement("div"); dim.className = "tour-dim"; spot.className = "tour-spot"; tip.className = "tour-tip"; hand.className = "tour-hand"; hand.textContent = "👆"; tip.setAttribute("role", "dialog"); tip.setAttribute("aria-label", "Settings tour");
+  document.body.append(dim, spot, tip, hand);
+  const end = () => { [dim, spot, tip, hand].forEach(e => e.remove()); removeEventListener("resize", place); removeEventListener("scroll", place, true); removeEventListener("keydown", key); chrome.storage.local.set({ tourDone: true }); }, key = e => { if (e.key === "Escape") end(); };
+  function place() {
+    const st = TOUR[i], t = $(st.el).getBoundingClientRect(), pad = 6; Object.assign(spot.style, { left: t.left - pad + "px", top: t.top - pad + "px", width: t.width + 2 * pad + "px", height: t.height + 2 * pad + "px" });
+    const below = t.bottom + 16 + 190 < innerHeight, top = below ? t.bottom + 14 : Math.max(10, t.top - 14 - tip.offsetHeight), left = Math.max(12, Math.min(innerWidth - tip.offsetWidth - 12, t.left)); Object.assign(tip.style, { top: top + "px", left: left + "px" });
+    Object.assign(hand.style, { left: Math.min(innerWidth - 40, t.right - 44) + "px", top: (below ? t.bottom - 10 : t.top - 36) + "px" });
+  }
+  function show() {
+    const st = TOUR[i]; $(st.el).scrollIntoView({ block: "center", behavior: "smooth" }); tip.replaceChildren();
+    const dots = document.createElement("div"), h = document.createElement("h3"), p = document.createElement("p"), acts = document.createElement("div"); dots.className = "dots"; TOUR.forEach((_, k) => { const d = document.createElement("i"); if (k === i) d.className = "on"; dots.append(d); }); h.textContent = `${i + 1}. ${st.title}`; p.textContent = st.text; acts.className = "acts";
+    const mk = (label, cls, fn) => { const b = document.createElement("button"); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; acts.append(b); return b; };
+    mk("Skip", "skip", end); if (i > 0) mk("Back", "ghost", () => { i--; show(); });
+    if (st.act) mk(st.act[0], "ghost", async e => { await st.act[1](); e.target.textContent = "Done ✓"; e.target.disabled = true; });
+    mk(i === TOUR.length - 1 ? "Done" : "Next", "", () => { if (i === TOUR.length - 1) end(); else { i++; show(); } });
+    tip.append(dots, h, p, acts); setTimeout(place, 380); place();
+  }
+  addEventListener("resize", place); addEventListener("scroll", place, true); addEventListener("keydown", key); dim.onclick = end; show();
+}
+$("tour").onclick = () => startTour();
+if (new URLSearchParams(location.search).get("welcome") === "1") setTimeout(() => startTour(), 700);
