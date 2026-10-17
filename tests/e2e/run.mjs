@@ -124,7 +124,7 @@ test("5", "verdicts: Buy / Wait / Fair / Early + deal meter", t => withExt({}, a
   for (const c of verdictCases(now)) {
     const url = await routeProduct(ctx, { id: c.id, price: c.price, mrp: null }), { p, panel } = await openPage(ctx, url); await panel.open();
     const word = await panel.text(".vcard .vw"), on = await panel.run(".meter4", function () { return { on: this.querySelectorAll("i.on").length, lo: this.classList.contains("lo") }; });
-    t.check(word === c.want, `${c.id}: verdict "${word}" expected "${c.want}"`);
+    t.check(word.startsWith(c.want), `${c.id}: verdict "${word}" expected "${c.want}..."`);
     t.check(on.on === c.meter && on.lo === !!c.low, `${c.id}: meter ${on.on}/4 lo=${on.lo} expected ${c.meter}/4 lo=${!!c.low}`);
     await p.close();
   }
@@ -518,7 +518,7 @@ test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy 
   t.check(/Fair/.test(await word()), "default 1 week: fair price stays Fair: " + await word());
   await pick("3d"); t.check(/Buy/.test(await word()), "need it in 2-3 days: Buy: " + await word());
   await pick("1m"); t.check(/Wait/.test(await word()), "can wait a month: Wait: " + await word());
-  const ab = await panel.text(".btn.ghost.full"); t.check(/Alert me at ₹1,0\d\d/.test(ab), "alert price offered between the low and today: " + ab);
+  const ab = await panel.text(".btn.ghost.full"); t.check(/Set price alert at ₹1,0\d\d/.test(ab), "alert price offered between the low and today: " + ab);
   const st = await store(sw, "horizon"); t.check(st.horizon === "1m", "choice saved: " + st.horizon);
   await panel.click(".btn.ghost.full"); await sleep(600); const it = Object.values((await store(sw, "items")).items).find(i => i.target); t.check(it && it.target > 1000 && it.target < 1050, "alert target stored: " + (it && it.target));
 }));

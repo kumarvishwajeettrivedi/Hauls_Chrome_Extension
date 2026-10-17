@@ -250,19 +250,21 @@
     };
     RANGES.forEach(([k]) => { const b = el("button", "", k); b.dataset.r = k; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
     main.append(seg, c3, cb); paintRange();
-    // verdict
+    // "Should you buy this now?": horizon tabs + half-ring score + recommendation (+ alert price)
+    const sc = dealScan(H, p.price, p.mrp, Date.now(), it.ref);
     const vc = el("div", "vcard " + bw.verdict), info = el("button", "info"); info.append(ico("info")); info.setAttribute("aria-label", "Why this verdict");
-    vc.append(el("span", "vw", { buy: "Buy", wait: "Wait", okay: "Fair", unknown: "Early" }[bw.verdict]), el("span", "vl", bw.short), info);
+    vc.append(el("span", "vw", { buy: "Buy now", wait: "Wait for savings", okay: "Fair price", unknown: "Early" }[bw.verdict]), el("span", "vl", bw.short), info);
     info.onclick = () => { const ul = el("ul"); bw.reasons.forEach(r => ul.append(el("li", "", r)));
       const nodes = [ul]; if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") nodes.push(note("Discount context", `Advertised ${Math.round(d.adv * 100)}% off the listed MRP. Against recent observed prices it's ${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"}.`));
       openSheet(bw.title, nodes); };
-    { const hz = el("div", "seg hz"); hz.setAttribute("role", "group"); hz.setAttribute("aria-label", "How soon do you need it");
+    { const bn = el("div", "buynow"), hz = el("div", "seg hz"); hz.setAttribute("role", "group"); hz.setAttribute("aria-label", "How soon do you need it");
       HORIZONS.forEach(([k, l]) => { const b = el("button", "", l); b.setAttribute("aria-pressed", String(k === horizon)); b.dataset.h = k; b.onclick = async () => { await chrome.storage.local.set({ horizon: k }); draw(); }; hz.append(b); });
-      main.append(el("p", "lbl", "How soon do you need it?"), hz); }
-    main.append(vc);
-    if (bw.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Alert me at ${fmt(bw.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const r = await send({ type: "track", key: p.key, target: bw.alertAt }); ab.textContent = r && r.error ? "Tracking limit reached" : `Alert set at ${fmt(bw.alertAt)}`; }; main.append(ab); }
+      bn.append(el("p", "lbl bn-h", "Should you buy this now?"), hz, el("p", "meta", "Select based on how soon you need the item."));
+      const row = el("div", "bn-row"), right = el("div", "bn-right"); if (sc.score != null) row.append(gaugeEl(sc.score, "Deal score", 112)); right.append(el("p", "lbl", "Our recommendation"), vc); row.append(right); bn.append(row);
+      if (bw.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Set price alert at ${fmt(bw.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const r = await send({ type: "track", key: p.key, target: bw.alertAt }); ab.textContent = r && r.error ? "Tracking limit reached" : `Alert set at ${fmt(bw.alertAt)}`; }; bn.append(ab); }
+      main.append(bn); }
     // Deal Scanner: 0-100 score with the exact points behind it
-    const sc = dealScan(H, p.price, p.mrp, Date.now(), it.ref), scard = el("div", "scan " + sc.tone), sh = el("div", "scan-h");
+    const scard = el("div", "scan " + sc.tone), sh = el("div", "scan-h");
     sh.append(el("b", "", "Deal Scanner"), el("span", "meta", sc.score == null ? "" : `${sc.score}/100`)); scard.append(sh);
     if (sc.score == null) scard.append(el("p", "meta", sc.headline));
     else {
