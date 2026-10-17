@@ -50,7 +50,8 @@ async function flush() {
 }
 
 // ---- S2 account-switch protection: local data is tagged with the user id that owns it ----
-const CONTENT_KEYS = ["items", "outbox", "histCache", "lastPull", "usage"];
+// What belongs to the previous ACCOUNT on this device: content + personal settings (saved places, pincode, coordinates). Every SYNCED_SETTINGS key must be here (a unit test enforces it). Pure UI prefs (notch position) are not.
+const CONTENT_KEYS = ["items", "outbox", "histCache", "lastPull", "usage", "setStamps", "places", "pin", "range", "loc", "lastPin"];
 async function claimOwner(userId) {
   const { localOwner } = await chrome.storage.local.get("localOwner");
   if (!localOwner) { await chrome.storage.local.set({ localOwner: userId }); return "adopted"; } // anonymous local data joins the first account that signs in

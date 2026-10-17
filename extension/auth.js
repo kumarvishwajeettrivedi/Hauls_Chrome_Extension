@@ -18,6 +18,7 @@ const isInvalidGrant = e => [400, 401, 403].includes(e && e.status) && /invalid[
 // One writer at a time for the stored session, so "I was active" can never overwrite a freshly rotated token (that would force a sign-out).
 const sessionLock = (() => { let c = Promise.resolve(); return fn => { const r = c.then(fn, fn); c = r.then(() => {}, () => {}); return r; }; })();
 const USER_SCOPED_KEYS = ["histCache", "lastPull", "profile", "plan", "outbox", "lastSync", "setStamps"];
+const PERSONAL_KEYS = ["places", "pin", "range", "loc", "lastPin"]; // personal settings: removed by "sign out and clear this device" (a shared computer must not keep someone's saved places)
 // The session lives in the extension's OWN IndexedDB (origin chrome-extension://...), which content scripts and web pages cannot read.
 // Where IndexedDB doesn't exist (unit tests) it falls back to chrome.storage.local.
 const sessionStore = (() => {
@@ -83,7 +84,7 @@ async function signOut({ clear = false } = {}) {
   if (session && configured()) fetch(HAULS_CONFIG.SUPABASE_URL + "/auth/v1/logout?scope=local", { method: "POST", headers: { apikey: HAULS_CONFIG.SUPABASE_ANON_KEY, authorization: "Bearer " + session.access_token } }).catch(() => {});
   await sessionLock(() => sessionStore.del());
   // Wipe everything scoped to the signed-in user so the next person on this browser inherits nothing (plan, queued ops, profile). Local watchlist/history stay.
-  await chrome.storage.local.remove([...USER_SCOPED_KEYS, "authNotice", "pendingSwitch", ...(clear ? ["items", "usage", "localOwner", "waitlist"] : [])]); // "clear this device" also removes the local watchlist + owner tag
+  await chrome.storage.local.remove([...USER_SCOPED_KEYS, "authNotice", "pendingSwitch", ...(clear ? ["items", "usage", "localOwner", "waitlist", ...PERSONAL_KEYS] : [])]); // "clear this device" also removes the local watchlist + owner tag
 }
 // Authenticated PostgREST / RPC call. Retries once after a refresh on 401.
 async function api(path, { method = "GET", body, headers = {} } = {}, retried = false) {
