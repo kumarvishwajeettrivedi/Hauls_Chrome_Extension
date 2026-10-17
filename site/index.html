@@ -66,6 +66,7 @@ footer{border-top:1px solid var(--line);padding:28px 0;font-size:14px;color:var(
 <p class="lead">HAULS shows a product's price history, tells you whether to buy or wait, and compares grocery prices for your exact pincode.</p>
 <div class="cta"><a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download for Chrome, Edge &amp; Brave</a><a class="btn out" href="#install">How to install</a></div>
 <p class="fine">Free. No account needed. Works on Amazon.in, Flipkart, Myntra, Croma and more.</p>
+<p class="fine" id="latest">Latest version: <b>1.13.0</b></p>
 <div class="frame"><div class="bar"><i></i><i></i><i></i><span>amazon.in</span></div><img src="img/hero.jpg" alt="HAULS panel open on an Amazon.in product page showing the price, a history chart and a Buy verdict" width="1800" height="1125"></div>
 </div></header>
 
@@ -112,5 +113,9 @@ footer{border-top:1px solid var(--line);padding:28px 0;font-size:14px;color:var(
 <section class="end"><div class="wrap"><h2>Don't buy blind.</h2><div class="cta"><a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download HAULS</a></div></div></section>
 
 <footer><div class="wrap"><span>© HAULS. Independent tool, not affiliated with any store named here.</span><span class="l"><a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension">GitHub</a></span></div></footer>
+<script>
+// Shows the newest release; the text above is the fallback if GitHub cannot be reached.
+fetch("https://api.github.com/repos/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest").then(r => r.ok ? r.json() : null).then(j => { if (!j || !/^v?\d+\.\d+\.\d+$/.test(j.tag_name || "")) return; const d = new Date(j.published_at), b = document.createElement("b"); b.textContent = j.tag_name.replace(/^v/, ""); const el = document.getElementById("latest"); el.replaceChildren("Latest version: ", b, isNaN(d) ? "" : " · " + d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })); }).catch(() => {});
+</script>
 </body>
 </html>
