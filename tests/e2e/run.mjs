@@ -947,7 +947,7 @@ test("20", "options page: loads, enable button + state pill", t => withExt({}, a
   const p = await ctx.newPage(); await p.goto(`chrome-extension://${extId}/options.html`);
   t.check(/HAULS settings/.test(await p.title()), "title: " + await p.title());
   t.check(!!(await poll(async () => /^(On|Off)$/.test(await p.textContent("#state")), 5000)), "state pill resolved: " + await p.textContent("#state"));
-  t.check(await p.isVisible("#on") && /Enable independent stores/.test(await p.textContent("#on")), "enable button visible"); t.check(await p.isHidden("#off"), "turn-off hidden while Off");
+  t.check(await p.isVisible("#on") && /Turn on/i.test(await p.textContent("#on")), "enable button visible"); t.check(await p.isHidden("#off"), "turn-off hidden while Off");
   t.check(errs.length === 0, "console errors: " + errs.join(" | "));
 }));
 
