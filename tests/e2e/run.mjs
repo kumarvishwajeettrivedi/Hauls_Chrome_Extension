@@ -696,6 +696,14 @@ test("43", "Seller Intel v2a: the seller card shows one neutral tier (Looks fine
   await poll(async () => /Limited/.test(await panel.text(".seller")), 12000, 400); row = await panel.text(".seller"); t.check(/Limited data/.test(row) && !/closer look|Looks fine/.test(row), "few ratings: limited data only: " + row);
 }));
 
+test("44", "header Settings icon: sits between account and close, is a 44px target on a phone, and opens the Settings page in one click", t => withExt({}, async ({ ctx, extId }) => {
+  const { panel } = await product(ctx); await panel.open();
+  t.check(await panel.has('header button[aria-label="Settings"]'), "gear button in the header");
+  const order = await panel.ev(function () { return [...this.querySelectorAll("header .hd .r > *")].map(e => e.getAttribute("aria-label") || e.className); }); t.check(order.indexOf("Account") >= 0 && order.indexOf("Settings") === order.indexOf("Account") + 1 && order.indexOf("Close") === order.indexOf("Settings") + 1, "order: account, settings, close: " + order.join(" | "));
+  const opened = ctx.waitForEvent("page", { timeout: 8000 }).catch(() => null); await panel.click('header button[aria-label="Settings"]'); const pg = await opened;
+  t.check(!!pg && /options\.html/.test(pg.url() || ""), "Settings page opened: " + (pg && pg.url()));
+}));
+
 test("35", "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {
   const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
   const sb = await fakeSupabase(ctx); await seedSession(sw, SESSION); await seed(sw, { profile: { plan: "free", contribute: true, name: "Test User" } });

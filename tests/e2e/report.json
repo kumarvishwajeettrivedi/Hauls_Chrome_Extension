@@ -1,25 +1,16 @@
 {
-  "at": "2026-10-17T17:00:48.197Z",
+  "at": "2026-10-17T17:34:13.416Z",
   "summary": {
-    "pass": 2,
+    "pass": 1,
     "fail": 0,
     "skip": 0
   },
   "results": [
     {
-      "id": "23",
-      "name": "seller: row shows who sells and ships, sheet explains, a changed seller is flagged",
+      "id": "44",
+      "name": "header Settings icon: sits between account and close, is a 44px target on a phone, and opens the Settings page in one click",
       "status": "PASS",
-      "ms": 3349,
-      "failures": [],
-      "notes": [],
-      "attempts": 1
-    },
-    {
-      "id": "43",
-      "name": "Seller Intel v2a: the seller card shows one neutral tier (Looks fine / Worth a closer look / Limited data) and the price gap to other sellers, with the reasons in the sheet",
-      "status": "PASS",
-      "ms": 2343,
+      "ms": 1304,
       "failures": [],
       "notes": [],
       "attempts": 1
