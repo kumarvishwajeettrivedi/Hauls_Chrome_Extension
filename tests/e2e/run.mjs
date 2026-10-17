@@ -596,14 +596,20 @@ test("35", "shared history: an opted-in reader's Amazon chart is uploaded (valid
   await r2.p.evaluate(h => { const w = document.createElement("div"); w.id = "rufus-react-renderer"; w.innerHTML = h; document.body.append(w); }, svg); await sleep(1800);
   t.check((await outboxOf(sw)).filter(o => o.t === "chart" && /B0SHAREDC2/.test(o.key)).length === 0, "contribute=false: no chart op");
   // another reader: shared consensus is shown
-  const d = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10); sb.chartRows = [{ day: d(60), price: 5200, reporters: 3 }, { day: d(30), price: 5499, reporters: 3 }, { day: d(5), price: 4499, reporters: 4 }];
+  const d = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10); sb.chartRows = [60, 50, 40, 30, 15, 5].map((n, i) => ({ day: d(n), price: [5200, 5200, 5499, 5499, 4999, 4499][i], reporters: i === 5 ? 4 : 3 }));
   await seed(sw, { profile: { plan: "free", contribute: true } });
   const r3 = await product(ctx, { id: "B0SHAREDC3", price: 4499, mrp: 5999 }); await r3.panel.open(); await poll(async () => await r3.panel.has(".cw svg"), 8000, 300);
-  t.check(await r3.panel.has(".cw svg") && /shared history from 4 HAULS readers/.test(await r3.panel.text(".chartbox")), "shared chart drawn with its source: " + (await r3.panel.text(".chartbox")).slice(-90));
+  t.check(await r3.panel.has(".cw svg") && /shared history from 4 HAULS readers, updated 5 days ago/.test(await r3.panel.text(".chartbox")), "shared chart drawn with its source: " + (await r3.panel.text(".chartbox")).slice(-90));
   // a stale shared series (last price far from this page) is ignored
   sb.chartRows = [{ day: d(60), price: 9000, reporters: 3 }, { day: d(5), price: 9500, reporters: 3 }];
   const r4 = await product(ctx, { id: "B0SHAREDC4", price: 4499, mrp: 5999 }); await r4.panel.open(); await sleep(1500);
   t.check(!(await r4.panel.has(".cw svg")), "shared series that disagrees with the page price is ignored");
+  sb.chartRows = [{ day: d(60), price: 5200, reporters: 3 }, { day: d(30), price: 5499, reporters: 3 }, { day: d(5), price: 4499, reporters: 4 }];
+  const r5 = await product(ctx, { id: "B0SHAREDC5", price: 4499, mrp: 5999 }); await r5.panel.open(); await sleep(1500);
+  t.check(!(await r5.panel.has(".cw svg")), "a series with fewer than 6 points is not drawn");
+  sb.chartRows = [90, 80, 70, 60, 50, 40].map((n, i) => ({ day: d(n), price: i === 5 ? 4499 : 5200, reporters: 3 }));
+  const r6 = await product(ctx, { id: "B0SHAREDC6", price: 4499, mrp: 5999 }); await r6.panel.open(); await sleep(1500);
+  t.check(!(await r6.panel.has(".cw svg")), "a series whose newest point is older than 14 days is not drawn");
 }));
 
 // ---------------------------------------------------------------- 14 range selector
