@@ -14,7 +14,7 @@ grant usage on schema public, auth to anon, authenticated, service_role;
 grant all on all tables in schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated;`);
-for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series','0011_ext_obs_src_bg']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
+for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series','0011_ext_obs_src_bg','0012_ext_feedback']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
 let ok=true; const T=(n,c)=>{console.log(c?'PASS':'FAIL',n); if(!c) ok=false;};
 const as=async(uid,fn)=>{await db.exec(`set role authenticated; select set_config('request.jwt.claims', '{"sub":"${uid}","role":"authenticated"}', false)`); try{return await fn()} finally{await db.exec(`reset role`)}};
 const fails=async p=>{try{await p;return false}catch(e){return true}};
@@ -298,5 +298,25 @@ T('others untouched', (await db.query(`select count(*)::int c from ext_price_obs
   T('0011: bg observation is stored', await put('bg','BG1')===1);
   T('0011: unknown src still rejected', await put('evil','BG2')===0);
   T('0011: bg and a page read on the same day are one row per user/product/day', await put('dom','BG1')===0);
+}
+// ===== 0012: anonymous uninstall feedback =====
+{ const asAnon=async fn=>{await db.exec(`set role anon; select set_config('request.jwt.claims','{"role":"anon"}',false)`); try{return await fn()} finally{await db.exec('reset role')}};
+  const send=(ip,args)=>asAnon(async()=>{ await db.exec(`select set_config('request.headers','${JSON.stringify(ip?{"x-forwarded-for":ip+", 10.0.0.1"}:{})}',false)`); return (await db.query('select ext_submit_feedback($1,$2,$3,$4) r',args)).rows[0].r; });
+  T('0012: valid feedback stored', await send('1.1.1.1',[4,['bugs','too_slow'],'Slow on Flipkart','1.16.0'])===true);
+  const row=(await db.query(`select rating,reasons,message,version,ip_hash from ext_feedback order by id desc limit 1`)).rows[0];
+  T('0012: stored as sent, ip only as a hash', row.rating===4 && row.reasons.join()==='bugs,too_slow' && row.message==='Slow on Flipkart' && row.version==='1.16.0' && /^[0-9a-f]{64}$/.test(row.ip_hash) && !row.ip_hash.includes('1.1.1.1'));
+  T('0012: rating outside 1-5 refused', await send('2.2.2.2',[0,[],null,null])===false && await send('2.2.2.2',[6,[],null,null])===false && await send('2.2.2.2',[null,[],null,null])===false);
+  await send('3.3.3.3',[5,['bugs','evil_reason','bugs'],'  hi\u0007there  ','not-a-version']);
+  const r2=(await db.query(`select reasons,message,version from ext_feedback order by id desc limit 1`)).rows[0];
+  T('0012: unknown reasons dropped, duplicates merged, control characters and spaces stripped, bad version nulled', r2.reasons.join()==='bugs' && r2.message==='hithere' && r2.version===null);
+  T('0012: message over 2000 characters refused', await send('4.4.4.4',[3,[],'x'.repeat(2001),null])===false && await send('4.4.4.4',[3,[],'x'.repeat(2000),null])===true);
+  T('0012: empty message is stored as none', (await send('5.5.5.5',[3,[],'   ',null]), (await db.query(`select message from ext_feedback order by id desc limit 1`)).rows[0].message===null));
+  for(let i=0;i<5;i++) await send('9.9.9.9',[3,[],null,null]);
+  T('0012: the 6th feedback from one caller within an hour is refused, others unaffected', await send('9.9.9.9',[3,[],null,null])===false && await send('8.8.8.8',[3,[],null,null])===true);
+  T('0012: anon cannot read or write the table directly', await asAnon(()=>fails(db.query('select * from ext_feedback'))) && await asAnon(()=>fails(db.query(`insert into ext_feedback(rating) values(5)`))) && await asAnon(()=>fails(db.query(`delete from ext_feedback`))));
+  T('0012: signed-in users cannot read it either', await as(A,()=>fails(db.query('select * from ext_feedback'))));
+  T('0012: service role can read it', (await (async()=>{await db.exec(`set role service_role; select set_config('request.jwt.claims','{"role":"service_role"}',false)`); try{return (await db.query('select count(*)::int c from ext_feedback')).rows[0].c}finally{await db.exec('reset role')}})())>=5);
+  await db.exec(`insert into ext_feedback(rating,created_at) select 4, now() from generate_series(1,3000)`);
+  T('0012: the daily cap holds', await send('7.7.7.7',[5,[],null,null])===false);
 }
 process.exit(ok?0:1);

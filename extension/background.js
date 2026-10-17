@@ -169,4 +169,7 @@ async function loadFlags() {
 ready.then(() => T2.healAll()).catch(() => {}); // re-register store page hooks Chrome may have dropped on reload
 chrome.storage.local.get("flags").then(s => s.flags && setDisabledStores(s.flags.disabled_stores || [])); loadFlags();
 chrome.alarms.create("flags", { periodInMinutes: 360 });
+// When the extension is removed, Chrome opens this page (hosted on the project site: extension pages no longer exist by then). Only the version number is passed.
+const FEEDBACK_URL = "https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/feedback.html?v=" + (() => { try { return chrome.runtime.getManifest().version; } catch { return ""; } })();
+try { chrome.runtime.setUninstallURL(FEEDBACK_URL); } catch {}
 chrome.alarms.create("housekeeping", { periodInMinutes: 720 });

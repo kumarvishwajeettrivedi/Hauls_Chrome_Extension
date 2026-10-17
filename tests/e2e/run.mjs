@@ -704,6 +704,25 @@ test("44", "header Settings icon: sits between account and close, is a 44px targ
   t.check(!!pg && /options\.html/.test(pg.url() || ""), "Settings page opened: " + (pg && pg.url()));
 }));
 
+test("45", "uninstall feedback: the extension registers the feedback page; the page needs a rating, sends rating + known reasons + text + version once, shows thanks, and never calls anything else", t => withExt({}, async ({ ctx, sw }) => {
+  const url = await sw.evaluate(() => FEEDBACK_URL), ver = await sw.evaluate(() => chrome.runtime.getManifest().version);
+  t.check(url === `https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/feedback.html?v=${ver}` && url.length < 1000, "uninstall URL is the hosted feedback page with only the version: " + url);
+  const fs = await import("node:fs"), site = f => fs.readFileSync(new URL("../../site/" + f, import.meta.url), "utf8"), base = "https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/";
+  const calls = []; await ctx.route(base + "**", r => { const f = new URL(r.request().url()).pathname.replace(/^\/Hauls_Chrome_Extension\//, ""); try { r.fulfill({ status: 200, contentType: f.endsWith(".js") ? "text/javascript" : "text/html", body: site(f) }); } catch { r.fulfill({ status: 404, body: "" }); } });
+  await ctx.route("https://xesmxpwcmbimhngdufje.supabase.co/**", r => { calls.push({ url: r.request().url(), body: r.request().postData() }); r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: "true" }); });
+  await ctx.route("https://api.fontshare.com/**", r => r.fulfill({ status: 200, contentType: "text/css", body: "" }));
+  const p = await ctx.newPage(); const errs2 = []; p.on("console", m => /Content Security Policy|Refused/i.test(m.text()) && errs2.push(m.text().slice(0, 120)));
+  await p.goto(url, { waitUntil: "domcontentloaded" }); await sleep(500);
+  await p.click("#send"); t.check(/rating/i.test(await p.textContent("#err")) && calls.length === 0, "no rating: asks for one and sends nothing");
+  await p.click('.star[aria-label="4 out of 5"]'); await p.check('input[value="bugs"]'); await p.check('input[value="privacy"]'); await p.fill("#msg", "Slow on Flipkart pages."); await p.click("#send"); await sleep(700);
+  t.check(calls.length === 1 && /ext_submit_feedback$/.test(calls[0].url), "one request to the feedback function: " + calls.map(c => c.url).join(","));
+  const body = JSON.parse(calls[0].body); t.check(body.p_rating === 4 && body.p_reasons.join() === "bugs,privacy" && body.p_message === "Slow on Flipkart pages." && body.p_version === ver, "payload: " + calls[0].body);
+  t.check(await p.isVisible("#thanks") && !(await p.isVisible("#form")), "thank-you shown");
+  t.check(errs2.length === 0, "no CSP violations: " + errs2.join(" | "));
+  const p2 = await ctx.newPage(); await p2.goto(url, { waitUntil: "domcontentloaded" }); await p2.click('.star[aria-label="2 out of 5"]'); await p2.fill("#website", "bot"); await p2.click("#send"); await sleep(400);
+  t.check(calls.length === 1, "a filled hidden field (bot) sends nothing");
+}));
+
 test("35", "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {
   const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
   const sb = await fakeSupabase(ctx); await seedSession(sw, SESSION); await seed(sw, { profile: { plan: "free", contribute: true, name: "Test User" } });
