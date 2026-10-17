@@ -16,7 +16,6 @@ const TT = {
     --mint:#19E68C;--yellow:#FFD93D;--line:#EAEAF0;
     --f:"Be Vietnam Pro","Inter","SF Pro Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     --ease:cubic-bezier(.2,.8,.2,1);--pop:cubic-bezier(.3,1.4,.5,1);--panel-w:380px}
-  @media (prefers-color-scheme:dark){:host{--bg:#141418;--surface:#1C1C22;--chip:#24242C;--wash:#12285E;--wash-2:rgba(255,255,255,.22);--ink:#F5F5F7;--ink-2:#B8B8C4;--ink-3:#85859A;--on-ink:#131316;--bd:#F5F5F7;--sh:rgba(245,245,247,.4);--line:#2E2E38}}
   *{box-sizing:border-box}
   .w{font:500 13px/1.35 var(--f);color:var(--ink);-webkit-font-smoothing:antialiased}.num{font-variant-numeric:tabular-nums}
   button,input{font-family:inherit}

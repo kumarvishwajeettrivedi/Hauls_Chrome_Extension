@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-17T10:25:00.423Z",
+  "at": "2026-10-17T10:30:32.228Z",
   "summary": {
     "pass": 1,
     "fail": 0,
@@ -7,15 +7,12 @@
   },
   "results": [
     {
-      "id": "7:amazon-phone2",
-      "name": "extraction (live): amazon-phone2",
+      "id": "10",
+      "name": "dark browser setting: panel stays light and readable (no dark theme)",
       "status": "PASS",
-      "ms": 11136,
+      "ms": 4463,
       "failures": [],
-      "notes": [
-        "https://www.amazon.in/iPhone-16-128-GB-Control/dp/B0DGJ8YZDF/ref=sr_1_ | price=76999 mrp=89900 pagePrice=76999 struck=[89900] | Apple iPhone 16 128 GB: 5G Mobile Phone with Camer",
-        "compare: Flipkart, Croma, Reliance Digital, Vijay Sales, Tata CLiQ, Snapdeal, Meesho, Google Shopping"
-      ],
+      "notes": [],
       "attempts": 1
     }
   ]

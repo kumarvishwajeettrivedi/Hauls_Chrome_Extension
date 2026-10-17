@@ -250,17 +250,16 @@ test("9", "mobile 390x844: bottom sheet, no overflow, tap targets >=44px", t => 
 }));
 
 // ---------------------------------------------------------------- 10 dark
-test("10", "dark mode renders without errors", t => withExt({}, async ({ ctx, sw, errs }) => {
+test("10", "dark browser setting: panel stays light and readable (no dark theme)", t => withExt({}, async ({ ctx, sw, errs }) => {
   await seed(sw, { items: seedItem(PRODUCT_ID, HIST(Date.now())) });
   const { p, panel } = await product(ctx); await panel.open();
   const read = () => panel.ev(function () { const g = (s, pr) => getComputedStyle(this.querySelector(s))[pr]; return { bg: g(".panel", "backgroundColor"), ink: g("h1", "color"), price: g(".price", "color") }; });
-  const light = await read(); await p.emulateMedia({ colorScheme: "dark" }); await sleep(600); const dark = await read();
-  t.check(lum(dark.bg) < 0.1, "dark: panel background is dark " + dark.bg); t.check(lum(light.bg) > 0.5, "light: panel background is light " + light.bg);
-  t.check(contrast(dark.bg, dark.ink) >= 4.5, `dark: title contrast ${contrast(dark.bg, dark.ink).toFixed(1)}`);
-  t.check(contrast(dark.bg, dark.price) >= 3, `dark: price contrast ${contrast(dark.bg, dark.price).toFixed(1)}`);
+  await p.emulateMedia({ colorScheme: "dark" }); await sleep(600); const d = await read();
+  t.check(lum(d.bg) > 0.5, "panel background stays light under a dark browser setting " + d.bg);
+  t.check(contrast(d.bg, d.price) >= 4.5, `price contrast ${contrast(d.bg, d.price).toFixed(1)}`);
   for (const i of [1, 2, 0]) await panel.tab(i);
   await panel.click(".info"); await sleep(400); const sb = await panel.ev(function () { return getComputedStyle(this.querySelector(".sheet")).backgroundColor; });
-  t.check(lum(sb) < 0.2, "dark: details sheet background is dark " + sb);
+  t.check(lum(sb) > 0.5, "details sheet stays light " + sb);
   t.check(errs.length === 0, "extension console errors: " + errs.join(" | "));
 }));
 

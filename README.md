@@ -1,30 +1,65 @@
-# HAULS Chrome extension
+<p align="center"><img src="site/img/logo.png" width="72" alt="HAULS"></p>
 
-Price history, buy-or-wait verdicts, trap alerts and grocery comparison for Indian shoppers. Browser-first (everything works offline from `chrome.storage`), optional Google sign-in syncs your watchlist through Supabase.
+<h1 align="center">HAULS</h1>
+<p align="center"><b>Don't buy blind.</b> Price history, buy-or-wait verdicts, trap prices and grocery comparison for Indian shoppers.</p>
+<p align="center">
+  <a href="https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/">Website</a> ·
+  <a href="../../releases/latest/download/hauls-share.zip">Download</a> ·
+  <a href="INSTALL.md">Install guide</a>
+</p>
 
-**Install without the store:** see [INSTALL.md](INSTALL.md).
+<p align="center"><img src="site/img/hero.jpg" alt="HAULS panel open on an Amazon.in product page" width="860"></p>
+
+## What it does
+
+- **Price history.** Lowest, average and highest price over 30 days, 90 days, a year or all time, drawn as a chart.
+- **Buy-or-wait verdict.** A plain answer with the reason, and a check for discounts that were never real.
+- **Trap prices.** Set the price you want and get a notification when it is reached.
+- **Grocery comparison.** Search once and compare Blinkit, DMart and more at your exact pincode. Only stores that confirm delivery to that pincode show a price.
+- **Watchlist and sync.** Keep products on a watchlist. Signing in with Google is optional and only syncs your watchlist, saved places and settings.
+
+Supported shops include Amazon.in, Flipkart, Myntra, Croma, Reliance Digital, Tata CLiQ and Snapdeal. HAULS runs in Chrome, Edge, Brave and other Chromium browsers on a computer.
+
+## Install
+
+Download the latest `hauls-share.zip` from the [releases page](../../releases/latest) and follow the [install guide](INSTALL.md). No store account is needed.
+
+## Privacy
+
+Prices you browse are stored in your browser first. Sharing anonymous prices to build community history is off unless you switch it on, and shared prices are kept apart from your name and email. Details are in [docs/security.md](docs/security.md).
+
+## Development
+
+Requirements: Node 20 or newer, Chrome for Testing (installed by Playwright).
+
+```bash
+npm install
+cp .env.example .env        # Supabase URL, anon key and Google client id
+npm run build:config        # writes the git-ignored extension/config.js
+```
+
+Load `extension/` as an unpacked extension (`chrome://extensions`, Developer mode, Load unpacked).
+
+| Command | What it does |
+|---|---|
+| `npm run test:unit` | Fast unit tests |
+| `npm run test:e2e` | Headless Chrome with the extension against live shops |
+| `npm run test:integration` | Backend checks (needs `SUPABASE_ANON_KEY`) |
+| `npm run package:share` | Builds `dist/hauls-share-<version>.zip` |
+
+### Repository layout
 
 ```
-extension/            the unpacked extension (Load unpacked → this folder)
-supabase/migrations/  SQL you run once in the Supabase SQL editor (0001 → 0009)
-tests/{unit,integration,e2e}
-scripts/              build-config, extension-key, package
-docs/                 plans, security notes, google-signin-setup.md
-.env                  server-side secrets (git-ignored; never inside extension/)
+extension/            the unpacked Manifest V3 extension
+supabase/migrations/  database schema and policies, applied in order
+tests/                unit, integration and end-to-end tests
+scripts/              config generation and packaging
+docs/                 sign-in setup, auth and state architecture, security notes
+site/                 the project website (GitHub Pages)
 ```
-**Run it:** `chrome://extensions` → Developer mode → Load unpacked → `extension/`.
-**Test:** `npm install && npm run test:unit` (fast) · `npm run test:e2e` (real Chrome, live sites) · `npm run test:integration` (needs `SUPABASE_ANON_KEY`).
-**Share:** `npm run package:share` -> `dist/hauls-share-<version>.zip` (keeps the pinned extension ID; attach it to a GitHub release).
-**Ship:** `npm run package` → `dist/hauls-extension-<version>.zip`.
-**Sign-in:** follow `docs/google-signin-setup.md`.
 
-## Setup
-1. `cp .env.example .env` and fill in your Supabase URL, anon key and Google client id (never commit `.env`).
-2. `npm install && npm run build:config` writes the git-ignored `extension/config.js`.
-3. Run the SQL in `supabase/migrations/` in order, then follow `docs/google-signin-setup.md`.
+Sign-in setup is described in [docs/google-signin-setup.md](docs/google-signin-setup.md).
 
-## Publish (Chrome Web Store)
-1. `npm run package` builds `dist/hauls-extension-<version>.zip` (no dev key, no tests, secret scan).
-2. Upload it in the [Chrome Web Store developer dashboard](https://chrome.google.com/webstore/devconsole) ($5 one-time fee), fill the listing, add the privacy policy URL.
-3. The store assigns its own extension ID: add `https://<store-id>.chromiumapp.org/` to Supabase redirect URLs and the Google OAuth client's redirect URIs.
+## Disclaimer
 
+HAULS is an independent tool and is not affiliated with any store it works with. Prices come from the pages you visit and from public store endpoints, and may differ at checkout.

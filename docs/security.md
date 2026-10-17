@@ -20,7 +20,7 @@ Tests: `node tests/unit/guard.test.js` (message guard), `node tests/unit/securit
 Known gap: the CSP check in `security.test.js` is red until the manifest declares `content_security_policy.extension_pages = "script-src 'self'; object-src 'self'; base-uri 'none'"`.
 
 
-## Update 2026-10-17 (after the independent security review, see docs/security-review.md)
+## Update 2026-10-17
 | Finding | Status |
 |---|---|
 | Direct INSERT into observations bypassed the daily cap | Fixed in migration 0005 (RPC only, direct grant + policy removed) |
