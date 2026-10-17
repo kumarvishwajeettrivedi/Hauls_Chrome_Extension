@@ -160,17 +160,6 @@ function sellerSignals(sl, d) {
 }
 function sellerChange(prev, cur) { return prev && cur && prev !== cur ? `Seller changed from ${prev} to ${cur} since your last visit.` : null; }
 
-// Observations only: we never claim a scarcity message is untrue.
-function urgencySignals(text) {
-  const t = String(text || "").slice(0, 20000), out = [];
-  let m;
-  if ((m = t.match(/only\s+(\d+)\s+(?:left|remaining|in stock)/i))) out.push(`"Only ${m[1]} left" appears on this page`);
-  if ((m = t.match(/(\d+)\+?\s+(?:people|others|customers|shoppers)\s+(?:are\s+)?(?:currently\s+)?(?:viewing|watching|looking)/i))) out.push(`"${m[1]} people viewing" appears on this page`);
-  if (/\b\d{1,2}:\d{2}:\d{2}\b/.test(t) && /(ends in|deal ends|offer ends|time left|hurry)/i.test(t)) out.push("A countdown timer appears on this page");
-  else if (/(hurry|limited[- ]time|deal of the day|lightning deal|selling fast|almost gone|few left)/i.test(t)) out.push("Limited-time wording appears on this page");
-  return out;
-}
-
 const priceConfidence = (source, price, mrp) =>
   !price ? { level: "none", note: "Price could not be reliably determined." }
     : source === "jsonld" ? { level: "high", note: "Read from the page's structured product data." }
@@ -193,4 +182,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, urgencySignals, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, priceConfidence, useLookup, LIMITS, inr, DAY };

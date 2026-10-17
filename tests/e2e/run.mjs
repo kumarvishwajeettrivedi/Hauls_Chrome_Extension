@@ -602,6 +602,51 @@ test("38", "Flipkart + Myntra sellers: Flipkart lists sellers on a click (one re
   t.check(/Sizes S, M, XL/.test(mt), "myntra: sizes per seller");
 }));
 
+test("39", "Impulse Check (Amazon): real page markup -> stock/deal/popularity cues from the product zones only; carousels and reviews ignored; memory + price context drive the verdict; no cue = no card", t => withExt({}, async ({ ctx, sw }) => {
+  const fs = await import("node:fs"), fx = n => JSON.parse(fs.readFileSync(new URL(`../fixtures/impulse/amazon-${n}.json`, import.meta.url), "utf8")).zones;
+  const page = async (id, fixture, { stockText, extra = "", noSocial = false } = {}) => { const z = fx(fixture); let av = z["#availability"] ? z["#availability"].html : '<div id="availability">In stock</div>'; if (stockText) av = av.replace(/>\s*In stock\s*</, `>${stockText}<`);
+    const html = `<!doctype html><html><head><meta charset=utf-8><title>Test</title></head><body><div id="dp-container"><div id="centerCol">${z["#productTitle"].html}${z["#corePrice_feature_div"] ? z["#corePrice_feature_div"].html : '<div id="corePrice_feature_div"><span class="a-price"><span class="a-offscreen">₹32,999.00</span></span></div>'}${z["#dealBadge_feature_div"] ? z["#dealBadge_feature_div"].html : ""}${z["#socialProofingAsinFaceout_feature_div"] && !noSocial ? z["#socialProofingAsinFaceout_feature_div"].html : ""}${av}</div>${extra}</div></body></html>`;
+    await ctx.route(`https://www.amazon.in/dp/${id}*`, r => r.fulfill({ status: 200, contentType: "text/html", body: html })); return `https://www.amazon.in/dp/${id}`; };
+  const open = async (id, fixture, o) => { const url = await page(id, fixture, o), r = await openPage(ctx, url); await r.panel.open(); await sleep(700); return r; };
+  // 1. a real deal page: the label and the popularity count are shown, nothing is claimed about them
+  let r = await open("B07Y916W4P", "B07Y916W4P.deal"); let ic = await r.panel.has(".impulse"); t.check(ic, "deal page shows the Impulse Check card");
+  let txt = await r.panel.text(".impulse"); t.check(/Limited-time deal label/.test(txt) && /400\+ bought in past month/.test(txt) && /Urgency message on this page/.test(txt), "deal + bought chips, neutral headline: " + txt.slice(0, 160));
+  t.check(!/fake|scam|lie|fraud/i.test(txt), "no accusations");
+  // 2. a sale-event label page
+  r = await open("B0H1WY55ZL", "B0H1WY55ZL.bought"); txt = await r.panel.text(".impulse"); t.check(/Sale event label/.test(txt), "sale event label shown: " + txt.slice(0, 100));
+  // 3. a real page whose main product is 'In stock' but whose carousel says 'Only 1 left in stock': the carousel must not count
+  r = await open("B0G319XS3M", "B0G319XS3M.bought", { extra: '<ul id="similar"><li><div>Only 1 left in stock.</div></li></ul><div id="customerReviews">Only 3 left! 47 people are viewing this</div>' }); txt = (await r.panel.has(".impulse")) ? await r.panel.text(".impulse") : "";
+  t.check(!/Only \d left|people viewing/.test(txt), "carousel and review text are ignored: " + txt.slice(0, 120));
+  // 4. a page with nothing urgent: no card at all
+  r = await open("B0F7XWCCY3", "B0F7XWCCY3.bought", {}); t.check(await r.panel.has(".impulse") && !/Limited|Sale event/.test(await r.panel.text(".impulse")), "popularity only: card lists it, no deal/stock claim");
+  r = await open("B0NOCUES01", "B0F7XWCCY3.bought", { noSocial: true }); t.check(!(await r.panel.has(".impulse")), "no urgency message: no card (never an empty 'all clear')");
+  // 5. real stock message in the availability zone + memory of earlier visits + a flat price -> repeated
+  const now = Date.now(); const key = "amazon.in:B0STOCK2VI"; const url = await page("B0STOCK2VI", "B07Y916W4P.deal", { stockText: "Only 2 left in stock - order soon." });
+  await seed(sw, { items: { [key]: { site: "Amazon", title: "Backpack", url, hist: [[now - 40 * D, 2249], [now - 10 * D, 2249]], urg: { v: [0, 2, 4].map(i => ({ at: now - (5 - i) * D, stock: 2 })), restarts: 0, daily: 0 } } } });
+  r = await openPage(ctx, url); await r.panel.open(); await sleep(900); txt = await r.panel.text(".impulse");
+  t.check(/Only 2 left/.test(txt) && /Same stock message again/.test(txt) && /on 3 visits over 4 days/.test(txt), "stock repeated across visits: " + txt.slice(0, 200));
+  const mem = (await store(sw, "items")).items[key].urg; t.check(mem.v.length === 4 && mem.v[3].stock === 2, "this visit was remembered (numbers only): " + JSON.stringify(mem.v[3]));
+  t.check(!JSON.stringify(mem).includes("order soon"), "no page text is stored");
+  // 6. flat price and a message: the price context line
+  await seed(sw, { items: { [key]: { site: "Amazon", title: "Backpack", url, hist: [[now - 40 * D, 2249], [now - 10 * D, 2249]], urg: { v: [], restarts: 0, daily: 0 } } } });
+  r = await openPage(ctx, url); await r.panel.open(); await sleep(900); txt = await r.panel.text(".impulse"); t.check(/Price steady for 21 days/.test(txt), "price context shown: " + txt.slice(0, 160));
+}));
+
+test("40", "Impulse Check on REAL Amazon.in pages: chips come only from the product's own zones (live, skippable)", t => withExt({}, async ({ ctx, errs }) => {
+  for (const asin of ["B07Y916W4P", "B0H1WY55ZL", "B0G319XS3M"]) {
+    const p = await ctx.newPage(); await p.goto(`https://www.amazon.in/dp/${asin}`, { waitUntil: "domcontentloaded", timeout: 40000 }).catch(() => {}); await sleep(2500);
+    const raw = await p.evaluate(() => ({ captcha: /enter the characters|robot check/i.test(document.body.innerText), anyOnly: (document.body.innerText.match(/only\s+\d+\s+left/gi) || []).length, avail: (document.querySelector("#availability") || {}).innerText || "" }));
+    if (raw.captcha) { t.note(asin + ": captcha, skipped"); await p.close(); continue; }
+    const panel = await Panel.attach(ctx, p); await panel.waitKnob(); await panel.open(); await sleep(800);
+    const has = await panel.has(".impulse"), txt = has ? await panel.text(".impulse") : "";
+    t.note(`${asin}: card=${has} text="${txt.slice(0, 110)}" availability="${raw.avail.trim().slice(0, 30)}" 'Only N left' anywhere on page=${raw.anyOnly}`);
+    t.check(has, asin + ": a real page with a deal/bought message shows the card");
+    if (!/only\s+\d+\s+left/i.test(raw.avail)) t.check(!/Only \d+ left/.test(txt), asin + ": no stock chip unless the product's own availability says so");
+    await p.close();
+  }
+  t.check(errs.length === 0, "extension console errors: " + errs.join(" | "));
+}), { retries: 1, live: true });
+
 test("35", "shared history: an opted-in reader's Amazon chart is uploaded (validated args); the shared consensus for a product is drawn for another reader", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {
   const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
   const sb = await fakeSupabase(ctx); await seedSession(sw, SESSION); await seed(sw, { profile: { plan: "free", contribute: true, name: "Test User" } });

@@ -32,8 +32,6 @@ assert.equal(A.dealStrength([[NOW - D, 100]], 100, 0, NOW).badge, "unknown");
 assert.equal(A.buyWait(flat, 1250, 2000, NOW).verdict, "okay");
 const bw = A.buyWait([[NOW-60*D,1649],[NOW-40*D,1800],[NOW-20*D,1850],[NOW-5*D,1790]], 1799, 0, NOW);
 assert.equal(bw.verdict, "wait"); assert.ok(/observations/.test(bw.reasons.at(-1)) && !/fake/i.test(JSON.stringify(bw)));
-assert.deepEqual(A.urgencySignals('Only 2 left in stock. 14 people are viewing this. Deal ends in 01:23:45').length, 3);
-assert.equal(A.urgencySignals("a normal product page").length, 0);
 assert.equal(A.priceConfidence("jsonld", 100).level, "high"); assert.equal(A.priceConfidence(null, null).level, "none");
 
 // No dark theme, and Chrome's forced dark mode is opted out of (it darkened the panel on some machines)

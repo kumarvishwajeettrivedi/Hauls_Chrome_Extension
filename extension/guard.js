@@ -17,6 +17,7 @@ const S = {
   seen: { p: product }, track: { key, target: v => num(v, 0, 1e7) }, untrack: { key }, wish: { key, on: v => typeof v === "boolean" }, remove: { key },
   "history-ref": { key, days: v => num(v, 6, 401), low: v => num(v, 0, 1e7), high: v => num(v, 0, 1e7) },
   "trk-run": {},
+  urg: { key: v => typeof v === "string" && v.length <= 80, price: v => typeof v === "number" && v > 0 && v < 1e7, cues: v => Array.isArray(v) && v.length <= 8 && v.every(c => c && typeof c === "object" && ["stock", "timer", "deal", "bought", "viewers"].includes(c.kind) && (c.n === undefined || c.n === null || (typeof c.n === "number" && c.n >= 0 && c.n < 1e7)) && (c.secs === undefined || (typeof c.secs === "number" && c.secs > 0 && c.secs < 14 * 86400)) && (c.gran === undefined || c.gran === "s" || c.gran === "m") && Object.keys(c).every(k => ["kind", "n", "secs", "gran", "text"].includes(k)) && (c.text === undefined || (typeof c.text === "string" && c.text.length <= 80))) },
   "offers-fk": { pid: v => typeof v === "string" && /^[A-Z0-9]{16}$/.test(v) },
   "abg-run": {},
   ahist: { key, range: v => ["1M", "3M", "1Y"].includes(v), days: v => num(v, 5, 400), points: v => Array.isArray(v) && v.length >= 2 && v.length <= 400 && v.every(p => Array.isArray(p) && p.length === 2 && num(p[0], 1e12, 4e12) && num(p[1], 0, 1e7)), current: v => v === null || num(v, 0, 1e7), offer: v => v === null || num(v, 0, 1e7), highest: v => v === null || (isObj(v) && num(v.price, 0, 1e7) && str(v.on, 1, 20) && Object.keys(v).length === 2) },

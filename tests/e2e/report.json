@@ -1,48 +1,21 @@
 {
-  "at": "2026-10-17T15:23:30.172Z",
+  "at": "2026-10-17T15:39:58.857Z",
   "summary": {
-    "pass": 4,
+    "pass": 1,
     "fail": 0,
     "skip": 0
   },
   "results": [
     {
-      "id": "26",
-      "name": "Amazon history: the range Amazon shows in the page is remembered and drives the scanner when HAULS has little history",
+      "id": "40",
+      "name": "Impulse Check on REAL Amazon.in pages: chips come only from the product's own zones (live, skippable)",
       "status": "PASS",
-      "ms": 4529,
-      "failures": [],
-      "notes": [],
-      "attempts": 1
-    },
-    {
-      "id": "32",
-      "name": "Amazon chart: the real Price-history SVG, when Amazon draws it, becomes HAULS's history (chart, high/low, verdict) and is merged with own points",
-      "status": "PASS",
-      "ms": 4294,
-      "failures": [],
-      "notes": [],
-      "attempts": 1
-    },
-    {
-      "id": "33",
-      "name": "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy to Wait, saves the choice, and offers an alert price",
-      "status": "PASS",
-      "ms": 4218,
-      "failures": [],
-      "notes": [],
-      "attempts": 1
-    },
-    {
-      "id": "14",
-      "name": "range selector: 30D/90D/1Y/All changes label, x-axis, y labels, chips; persists",
-      "status": "PASS",
-      "ms": 4038,
+      "ms": 19266,
       "failures": [],
       "notes": [
-        "30D: High chip ₹900 but chart top label ₹1,100 (chart carries in the price at window start, chips don't)",
-        "90D: High chip ₹1,100 but chart top label ₹1,300 (chart carries in the price at window start, chips don't)",
-        "1Y: High chip ₹1,300 but chart top label ₹1,500 (chart carries in the price at window start, chips don't)"
+        "B07Y916W4P: card=true text=\"Impulse CheckUrgency message on this pageLimited-time deal label400+ bought in past month\" availability=\"In stock\" 'Only N left' anywhere on page=1",
+        "B0H1WY55ZL: card=true text=\"Impulse CheckUrgency message on this pageSale event label5K+ bought in past month\" availability=\"In stock\" 'Only N left' anywhere on page=0",
+        "B0G319XS3M: card=true text=\"Impulse CheckUrgency message on this pageSale event label4K+ bought in past month\" availability=\"In stock\" 'Only N left' anywhere on page=0"
       ],
       "attempts": 1
     }

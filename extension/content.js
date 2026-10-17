@@ -68,7 +68,7 @@
 
   const T = TT.s, el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const P = { bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', x: '<path d="M6 6l12 12M18 6 6 18"/>', out: '<path d="M7 17 17 7M8 7h9v9"/>', heart: '<path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.5 2.7 5 6.1 5c2 0 3.4 1.1 4.2 2.4h3.4C14.5 6.1 15.9 5 17.9 5c3.4 0 5.2 3.5 3.7 6.8C19.5 16.4 12 21 12 21z"/>',
-    star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>', swap: '<path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>', swap: '<path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', checkc: '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>', sync: '<path d="M20 11a8 8 0 0 0-14.9-3M4 5v4h4M4 13a8 8 0 0 0 14.9 3M20 19v-4h-4"/>', pin: '<path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>', info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
     shield: '<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>', bell: '<path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>',
     down: '<path d="M12 5v14M6 13l6 6 6-6"/>', up: '<path d="M12 19V5M6 11l6-6 6 6"/>', trend: '<path d="M3 17l6-6 4 4 8-8"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>', minus: '<path d="M5 12h14"/>', plus: '<path d="M12 5v14M5 12h14"/>', download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>', gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>', sync: '<path d="M20 11a8 8 0 0 0-14-4M4 5v4h4M4 13a8 8 0 0 0 14 4M20 19v-4h-4"/>', cloud: '<path d="M7 18a4 4 0 0 1-.5-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1 0 9z"/>', chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>' };
@@ -97,6 +97,10 @@
     const age = Math.floor((Date.now() - pts[pts.length - 1][0]) / 864e5); if (age > 14 || Math.abs(pts[pts.length - 1][1] - price) / price > 0.08) return { points: [], n: 0 }; return { points: pts, n: Math.max(...(rows || []).map(r => r.reporters || 1)), age: Math.max(0, age) }; };
   // All ranges Amazon's chart has shown us for this product, as one series (finer/newer ranges win on overlap).
   const ahPoints = ah => { if (!ah || !ah.ranges) return []; const pts = []; for (const k of ["1Y", "3M", "1M"]) { const r = ah.ranges[k]; if (r) for (const p of r.points) pts.push(p); } pts.sort((a, b) => a[0] - b[0]); const out = []; for (const p of pts) { const l = out[out.length - 1]; if (l && p[0] - l[0] < 12 * 3600e3) { out[out.length - 1] = p; continue; } if (!l || l[1] !== p[1] || p[0] - l[0] > 6 * 864e5) out.push(p); } return out; };
+  // Impulse Check input: only the parts of the page that describe THIS product's stock, deal and popularity. Never reviews, Q&A, carousels or other sellers.
+  const urgSent = {}, IMP_ZONES = { "amazon.in": { stock: ["#availability"], deal: ["#dealBadge_feature_div", "#apex_desktop", "#corePrice_feature_div"], bought: ["#socialProofingAsinFaceout_feature_div"] } };
+  const visText = e => { const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT), out = []; for (let n = w.nextNode(); n; n = w.nextNode()) { const pe = n.parentElement; if (pe && !pe.closest("style,script,noscript,.aok-hidden,[hidden]")) out.push(n.nodeValue); } return out.join(" "); }; // what the shopper can read: no hidden template labels
+  const impCollect = () => { const z = IMP_ZONES[dom]; if (!z) return []; const parts = []; for (const [zone, sels] of Object.entries(z)) for (const q2 of sels) { const e = document.querySelector(q2); if (e && !(e.closest && e.closest(HISTORY_UNTRUSTED))) parts.push({ zone, text: visText(e).slice(0, 600) }); } return parts; };
   // Same frame as the step chart for when only a range is known (no series yet): the band between Amazon's low and high, and today's price on it. Nothing in between is drawn because nothing in between is known.
   const bandChart = (ref, price) => {
     const lo = Math.min(ref.low, price), hi = Math.max(ref.high, price), W = 300, L = 6, R = 294, T = 14, B = 76, Y = v => hi === lo ? (T + B) / 2 : B - (v - lo) / (hi - lo) * (B - T), cw = el("div", "cw bandc");
@@ -280,6 +284,15 @@
         body.classList.add("busy"); body.replaceChildren(...[0, 1, 2].map(() => el("div", "skel"))); clearTimeout(tmr); tmr = setTimeout(() => paintBuy(k), 260); }; hz.append(b); });
       bn.append(el("p", "lbl bn-h", "Should you buy this now?"), hz, el("p", "meta", "Select based on how soon you need the item."), body); paintBuy(horizon);
       main.append(bn); }
+    // Impulse Check: urgency messages found in the product part of the page, with what the evidence says (observations only, never a verdict on the seller)
+    { const cues = impCues(impCollect()); if (cues.length) {
+        const mem = it.urg || null, v = impVerdict(cues, mem, H, Date.now()), ic = el("button", "impulse " + v.level), top = el("div", "imp-top"), chips = el("div", "s-chips");
+        top.append(el("span", "lbl", "Impulse Check"), el("b", "imp-head", v.head)); cues.slice(0, 4).forEach(c => { const x = el("span", "schip"); x.append(ico(c.kind === "timer" ? "clock" : "info"), c.text); chips.append(x); });
+        ic.append(top, chips, ...v.lines.filter(l => !cues.some(c => c.text === l)).slice(0, 2).map(l => el("p", "meta", l))); ic.setAttribute("aria-label", `Impulse Check: ${v.head}. Tap for details`);
+        ic.onclick = () => { const ul = el("ul"); v.lines.forEach(l => ul.append(el("li", "", l))); openSheet("Impulse Check", [ul, el("p", "meta", "HAULS does not say whether a message is true. It shows what this page displayed, what it displayed on your earlier visits, and what the price did. Stock and viewer counts cannot be checked from outside the store.")]); };
+        main.append(ic);
+        if (!urgSent[p.key]) { urgSent[p.key] = 1; send({ type: "urg", key: p.key, price: p.price, cues: cues.filter(c => c.kind === "stock" || c.kind === "timer").map(c => ({ kind: c.kind, n: c.n === undefined ? undefined : c.n, secs: c.secs, gran: c.gran, text: c.text })) }).then(m => { if (m && cur && cur.p && cur.p.key === p.key) { cur.it.urg = m; } }).catch(() => {}); }
+      } }
     // Deal Scanner: 0-100 score with the exact points behind it
     const scard = el("div", "scan " + sc.tone), sh = el("div", "scan-h");
     sh.append(el("b", "", "Deal Scanner"), el("span", "meta", sc.score == null ? "" : `${sc.score}/100`)); scard.append(sh);
@@ -296,8 +309,6 @@
     mt.title = d.label; for (let i = 0; i < 4; i++) mt.append(el("i", i < lvl ? "on" : "")); row.append(mt);
     if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") row.append(el("span", "pill num", `${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"} usual`));
     else row.append(el("span", "pill", bw.source === "amazon" ? `Amazon ${it.ref.days}-day range` : d.label));
-    const zone = document.querySelector("#centerCol, #ppd, #dp-container, main, [role=main]") || document.body, urg = urgencySignals(zone.innerText);
-    if (urg.length) { const u = el("button", "pill y"); u.append("Urgency banner"); u.style.cursor = "pointer"; u.onclick = () => openSheet("Seen on this page", [note("Observed", urg.join(". ") + "."), note("Price history says", d.badge === "unknown" ? "Not enough history to compare yet." : `This price is: ${d.label}.`)]); row.append(u); }
     main.append(row);
     main.append(trapEditor(p, it));
     // what buyers say (from the rating breakdown or visible reviews)
