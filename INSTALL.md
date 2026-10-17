@@ -2,7 +2,7 @@
 
 Works in Chrome, Edge, Brave and other Chromium browsers on a computer.
 
-1. Download **hauls-share-1.0.0.zip** from the [latest release](../../releases/latest).
+1. Download **hauls-share.zip** from the [latest release](../../releases/latest).
 2. Unzip it into a folder you will keep (for example `Documents/HAULS`). Do not delete the folder later.
 3. Open `chrome://extensions` (Edge: `edge://extensions`, Brave: `brave://extensions`).
 4. Turn on **Developer mode** (top right).

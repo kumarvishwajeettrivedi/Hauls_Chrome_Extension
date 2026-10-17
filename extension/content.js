@@ -507,7 +507,7 @@
     new MutationObserver(muts => { clearTimeout(hrT); hrT = setTimeout(async () => {
       if (!cur || !cur.p) return; let found = null;
       for (const m of muts) for (const n of m.addedNodes) { const el1 = n.nodeType === 1 ? n : n.parentElement, t = n.nodeType === 1 ? n.textContent : n.nodeType === 3 ? n.nodeValue : "";
-        if (!t || t.length >= 4000 || !/ranged from/i.test(t) || !el1 || (el1.closest && el1.closest(HISTORY_UNTRUSTED))) continue;
+        if (!t || t.length >= 4000 || !/ranged from/i.test(t) || !el1 || (el1.closest && el1.closest(HISTORY_UNTRUSTED)) || (n.nodeType === 1 && n.querySelector && n.querySelector(HISTORY_UNTRUSTED))) continue;
         const f = parseAmazonHistoryText(t); if (f && historyTextTrusted(f, cur.p)) { found = f; break; } }
       if (!found) return; const r = await send({ type: "history-ref", key: cur.p.key, days: found.days, low: found.low, high: found.high }).catch(() => null);
       if (r && r.ok) { cur.it = r.it; idleRedraw(); }
