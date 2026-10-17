@@ -342,7 +342,7 @@
         const sp = el("div", "same"); sp.append(el("b", "", x.confidence === "Exact" ? "Same product" : "Likely the same"));
         (x.checks || []).forEach(c => { const ch = el("span", "chk " + (c.ok === true ? "y" : c.ok === false ? "n" : "u")); ch.append(ico(c.ok === true ? "check" : "minus"), `${c.k} ${c.v}`); ch.title = c.ok === null ? "The listing does not say" : c.info ? "Differs; price can vary by this" : "Matches"; sp.append(ch); });
         a.append(sp); cbox.append(a); });
-      if (r.failed.length) cbox.append(el("p", "meta", `Couldn't check: ${r.failed.join(", ")}.`));
+      if (r.failed.length) cbox.append(el("p", "meta", `Couldn't check: ${r.failed.map(n => n + (r.why && r.why[n] ? " (" + r.why[n] + ")" : "")).join(", ")}.`));
       cbox.append(el("p", "meta", "Prices come from each store's search page. Offers, shipping and seller may differ."));
     };
     cbtn.onclick = async () => { cbtn.disabled = true; cbtn.textContent = "Checking other stores…"; const r = await send({ type: "compare", title: p.title, brand: p.brand || undefined, mpn: p.mpn || undefined, site: p.site, price: p.price }).catch(() => ({ error: "x" })); cmpDone[p.key] = r || { error: "x" }; if (cur && cur.p && cur.p.key === p.key) paintCmp(cmpDone[p.key]); };

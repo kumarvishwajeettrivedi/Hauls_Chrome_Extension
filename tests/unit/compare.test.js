@@ -29,6 +29,11 @@ const phones = [{ title: "Apple iPhone 17 (Black, 256 GB)", price: 86999, url: "
 best = C.cmpPick(C.cmpIdentity(LONG, "Apple"), phones, 71999); ok(best && best.url === "https://c" && best.confidence === "Exact", "iPhone 17e 256 picks the right row: " + JSON.stringify(best));
 const cl = C.cmpClosest(C.cmpIdentity(LONG, "Apple"), [{ title: "Apple iPhone 17 (Black, 256 GB)", price: 86999, url: "https://a" }, { title: "Samsung Galaxy S25", price: 70000, url: "https://s" }], 71999);
 ok(cl && cl.url === "https://a" && /model|version/.test(cl.why), "closest explains itself: " + JSON.stringify(cl)); ok(C.cmpClosest(C.cmpIdentity(LONG, "Apple"), [{ title: "Boat Rockerz", price: 1000, url: "https://z" }], 71999) === null, "nothing close: null");
+// Myntra (apparel): parsed from __myx.searchData, never "Exact" (no style code on the page)
+const my = C.cmpParseMyntra(fx("myntra")); ok(my.length === 6 && my[0].price === 1268 && my[0].fashion && /^https:\/\/www\.myntra\.com\/jeans\/levis\//.test(my[0].url) && my[0].brand === "Levis", "myntra parse: " + JSON.stringify(my[0]));
+ok(C.cmpParseMyntra("<html>x</html>").length === 0, "myntra garbage");
+{ const idj = C.cmpIdentity("Levi's Men's 511 Slim Fit Jeans, Blue", "Levi's"), pj = C.cmpPick(idj, my, 1500); ok(pj && pj.confidence === "Likely", "apparel match is capped at Likely: " + JSON.stringify(pj && [pj.title, pj.confidence])); }
+ok(C.CMP_STORES.Myntra.applies("Levi's Men's 511 Slim Fit Jeans") && !C.CMP_STORES.Myntra.applies("Apple iPhone 16 128 GB"), "myntra is only queried for fashion titles");
 // network layer: skips the current store, parses each store's page, sorts by price, reports failures, caches
 (async () => {
   const pages = { "www.flipkart.com": fx("flipkart"), "www.reliancedigital.in": fx("reliance"), "www.amazon.in": fx("amazon") }; let calls = 0;

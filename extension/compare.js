@@ -39,6 +39,11 @@ function cmpParseReliance(html) {
   }
   return out;
 }
+function cmpParseMyntra(html) {
+  const st = cmpStateJson(html, "__myx"), list = st && st.searchData && st.searchData.results && st.searchData.results.products; if (!Array.isArray(list)) return [];
+  return list.map(o => { const price = cmpNum(o && o.price), title = cmpEnt((o && (o.productName || o.product)) || ""), lp = String((o && o.landingPageUrl) || ""); return price && title && /^[a-z0-9\-+.%\/]+$/i.test(lp) ? { title, price, url: "https://www.myntra.com/" + lp, brand: cmpEnt(o.brand || "").slice(0, 60), fashion: true } : null; }).filter(Boolean);
+}
+const CMP_FASHION = /\b(jeans|jean|shirt|shirts|t-?shirt|tshirt|tshirts|polo|kurta|kurti|dress|jacket|hoodie|sweatshirt|trousers|chinos|shorts|saree|top|tops|shoes|sneakers|sandals|slippers|loafers|socks|innerwear|bra|leggings|joggers|track ?pants?|blazer|suit|skirt|watch)\b/i;
 function cmpParseAmazon(html) {
   const re = /<div[^>]*data-asin="([A-Z0-9]{10})"[^>]*data-component-type="s-search-result"/g, starts = []; let m;
   while ((m = re.exec(html))) starts.push({ i: m.index, asin: m[1] });
@@ -61,7 +66,7 @@ function cmpPick(id, cands, refPrice) {
   let best = null;
   for (const c of cands) {
     if (refPrice && (c.price < refPrice * 0.3 || c.price > refPrice * 4)) continue;
-    const m = cmpMatch(id, c); if (!m) continue;
+    const m = cmpMatch(id, c); if (!m) continue; if (c.fashion && m.label === "Exact") { m.label = "Likely"; m.score = 1; } // apparel has no style code on the page: same line and cut, never "confirmed"
     const better = !best || CMP_RANK[m.label] > CMP_RANK[best.confidence] || (CMP_RANK[m.label] === CMP_RANK[best.confidence] && (m.score > best.score + 0.15 || (Math.abs(m.score - best.score) <= 0.15 && c.price < best.price)));
     if (better) best = { ...c, confidence: m.label, score: m.score };
   }
@@ -85,6 +90,7 @@ function cmpClosest(id, cands, refPrice) {
 const CMP_STORES = {
   Amazon: { host: "amazon.in", search: q => "https://www.amazon.in/s?k=" + encodeURIComponent(q), parse: cmpParseAmazon },
   Flipkart: { host: "flipkart.com", search: q => "https://www.flipkart.com/search?q=" + encodeURIComponent(q), parse: cmpParseFlipkart },
+  Myntra: { host: "myntra.com", search: q => "https://www.myntra.com/" + q.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "?rawQuery=" + encodeURIComponent(q), parse: cmpParseMyntra, applies: title => CMP_FASHION.test(title) },
   "Reliance Digital": { host: "reliancedigital.in", search: q => "https://www.reliancedigital.in/products?q=" + encodeURIComponent(q), parse: cmpParseReliance },
 };
 const cmpQuery = (title, brand) => cmpIdentity(title, brand).toks.join(" ");
@@ -97,13 +103,13 @@ async function cmpFetch(url, doFetch = fetch) {
 // -> { results: [{store,title,price,url,confidence}], failed: [store], here }
 async function cmpFind({ title, brand, mpn, site, price }, doFetch = fetch, now = Date.now()) {
   const id = cmpIdentity(title, brand, mpn), q = cmpQuery(title, brand); if (!q) return { results: [], failed: [], here: site };
-  const stores = Object.entries(CMP_STORES).filter(([n]) => n !== site), results = [], failed = [], near = [], seen = {};
+  const stores = Object.entries(CMP_STORES).filter(([n, sd]) => n !== site && (!sd.applies || sd.applies(title))), results = [], failed = [], near = [], seen = {}, why = {};
   await Promise.all(stores.map(async ([name, s]) => {
     const key = name + "|" + q, hit = cmpCache.get(key);
-    let cands; if (hit && now - hit.at < CMP_TTL) cands = hit.cands; else { try { cands = s.parse(await cmpFetch(s.search(q), doFetch)); cmpCache.set(key, { at: now, cands }); } catch { failed.push(name); return; } }
+    let cands; if (hit && now - hit.at < CMP_TTL) cands = hit.cands; else { try { cands = s.parse(await cmpFetch(s.search(q), doFetch)); cmpCache.set(key, { at: now, cands }); } catch (e) { failed.push(name); why[name] = /http (4|5)\d\d/.test(String(e && e.message)) ? "blocked" : e && e.name === "AbortError" ? "timeout" : "network"; return; } }
     seen[name] = cands.length; const best = cmpPick(id, cands, price); if (best) results.push({ store: name, title: best.title, price: best.price, url: best.url, confidence: best.confidence, checks: mtChecks(id.f, best, id.title0) }); else { const cl = cmpClosest(id, cands, price); if (cl) near.push({ store: name, ...cl }); }
   }));
   results.sort((a, b) => a.price - b.price);
-  return { results, failed, here: site, near, seen };
+  return { results, failed, why, here: site, near, seen };
 }
-if (typeof module !== "undefined") module.exports = { cmpClosest, cmpParseFlipkart, cmpParseReliance, cmpParseAmazon, cmpIdentity, cmpMatch, cmpPick, cmpFind, cmpStateJson, CMP_STORES, cmpCache };
+if (typeof module !== "undefined") module.exports = { cmpParseMyntra, cmpClosest, cmpParseFlipkart, cmpParseReliance, cmpParseAmazon, cmpIdentity, cmpMatch, cmpPick, cmpFind, cmpStateJson, CMP_STORES, cmpCache };
