@@ -36,8 +36,8 @@ async function enqueue(op) { return withLock(async () => { const ob = safeOutbox
 // Push the outbox. Only ops that were actually delivered (or are permanently rejected, 4xx) are removed; anything enqueued meanwhile is kept.
 const isClientErr = e => /^(HTTP )?4\d\d|"code":"(23|22|42|P0001)/.test(String(e && e.message || e)) || /watchlist_limit_reached|violates|invalid input|check constraint/i.test(String(e && e.message || e));
 async function flush() {
+  await withLock(async () => {}); // let any enqueue already waiting on the lock land first
   const s = await getSession(); if (!s) return { ok: false, reason: "signed-out" };
-  if (await storeGet("pendingSwitch")) return { ok: false, reason: "account-switch-pending" };
   const snapshot = safeOutbox(await storeGet("outbox")), profile = (await storeGet("profile")) || {}, done = new Set(); let sent = 0, dropped = 0, failure = null;
   const sendWatch = async list => api("/ext_watchlist?on_conflict=user_id,product_key", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: list.map(o => toWatchRow(s.user.id, o)) });
   const watch = snapshot.filter(o => o.t === "watch");
@@ -63,28 +63,38 @@ async function flush() {
 // ---- S2 account-switch protection: local data is tagged with the user id that owns it ----
 // What belongs to the previous ACCOUNT on this device: content + personal settings (saved places, pincode, coordinates). Every SYNCED_SETTINGS key must be here (a unit test enforces it). Pure UI prefs (notch position) are not.
 const CONTENT_KEYS = ["items", "outbox", "histCache", "chartCache", "lastPull", "usage", "setStamps", "places", "pin", "range", "loc", "lastPin"];
+// The device shows ONE account's data at a time. Whatever belongs to another account waits in a per-account vault and is never merged, shown or uploaded to a different account.
+const VAULT_MAX = 3, VAULT_TTL = 30 * 864e5, VAULT_RECENT = 30, vaultKey = id => "vault:" + id;
+const trimContent = ({ histCache, chartCache, ...d }) => { const items = d.items || {}, keep = {}, rest = Object.keys(items).filter(k => !(items[k] && (items[k].wish || items[k].target))).sort((a, b) => ((items[b].seenAt || 0) - (items[a].seenAt || 0))).slice(0, VAULT_RECENT); for (const k of Object.keys(items)) if (items[k] && (items[k].wish || items[k].target)) keep[k] = items[k]; for (const k of rest) keep[k] = items[k]; return { ...d, items: keep }; }; // a vault keeps watched products and the 30 most recent others, so storage stays small
+async function takeContent() { const d = await chrome.storage.local.get(CONTENT_KEYS); await chrome.storage.local.remove(CONTENT_KEYS); return d; } // everything the current account owns on this device, removed from the live view
+async function vaultPut(ownerId, data) {
+  if (!ownerId || !Object.keys(data).length) return;
+  const all = await chrome.storage.local.get(null), now = Date.now(), vaults = Object.keys(all).filter(k => k.startsWith("vault:")).map(k => [k, all[k]]), expired = vaults.filter(([, v]) => !v || now - (v.at || 0) > VAULT_TTL).map(([k]) => k);
+  const live = vaults.filter(([k]) => !expired.includes(k) && k !== vaultKey(ownerId)).sort((a, b) => b[1].at - a[1].at), drop = [...expired, ...live.slice(VAULT_MAX - 1).map(([k]) => k)]; // at most 3 vaults, none older than 30 days
+  if (drop.length) await chrome.storage.local.remove(drop);
+  await chrome.storage.local.set({ [vaultKey(ownerId)]: { at: now, data: trimContent(data) } });
+}
+async function vaultTake(ownerId) { const k = vaultKey(ownerId), v = (await chrome.storage.local.get(k))[k]; await chrome.storage.local.remove(k); return v && Date.now() - (v.at || 0) <= VAULT_TTL ? v.data : null; }
+async function clearVaults() { const keys = Object.keys(await chrome.storage.local.get(null)).filter(k => k.startsWith("vault:")); if (keys.length) await chrome.storage.local.remove(keys); }
+// A different account signs in, or someone signs in on a device with anonymous data: "same" | "adopted" (anonymous local data joins this account) | "switched" (the previous account's data went to its vault)
 async function claimOwner(userId) {
-  const { localOwner } = await chrome.storage.local.get("localOwner");
-  if (!localOwner) { await chrome.storage.local.set({ localOwner: userId }); return "adopted"; } // anonymous local data joins the first account that signs in
-  if (localOwner === userId) return "same";
-  await chrome.storage.local.set({ pendingSwitch: { from: localOwner, to: userId } }); return "conflict"; // sync stays paused until the user chooses
+  const { localOwner } = await chrome.storage.local.get("localOwner"); if (localOwner === userId) return "same";
+  let anon = {}; if (localOwner) await vaultPut(localOwner, await takeContent()); else anon = await takeContent(); // anonymous data is adopted; another account's data is put away, not merged
+  const mine = (await vaultTake(userId)) || {}, merged = { ...mine, ...anon }; // this account's own saved data first, anonymous additions on top
+  if (mine.items || anon.items) merged.items = { ...(mine.items || {}), ...(anon.items || {}) }; if (mine.outbox || anon.outbox) merged.outbox = [...(mine.outbox || []), ...(anon.outbox || [])];
+  await chrome.storage.local.set({ ...merged, localOwner: userId }); return localOwner ? "switched" : "adopted";
 }
-async function resolveSwitch(choice) {
-  const { pendingSwitch: p } = await chrome.storage.local.get("pendingSwitch"); if (!p) return "none";
-  if (choice === "clear") await chrome.storage.local.remove(CONTENT_KEYS);
-  if (choice === "clear" || choice === "merge") await chrome.storage.local.set({ localOwner: p.to });
-  await chrome.storage.local.remove("pendingSwitch"); return choice === "clear" ? "cleared" : choice === "merge" ? "merged" : "cancelled";
-}
+// Sign-out (or a session that can no longer be used): the account's data leaves the live view; unsent changes are kept in its vault for its next sign-in.
+async function releaseOwner(hint) { const { localOwner } = await chrome.storage.local.get("localOwner"), owner = localOwner || hint; if (!owner) return; /* anonymous data belongs to nobody: it stays */ await vaultPut(owner, await takeContent()); await chrome.storage.local.remove("localOwner"); }
 // Creates the profile row if it's missing (e.g. after "delete my data" and a fresh sign-in).
 async function ensureProfile() { try { await api("/rpc/ext_ensure_profile", { method: "POST", body: {} }); } catch {} }
 async function pullProfile() {
   const s = await getSession(); if (!s) return null;
-  const rows = await api(`/ext_profiles?select=plan,contribute,name,phone,avatar_url&id=eq.${s.user.id}`); const p = rows && rows[0];
+  const rows = await api(`/ext_profiles?select=plan,contribute,name,phone,avatar_url,email_alerts&id=eq.${s.user.id}`); const p = rows && rows[0];
   if (p) await chrome.storage.local.set({ profile: p, plan: p.plan || "free" }); return p || null;
 }
 async function pull() {
   const s = await getSession(); if (!s) return { ok: false, reason: "signed-out" };
-  if (await storeGet("pendingSwitch")) return { ok: false, reason: "account-switch-pending" };
   try {
     await pullProfile(); await syncSettings().catch(() => {});
     const since = (await storeGet("lastPull")) || "1970-01-01T00:00:00Z", rows = await api(`/ext_watchlist?select=*&updated_at=gt.${encodeURIComponent(since)}&order=updated_at.asc&limit=500`);
@@ -138,4 +148,4 @@ async function fetchChart(key) {
     cache[key] = { t: Date.now(), rows }; const keys = Object.keys(cache); if (keys.length > 60) delete cache[keys.sort((a2, b2) => cache[a2].t - cache[b2].t)[0]]; await chrome.storage.local.set({ chartCache: cache }); return rows;
   } catch { return (c && c.rows) || []; }
 }
-if (typeof module !== "undefined") module.exports = { toChartArgs, SYNCED_SETTINGS, settingsToPush, settingsFromServer, syncSettings, stampSettings, claimOwner, resolveSwitch, CONTENT_KEYS, coalesce, toWatchRow, toObsRow, mergeWatchRow };
+if (typeof module !== "undefined") module.exports = { toChartArgs, SYNCED_SETTINGS, settingsToPush, settingsFromServer, syncSettings, stampSettings, claimOwner, releaseOwner, clearVaults, VAULT_MAX, CONTENT_KEYS, coalesce, toWatchRow, toObsRow, mergeWatchRow };

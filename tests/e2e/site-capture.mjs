@@ -1,3 +1,5 @@
+// OBSOLETE until updated: this script captured the full-page Home screen (home.html), which was removed in 1.17.1. Capture the grocery and watchlist tabs from the panel on a product page instead.
+throw new Error("store-shots/site-capture need updating: home.html no longer exists");
 // Real screenshots for the website: ONE visible Chrome window, the real extension on real Amazon.in, then Grocery mode in the same tab. Sequential, self-closing. Run: node tests/e2e/site-capture.mjs
 import { chromium } from "playwright-core";
 import { mkdtempSync, rmSync } from "node:fs"; import { tmpdir } from "node:os"; import path from "node:path";

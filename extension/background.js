@@ -25,11 +25,15 @@ async function record(p) {
   await maybeAlert(p.key, it);
   return it;
 }
+// Opt-in email (Settings/account): the SERVER sends it, to the account's own address only; the mail provider's key never leaves the server.
+async function emailAlert(key, it, price) { try { const { profile } = await chrome.storage.local.get("profile"); if (!profile || profile.email_alerts !== true || !(await getSession())) return; await api("/rpc/ext_send_price_alert", { method: "POST", body: { p_key: key, p_title: it.title || null, p_price: price, p_target: it.target, p_url: it.url || null } }); } catch {} }
+// Clicking the notification opens the product (https only).
+chrome.notifications.onClicked.addListener(async id => { try { if (id === "hauls-test") { chrome.runtime.openOptionsPage(); } else { const it = (await get())[id]; if (it && /^https:\/\//.test(it.url || "")) chrome.tabs.create({ url: it.url }); } chrome.notifications.clear(id); } catch {} });
 async function maybeAlert(key, it) {
   const price = it.hist[it.hist.length - 1][1], d = alertDecision(it, price);
   if (!d.fire && !Object.keys(d.patch).length) return;
   Object.assign(it, d.patch);
-  if (d.fire) chrome.notifications.create(key, { type: "basic", iconUrl: "icons/icon-128.png", title: "Price drop", message: `${it.title || key}: ₹${price} (target ₹${it.target})` });
+  if (d.fire) { chrome.notifications.create(key, { type: "basic", iconUrl: "icons/icon-128.png", title: `Price drop: ₹${price}`, message: `${String(it.title || key).slice(0, 120)}\nYour alert was ₹${it.target}. Click to open.`, priority: 2 }); emailAlert(key, it, price); }
   const items = await get(); items[key] = it; await put(items);
 }
 
@@ -40,12 +44,11 @@ const trackedCount = items => Object.values(items).filter(i => i.target || i.wis
 async function account() {
   const session = await sessionStore.get(), { profile, lastSync, outbox } = await chrome.storage.local.get(["profile", "lastSync", "outbox"]);
   const { authNotice } = await chrome.storage.local.get("authNotice");
-  const { pendingSwitch } = await chrome.storage.local.get("pendingSwitch");
-  return { configured: configured(), signedIn: !!session, notice: authNotice || null, pendingSwitch: !!pendingSwitch, user: session && session.user, profile: profile || null, lastSync: lastSync || null, queued: (outbox || []).length };
+  return { configured: configured(), signedIn: !!session, notice: authNotice || null, user: session && session.user, profile: profile || null, lastSync: lastSync || null, queued: (outbox || []).length };
 }
 async function afterSignIn() {
-  await ensureProfile(); await pullProfile().catch(() => {});
-  const session = await sessionStore.get(); if (session && session.user && (await claimOwner(session.user.id)) === "conflict") return account(); // wait for the user's choice
+  await ensureProfile(); await pullProfile().catch(() => {}); api("/rpc/ext_purge_my_deleted_watchlist", { method: "POST", body: {} }).catch(() => {}); // deleted items older than 24 h are removed from this account for good
+  const session = await sessionStore.get(); if (session && session.user) await claimOwner(session.user.id); // another account's data is put away, never merged
   const items = await get(), t = Date.now();
   for (const [k, it] of Object.entries(items)) if (it.wish || it.target) { it.u = it.u || t; await enqueue(watchOp(k, it)); } // first sync uploads the existing local watchlist
   await put(items); await flush(); await pull(); return account();
@@ -92,6 +95,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "offers-fk") reply(await offFindFlipkart({ pid: m.pid }).catch(() => ({ offers: [], failed: true })));
     else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));
     else if (m.type === "compare") reply(await cmpFind({ title: m.title, brand: m.brand, mpn: m.mpn, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
+    else if (m.type === "test-alert") { let level = "granted"; try { level = await new Promise(r => chrome.notifications.getPermissionLevel(r)); } catch {} chrome.notifications.create("hauls-test", { type: "basic", iconUrl: "icons/icon-128.png", title: "HAULS alerts work", message: "This is a test. A real alert looks like this when a price reaches your target.", priority: 2 }); reply({ ok: true, level }); }
     else if (m.type === "abg-run") reply(await abgRun(Date.now(), { force: true }).catch(e => ({ ok: false, why: e.message })));
     else if (m.type === "trk-run") reply(await trkRun(Date.now()).catch(e => ({ error: e.message })));
     else if (m.type === "iplocate") reply(await ipLocate().catch(() => ({})));
@@ -110,12 +114,11 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "whoami") { const s = await sessionStore.get(); reply({ signedIn: !!s, initial: s && s.user ? String(s.user.name || s.user.email || "?")[0].toUpperCase() : null }); }
     else if (m.type === "forget-shared") { try { reply({ ok: true, removed: await api("/rpc/ext_forget_my_observations", { method: "POST", body: {} }) }); } catch (e) { reply({ ok: false, error: String(e.message).slice(0, 120) }); } }
     else if (m.type === "signin") { try { await signInWithGoogle(); reply({ ok: true, account: await afterSignIn() }); } catch (e) { reply({ ok: false, error: String(e.message || e) }); } }
-    else if (m.type === "resolve-switch") { const r = await resolveSwitch(m.choice); if (r === "cancelled") await signOut(); else { await afterSignIn(); } reply({ ok: true, result: r, account: await account() }); }
     else if (m.type === "signout") { await signOut({ clear: !!m.clear }); reply({ ok: true, account: await account() }); }
     else if (m.type === "sync") { const f = await flush(), p = await pull(); reply({ ok: f.ok && p.ok, flush: f, pull: p, account: await account() }); }
     else if (m.type === "contribute") { try { const s = await getSession(); await api(`/ext_profiles?id=eq.${s.user.id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { contribute: !!m.on } }); const { profile } = await chrome.storage.local.get("profile"); await chrome.storage.local.set({ profile: { ...(profile || {}), contribute: !!m.on } }); reply({ ok: true }); } catch (e) { reply({ ok: false, error: String(e.message) }); } }
     else if (m.type === "waitlist") { try { reply({ ok: true, joined: await api("/rpc/ext_join_waitlist", { method: "POST", body: { p_source: "extension-android" } }) }); } catch (e) { reply({ ok: false, error: String(e.message) }); } }
-    else if (m.type === "profile-update") { try { const s = await getSession(), body = {}; if (m.name !== undefined) body.name = sanitizeText(m.name, 80); if (m.phone !== undefined) body.phone = m.phone || null;
+    else if (m.type === "profile-update") { try { const s = await getSession(), body = {}; if (m.name !== undefined) body.name = sanitizeText(m.name, 80); if (m.phone !== undefined) body.phone = m.phone || null; if (m.email_alerts !== undefined) body.email_alerts = m.email_alerts === true;
       await api(`/ext_profiles?id=eq.${s.user.id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body }); const { profile } = await chrome.storage.local.get("profile"); await chrome.storage.local.set({ profile: { ...(profile || {}), ...body } }); reply({ ok: true }); } catch (e) { reply({ ok: false, error: String(e.message).slice(0, 120) }); } }
     else if (m.type === "export-data") { try { reply({ ok: true, data: await api("/rpc/ext_export_my_data", { method: "POST", body: {} }), local: (await chrome.storage.local.get("items")).items || {} }); } catch (e) { reply({ ok: false, error: String(e.message).slice(0, 120) }); } }
     else if (m.type === "delete-data") { try { await api("/rpc/ext_delete_my_data", { method: "POST", body: {} }); await signOut(); await chrome.storage.local.remove(["profile", "outbox"]); reply({ ok: true }); } catch (e) { reply({ ok: false, error: String(e.message) }); } }

@@ -140,9 +140,9 @@ test("observation dedupe uses the calendar day for epoch-ms timestamps", () => {
   ob = e.run(`coalesce(${JSON.stringify(ob)}, {t:"obs",key:"a",price:5,at:${t0 + day}})`); assert.equal(ob.length, 2, "next day kept"); });
 test("withLock serialises read-modify-write sections", async () => { const e = makeEnv(); const out = await e.run(`(async () => { let v = 0; const log = []; await Promise.all([1, 2, 3].map(i => withLock(async () => { const x = v; await new Promise(r => setTimeout(r, 5 - i)); v = x + 1; log.push(i); }))); return { v, log }; })()`); assert.equal(out.v, 3); assert.deepEqual(out.log, [1, 2, 3]); });
 test("pulled watchlist rows can't inject non-https links and keep last_price", () => { const e = makeEnv(); const m = e.run('mergeWatchRow(undefined, {updated_at:"2026-10-17T00:00:00Z",wish:true,site:"A",title:"t",url:"javascript:alert(1)",image:"http://x/y.png",last_price:"499"})'); assert.equal(m.url, undefined); assert.equal(m.image, undefined); assert.equal(m.last, 499); assert.deepEqual(m.hist, []); });
-test("signOut wipes user-scoped state (plan, profile, queue) so the next person inherits nothing, but keeps the local watchlist", async () => {
+test("signOut wipes user-scoped state (plan, profile, queue) so the next person inherits nothing; the watchlist is put away for its owner, not shown", async () => {
   const e = makeEnv(); signedIn(e, { profile: { plan: "pro" }, plan: "pro", outbox: [{ t: "watch", id: "x", key: "a", u: 1 }], histCache: { a: {} }, lastPull: "2026-01-01", lastSync: 5, items: { a: { wish: true, hist: [] } } }); e.route(/logout/, () => ({ status: 204, json: {} }));
-  await e.run("signOut()"); for (const k of ["session", "profile", "plan", "outbox", "histCache", "lastPull", "lastSync"]) assert.equal(e.store[k], undefined, k + " should be wiped"); assert.ok(e.store.items.a, "local watchlist kept");
+  await e.run("signOut()"); for (const k of ["session", "profile", "plan", "outbox", "histCache", "lastPull", "lastSync"]) assert.equal(e.store[k], undefined, k + " should be wiped"); assert.equal(e.store.items, undefined, "not visible to the next person"); assert.ok(e.store["vault:u1"].data.items.a, "kept for u1's next sign-in");
 });
 // ---------- S1: session policy ----------
 const DAYMS = 864e5, mkSession = (over = {}) => ({ access_token: "A1", refresh_token: "R1", expires_at: Date.now() + 3600e3, user: { id: "u1", email: "a@b.co" }, signedInAt: Date.now() - 5 * DAYMS, lastActiveAt: Date.now() - 2 * DAYMS, ...over });
@@ -159,11 +159,11 @@ test("S1 offline / 503 / 429 during refresh keep the session (never a surprise l
   const e2 = makeEnv(); e2.store.session = mkSession({ expires_at: Date.now() + 10 * 60e3 }); e2.route(/grant_type=refresh_token/, () => ({ status: 503, json: {} }));
   const s = await e2.run("getSession(20 * 60e3)"); assert.equal(s.access_token, "A1", "a still-valid token keeps working when the proactive refresh fails");
 });
-test("S1 a rejected refresh token ends the session softly: notice set, local watchlist kept, user-scoped state wiped", async () => {
+test("S1 a rejected refresh token ends the session softly: notice set, watchlist put away for its owner, user-scoped state wiped", async () => {
   for (const [status, body] of [[400, { error: "invalid_grant", error_description: "Invalid Refresh Token: Already Used" }], [400, { error_code: "refresh_token_not_found", msg: "Invalid Refresh Token: Refresh Token Not Found" }], [401, { error_description: "Session expired" }]]) {
     const e = makeEnv(); e.store.session = mkSession({ expires_at: 0 }); Object.assign(e.store, { profile: { plan: "pro" }, plan: "pro", outbox: [{ id: "x" }], items: { a: { wish: true, hist: [[1, 2]] } } });
     e.route(/grant_type=refresh_token/, () => ({ status, json: body })); assert.equal(await e.run("getSession()"), null);
-    assert.equal(e.store.session, undefined); assert.equal(e.store.authNotice, "revoked"); assert.equal(e.store.profile, undefined); assert.equal(e.store.plan, undefined); assert.equal(e.store.outbox, undefined); assert.deepEqual(e.store.items.a.hist, [[1, 2]]);
+    assert.equal(e.store.session, undefined); assert.equal(e.store.authNotice, "revoked"); assert.equal(e.store.profile, undefined); assert.equal(e.store.plan, undefined); assert.equal(e.store.outbox, undefined); assert.equal(e.store.items, undefined); assert.deepEqual(e.store["vault:u1"].data.items.a.hist, [[1, 2]]);
   }
 });
 test("S1 90-day inactivity: 89 days still signed in (and refreshed), 91 days signed out softly without any network call", async () => {
@@ -192,35 +192,47 @@ test("S1 proactive refresh: due when <20 min left, not when 40 min left", async 
 test("S1 user sign-out clears any 'sign in again' notice", async () => { const e = makeEnv(); e.store.session = mkSession(); e.store.authNotice = "inactive"; e.route(/logout/, () => ({ status: 204, json: {} })); await e.run("signOut()"); assert.equal(e.store.authNotice, undefined); assert.equal(e.store.session, undefined); });
 test("S1 error classification", () => { const e = makeEnv(); const iv = x => e.run(`isInvalidGrant(${JSON.stringify(x)})`);
   assert.equal(iv({ status: 400, code: "invalid_grant", message: "x" }), true); assert.equal(iv({ status: 503, message: "not found" }), false, "5xx is never an invalid grant"); assert.equal(iv({ message: "Failed to fetch" }), false); assert.equal(iv({ status: 429, message: "revoked?" }), false); });
-// ---------- S2: account-switch protection ----------
-test("S2 claimOwner: anonymous local data is adopted by the first account; same account is 'same'; a different account is a conflict that pauses sync", async () => {
-  const e = makeEnv(); assert.equal(await e.run('claimOwner("u1")'), "adopted"); assert.equal(e.store.localOwner, "u1"); assert.equal(await e.run('claimOwner("u1")'), "same"); assert.equal(e.store.pendingSwitch, undefined);
-  assert.equal(await e.run('claimOwner("u2")'), "conflict"); assert.deepEqual(e.store.pendingSwitch, { from: "u1", to: "u2" }); assert.equal(e.store.localOwner, "u1", "owner unchanged until the user chooses");
+// ---------- S2: one account's data at a time (switching accounts never shows, merges or uploads another person's watchlist) ----------
+const W = (title, extra = {}) => ({ site: "Amazon", title, hist: [[1, 100]], wish: true, ...extra });
+test("S2 claimOwner: anonymous local data is adopted by the first account; the same account is 'same'; a different account is 'switched' and the old account's data goes to its vault", async () => {
+  const e = makeEnv(); Object.assign(e.store, { items: { a: W("anon item") } });
+  assert.equal(await e.run('claimOwner("u1")'), "adopted"); assert.equal(e.store.localOwner, "u1"); assert.ok(e.store.items.a, "anonymous items join the first account");
+  assert.equal(await e.run('claimOwner("u1")'), "same");
+  assert.equal(await e.run('claimOwner("u2")'), "switched"); assert.equal(e.store.localOwner, "u2"); assert.equal(e.store.items, undefined, "u1's watchlist is not visible to u2"); assert.ok(e.store["vault:u1"] && e.store["vault:u1"].data.items.a, "it waits in u1's vault");
 });
-test("S2 flush and pull are paused while a switch is pending (two people's data must never mix)", async () => {
-  const e = makeEnv(); signedIn(e, { pendingSwitch: { from: "u1", to: "u2" }, outbox: [{ t: "watch", id: "w", key: "a", wish: true, u: 1 }] }); let hit = 0; e.route(/./, () => { hit++; return { status: 200, json: [] }; });
-  assert.equal((await e.run("flush()")).reason, "account-switch-pending"); assert.equal((await e.run("pull()")).reason, "account-switch-pending"); assert.equal(hit, 0, "no network while pending"); assert.equal(e.store.outbox.length, 1);
+test("S2 the reported bug: A's watchlist never appears for B, B's never for A, and each comes back for its own owner", async () => {
+  const e = makeEnv(); signedIn(e, { localOwner: "u1", items: { a: W("A's phone") } }); e.route(/logout|ext_watchlist/, () => ({ status: 204, json: {} }));
+  await e.run("signOut()"); assert.equal(e.store.items, undefined, "after sign-out nobody sees u1's watchlist"); assert.equal(e.store.localOwner, undefined);
+  assert.equal(await e.run('claimOwner("u2")'), "adopted"); assert.equal(e.store.items, undefined, "u2 starts clean"); e.store.items = { b: W("B's laptop") };
+  assert.equal(await e.run('claimOwner("u1")'), "switched"); assert.deepEqual(Object.keys(e.store.items), ["a"], "u1 sees only u1's items");
+  assert.equal(await e.run('claimOwner("u2")'), "switched"); assert.deepEqual(Object.keys(e.store.items), ["b"], "u2 sees only u2's items");
 });
-test("S2 choice 'clear': previous account's local content is removed and the new account owns the browser", async () => {
-  const e = makeEnv(); Object.assign(e.store, { localOwner: "u1", pendingSwitch: { from: "u1", to: "u2" }, items: { a: { wish: true, hist: [] } }, outbox: [{ id: "x" }], histCache: { a: 1 }, usage: { month: "2026-10", keys: ["a"] }, pin: "560001", loc: { lat: 1, lon: 2, pin: "560001" }, lastPin: "560001", places: [{ id: "p1", name: "Mom's house", pin: "560001" }], setStamps: { pin: 5 }, knobY: 0.4 });
-  assert.equal(await e.run('resolveSwitch("clear")'), "cleared"); for (const k of ["items", "outbox", "histCache", "usage", "pendingSwitch"]) assert.equal(e.store[k], undefined, k); assert.equal(e.store.localOwner, "u2"); for (const k of ["places", "pin", "loc", "lastPin", "setStamps"]) assert.equal(e.store[k], undefined, k + " is personal and goes with the old account"); assert.equal(e.store.knobY, 0.4, "pure UI preferences (notch position) stay");
+test("S2 another account's queued changes are never uploaded by the new account (no outbox leak)", async () => {
+  const e = makeEnv(); Object.assign(e.store, { localOwner: "u1", items: { a: W("A") }, outbox: [{ t: "watch", id: "w1", key: "a", wish: true, u: 1 }] });
+  await e.run('claimOwner("u2")'); assert.equal(e.store.outbox, undefined, "u2's outbox is empty"); assert.equal(e.store["vault:u1"].data.outbox.length, 1, "u1's unsent change waits for u1");
+  await e.run('claimOwner("u1")'); assert.equal(e.store.outbox.length, 1, "and is back when u1 returns");
 });
-test("S2 choice 'merge' keeps the data for the new account; 'cancel' changes nothing and clears the pending flag", async () => {
-  let e = makeEnv(); Object.assign(e.store, { localOwner: "u1", pendingSwitch: { from: "u1", to: "u2" }, items: { a: { wish: true, hist: [] } } });
-  assert.equal(await e.run('resolveSwitch("merge")'), "merged"); assert.ok(e.store.items.a); assert.equal(e.store.localOwner, "u2"); assert.equal(e.store.pendingSwitch, undefined);
-  e = makeEnv(); Object.assign(e.store, { localOwner: "u1", pendingSwitch: { from: "u1", to: "u2" }, items: { a: { hist: [] } } });
-  assert.equal(await e.run('resolveSwitch("cancel")'), "cancelled"); assert.ok(e.store.items.a); assert.equal(e.store.localOwner, "u1"); assert.equal(e.store.pendingSwitch, undefined);
-  assert.equal(await makeEnv().run('resolveSwitch("clear")'), "none", "nothing pending");
+test("S2 anonymous items added while signed out join the next account on top of its own saved data", async () => {
+  const e = makeEnv(); Object.assign(e.store, { "vault:u1": { at: Date.now(), data: { items: { a: W("saved A") } } }, items: { x: W("added while signed out") } });
+  assert.equal(await e.run('claimOwner("u1")'), "adopted"); assert.deepEqual(Object.keys(e.store.items).sort(), ["a", "x"]); assert.equal(e.store["vault:u1"], undefined, "the vault is emptied once restored");
 });
-test("S2 signOut keeps the local watchlist + owner by default; signOut({clear:true}) wipes this device", async () => {
-  let e = makeEnv(); signedIn(e, { localOwner: "u1", items: { a: { hist: [] } }, pendingSwitch: { from: "u1", to: "u2" } }); e.route(/logout/, () => ({ status: 204, json: {} })); await e.run("signOut()");
-  assert.ok(e.store.items.a); assert.equal(e.store.localOwner, "u1"); assert.equal(e.store.pendingSwitch, undefined, "a stale pending flag never survives sign-out");
-  e = makeEnv(); signedIn(e, { localOwner: "u1", items: { a: { hist: [] } }, usage: { keys: [] }, waitlist: true }); e.route(/logout/, () => ({ status: 204, json: {} })); await e.run("signOut({ clear: true })");
-  assert.equal(e.store.items, undefined); assert.equal(e.store.localOwner, undefined); assert.equal(e.store.usage, undefined); assert.equal(e.store.session, undefined);
+test("S2 vaults stay small: at most 3, none older than 30 days, caches dropped, watched items kept plus the 30 most recent others", async () => {
+  const e = makeEnv(); for (let k = 1; k <= 5; k++) { Object.assign(e.store, { localOwner: "o" + k, items: { w: W("w" + k) } }); await new Promise(r => setTimeout(r, 2)); await e.run(`releaseOwner()`); }
+  assert.ok(Object.keys(e.store).filter(k => k.startsWith("vault:")).length <= 3, "at most 3 vaults: " + Object.keys(e.store).filter(k => k.startsWith("vault:")));
+  Object.assign(e.store, { "vault:old": { at: Date.now() - 31 * 864e5, data: { items: { z: W("old") } } } }); assert.equal(await e.run('claimOwner("old")'), "adopted"); assert.equal(e.store.items, undefined, "a 30-day-old vault is not restored");
+  const items = { keep1: W("watched", { wish: true }), keep2: W("tracked", { target: 5, wish: false }) }; for (let k = 0; k < 45; k++) items["v" + k] = { site: "Amazon", hist: [[1, 5]], seenAt: k };
+  Object.assign(e.store, { localOwner: "big", items, histCache: { a: 1 }, chartCache: { b: 2 } }); await e.run("releaseOwner()"); const d = e.store["vault:big"].data; assert.ok(d.items.keep1 && d.items.keep2, "watched items kept"); assert.equal(Object.keys(d.items).length, 2 + 30, "plus 30 recent others"); assert.ok(d.items.v44 && !d.items.v0, "the recent ones, not the old ones"); assert.equal(d.histCache, undefined); assert.equal(d.chartCache, undefined);
 });
-test("sign-out and clear also removes saved places, pincode, coordinates; plain sign-out keeps them (local data); every synced setting is covered by both wipe lists", async () => {
-  const mine = { places: [{ id: "p1", name: "Home", pin: "842001" }], pin: "842001", loc: { lat: 1, lon: 2, pin: "842001" }, lastPin: "842001", range: "1Y", knobY: 0.4 };
-  let e = makeEnv(); signedIn(e, { ...mine }); e.route(/logout/, () => ({ status: 204, json: {} })); await e.run("signOut()"); for (const k of Object.keys(mine)) assert.ok(e.store[k] !== undefined, "plain sign-out keeps " + k);
-  e = makeEnv(); signedIn(e, { ...mine }); e.route(/logout/, () => ({ status: 204, json: {} })); await e.run("signOut({ clear: true })"); for (const k of ["places", "pin", "loc", "lastPin", "range"]) assert.equal(e.store[k], undefined, k); assert.equal(e.store.knobY, 0.4);
+test("S2 signOut first sends what is still queued to THIS account, then puts its data away; nothing of it stays visible", async () => {
+  const e = makeEnv(); signedIn(e, { localOwner: "u1", items: { a: W("A") }, outbox: [{ t: "watch", id: "w1", key: "a", wish: true, u: 1, site: "Amazon", title: "A" }] }); const order = []; e.route(/ext_watchlist/, () => { order.push("push"); return { status: 201, json: [] }; }); e.route(/logout/, () => { order.push("logout"); return { status: 204, json: {} }; });
+  await e.run("signOut()"); assert.deepEqual(order.slice(0, 2), ["push", "logout"], "the queue is pushed before leaving the account: " + order); assert.equal(e.store.session, undefined); assert.equal(e.store.items, undefined); assert.equal(e.store.localOwner, undefined); assert.ok(e.store["vault:u1"].data.items.a);
+});
+test("S2 sign-out and clear also deletes the vaults, saved places, pincode and coordinates; plain sign-out puts them away for the same account; every synced setting is covered by both wipe lists", async () => {
+  const mine = { places: [{ id: "p1", name: "Home", pin: "842001" }], pin: "842001", loc: { lat: 1, lon: 2, pin: "842001" }, lastPin: "842001", range: "1Y" };
+  let e = makeEnv(); signedIn(e, { localOwner: "u1", ...mine, knobY: 0.4 }); e.route(/logout|ext_watchlist/, () => ({ status: 204, json: {} })); await e.run("signOut()"); for (const k of Object.keys(mine)) assert.equal(e.store[k], undefined, k + " is not visible after sign-out"); assert.equal(e.store.knobY, 0.4); assert.deepEqual(e.store["vault:u1"].data.pin, "842001"); await e.run('claimOwner("u1")'); for (const k of Object.keys(mine)) assert.ok(e.store[k] !== undefined, k + " returns for the same account");
+  e = makeEnv(); signedIn(e, { localOwner: "u1", ...mine, "vault:other": { at: Date.now(), data: { items: { q: W("q") } } } }); e.route(/logout|ext_watchlist/, () => ({ status: 204, json: {} })); await e.run("signOut({ clear: true })"); for (const k of ["places", "pin", "loc", "lastPin", "range", "vault:other", "vault:u1", "items", "localOwner"]) assert.equal(e.store[k], undefined, k);
   const synced = e.run("Object.keys(SYNCED_SETTINGS)"), contentKeys = e.run("CONTENT_KEYS"), personal = e.run("PERSONAL_KEYS"); for (const k of synced) { assert.ok(contentKeys.includes(k), "CONTENT_KEYS covers synced setting " + k); assert.ok(personal.includes(k), "PERSONAL_KEYS covers synced setting " + k); } });
+test("S2 a session that can no longer be used (revoked, inactive) also puts the watchlist away", async () => {
+  const e = makeEnv(); signedIn(e, { localOwner: "u1", items: { a: W("A") } }); await e.run('softSignOut("expired")'); assert.equal(e.store.items, undefined); assert.ok(e.store["vault:u1"].data.items.a); assert.equal(e.store.authNotice, "expired");
+});
 (async () => { for (const [name, fn] of queue) { try { await fn(); passed++; console.log("  ok   " + name); } catch (e) { failed++; console.log("  FAIL " + name + "\n       " + (e && e.message || e).split("\n")[0]); } } console.log(`\nunit: ${passed} passed, ${failed} failed`); process.exit(failed ? 1 : 0); })();

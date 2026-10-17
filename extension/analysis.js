@@ -98,6 +98,13 @@ function pumpCheck(hist, price, now = Date.now()) {
   const base = median(older.map(h => h[1])), peak = recent.reduce((a, h) => (h[1] > a[1] ? h : a), recent[0]);
   return peak[1] >= base * 1.15 && price <= base * 1.03 ? { base, peak: peak[1], at: peak[0] } : null;
 }
+// "X% off" vs what this product really sold for: the time-weighted 90-day typical price, from our own history only (null until there is enough of it).
+function honestDiscount(hist, price, mrp, now = Date.now()) {
+  if (!(price > 0) || coverage(windowStats(hist, now)) === "insufficient") return null;
+  const typical = twMedian(hist, now - 90 * DAY, now); if (!typical) return null;
+  const real = Math.round((typical - price) / typical * 100), claimed = mrp && mrp > price ? Math.round((mrp - price) / mrp * 100) : 0;
+  return { claimed, real, typical, inflated: claimed >= 10 && real <= claimed - 15 };
+}
 function dealScan(hist, price, mrp, now = Date.now(), ref = null) {
   const w = windowStats(hist, now), cov = coverage(w);
   if (cov === "insufficient" && refUsable(ref, price, now)) { // too little of our own history: use what Amazon itself reported, capped because it is a range, not a series
@@ -202,4 +209,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { twMedian, sellerTier, HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { honestDiscount, twMedian, sellerTier, HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, priceConfidence, useLookup, LIMITS, inr, DAY };

@@ -1,0 +1,24 @@
+{
+ "type": "mplNewProductDetailMobileWsData",
+ "status": "SUCCESS",
+ "productListingId": "MP000000025829896",
+ "baseProductListingId": "MP000000025829896",
+ "productTitle": "Boat Airdopes 111V2| Premium Leather Finish| 4Mics Enx| 50Hrs Battery| 13Mm Drivers| Black",
+ "brandName": "Boat",
+ "discount": "71",
+ "winningSellerAvailableStock": "15",
+ "allOOStock": false,
+ "isProductNew": "N",
+ "winningSellerPrice": {
+  "doubleValue": 1445.0,
+  "currencyIso": "INR",
+  "formattedValueNoDecimal": "\u20b91445",
+  "priceType": "BUY"
+ },
+ "mrpPrice": {
+  "doubleValue": 4990.0,
+  "currencyIso": "INR",
+  "formattedValueNoDecimal": "\u20b94990",
+  "priceType": "BUY"
+ }
+}

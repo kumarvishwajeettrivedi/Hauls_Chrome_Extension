@@ -3,7 +3,7 @@
 // Safety: URLs are built from stored ids on an allowlisted host; a body is only a price if the product id appears in it and the number is plausible
 // (captcha pages answer HTTP 200); a big jump or a crossing of the alert target must be seen twice before it is recorded.
 const TRK = { BATCH: 4, MIN_MS: 6 * 3600e3, PENDING_MS: 20 * 60e3, RECENT_N: 12, RECENT_DAYS: 30, HOLD_TTL: 2 * 3600e3, LEASE_MS: 4 * 60e3, DAY_CAP: 60, CAP_PER_ITEM: 6, FAILS: 3, PAUSE_MS: 6 * 3600e3, JUMP: 0.4, MAX_BYTES: 3e6, TIMEOUT: 10000 };
-const TRK_STORES = { "amazon.in": { name: "Amazon", host: "amazon.in" }, "flipkart.com": { name: "Flipkart", host: "flipkart.com" }, "myntra.com": { name: "Myntra", host: "myntra.com" }, "reliancedigital.in": { name: "Reliance Digital", host: "reliancedigital.in" } };
+const TRK_STORES = { "amazon.in": { name: "Amazon", host: "amazon.in" }, "flipkart.com": { name: "Flipkart", host: "flipkart.com" }, "myntra.com": { name: "Myntra", host: "myntra.com" }, "reliancedigital.in": { name: "Reliance Digital", host: "reliancedigital.in" }, "tatacliq.com": { name: "Tata CLiQ", host: "tatacliq.com" } };
 const trkNum = v => { const n = typeof v === "number" ? v : parseFloat(String(v == null ? "" : v).replace(/[^\d.]/g, "")); return isFinite(n) && n >= 1 && n < 1e7 ? n : null; };
 const trkDomain = key => { const d = String(key || "").split(":")[0]; return TRK_STORES[d] ? d : null; };
 const trkId = key => String(key || "").slice(String(key || "").indexOf(":") + 1);
@@ -61,6 +61,16 @@ function trkParseReliance(html, id) { // Fynd storefront state: productDetailsPa
   return { ok: true, price, mrp: mrp && mrp > price ? mrp : null };
 }
 
+function trkParseTataCliq(text, id) { // Tata CLiQ's own product-data call (the one its web page makes): winningSellerPrice is what you pay, mrpPrice the MRP; the listing id must be the one we asked for
+  const t = String(text || ""); if (!t) return { ok: false, reason: "empty" };
+  let j; try { j = JSON.parse(t); } catch { return trkCaptcha(t) ? { ok: false, reason: "captcha" } : { ok: false, reason: "no-state" }; }
+  if (!j || j.status !== "SUCCESS" || !j.productListingId) return { ok: false, reason: "no-state" };
+  if (String(j.productListingId).toLowerCase() !== String(id).toLowerCase()) return { ok: false, reason: "wrong-page" };
+  if (j.allOOStock === true || String(j.winningSellerAvailableStock) === "0") return { ok: true, unavailable: true };
+  const price = j.winningSellerPrice && trkNum(j.winningSellerPrice.doubleValue), mrp = j.mrpPrice && trkNum(j.mrpPrice.doubleValue); if (!price) return { ok: false, reason: "no-price" };
+  return { ok: true, price, mrp: mrp && mrp > price ? mrp : null };
+}
+
 async function trkReadCapped(r) { // stop reading at the cap even when the response is chunked (no content-length)
   if (r.body && typeof r.body.getReader === "function") { const rd = r.body.getReader(), dec = new TextDecoder(); let out = "", n = 0; for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.length; out += dec.decode(value, { stream: true }); if (n >= TRK.MAX_BYTES) { try { await rd.cancel(); } catch {} break; } } return out; }
   return (await r.text()).slice(0, TRK.MAX_BYTES);
@@ -70,16 +80,17 @@ async function trkFetch(key, it, doFetch = fetch) {
   const dom = trkDomain(key), id = trkId(key); if (!dom) return { ok: false, reason: "unsupported" }; if (!/^[A-Za-z0-9]{1,40}$/.test(id)) return { ok: false, reason: "bad-id" };
   let url;
   if (dom === "amazon.in") { if (!/^[A-Z0-9]{10}$/.test(id)) return { ok: false, reason: "bad-id" }; url = `https://www.amazon.in/gp/product/ajax/aodAjaxMain/ref=dp_aod_ALL_mbc?asin=${id}&pc=dp&experienceId=aodAjaxMain`; }
+  else if (dom === "tatacliq.com") { if (!/^mp\d{6,20}$/i.test(id)) return { ok: false, reason: "bad-id" }; url = `https://www.tatacliq.com/marketplacewebservices/v2/mpl/products/productDetails/${id}?isPwa=true&isMDE=true&isDynamicVar=true`; }
   else { try { const u = new URL(it && it.url); if (u.protocol !== "https:" || !(u.hostname === dom || u.hostname.endsWith("." + dom))) return { ok: false, reason: "bad-url" }; url = u.origin + u.pathname + (dom === "flipkart.com" ? "?pid=" + encodeURIComponent(id) : ""); } catch { return { ok: false, reason: "bad-url" }; } }
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), TRK.TIMEOUT);
   try {
-    const r = await doFetch(url, { credentials: "include", signal: ctl.signal, redirect: "follow", headers: dom === "amazon.in" ? { "x-requested-with": "XMLHttpRequest" } : {} });
+    const r = await doFetch(url, { credentials: dom === "tatacliq.com" ? "omit" : "include", signal: ctl.signal, redirect: "follow", headers: dom === "amazon.in" ? { "x-requested-with": "XMLHttpRequest" } : dom === "tatacliq.com" ? { accept: "application/json" } : {} });
     if (r.url && !new RegExp("^https://([a-z0-9-]+\\.)*" + dom.replace(".", "\\.") + "/").test(r.url)) return { ok: false, reason: "redirect" };
     if (r.status === 403 || r.status === 429 || r.status === 503) return { ok: false, reason: "blocked-" + r.status };
     if (!r.ok) return { ok: false, reason: "http-" + r.status };
     if (+(r.headers && r.headers.get && r.headers.get("content-length") || 0) > TRK.MAX_BYTES) return { ok: false, reason: "too-large" };
     const body = await trkReadCapped(r);
-    return dom === "amazon.in" ? trkParseAmazon(body, id) : dom === "flipkart.com" ? trkParseFlipkart(body, id) : dom === "reliancedigital.in" ? trkParseReliance(body, id) : trkParseMyntra(body, id);
+    return dom === "amazon.in" ? trkParseAmazon(body, id) : dom === "flipkart.com" ? trkParseFlipkart(body, id) : dom === "reliancedigital.in" ? trkParseReliance(body, id) : dom === "tatacliq.com" ? trkParseTataCliq(body, id) : trkParseMyntra(body, id);
   } catch (e) { return { ok: false, reason: e && e.name === "AbortError" ? "timeout" : "network" }; } finally { clearTimeout(t); }
 }
 
@@ -138,4 +149,4 @@ async function trkRunInner(now, doFetch) {
   }
   await save(); return out;
 }
-if (typeof module !== "undefined") module.exports = { trkParseAmazon, trkParseFlipkart, trkParseMyntra, trkParseReliance, trkFetch, TRK };
+if (typeof module !== "undefined") module.exports = { trkParseAmazon, trkParseFlipkart, trkParseMyntra, trkParseReliance, trkParseTataCliq, trkFetch, TRK };

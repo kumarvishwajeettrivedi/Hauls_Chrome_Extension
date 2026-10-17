@@ -37,7 +37,7 @@ const showPin = pin => { $("pinval").textContent = pin || "not set"; };
 chrome.storage.local.get("pin").then(v => showPin(v.pin)); chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.pin) showPin(ch.pin.newValue); });
 
 // Is the background (service worker) the same build as this page? A stale one rejects the unknown message.
-const PAGE_BUILD = "2026-10-18.r32";
+const PAGE_BUILD = "2026-10-18.r34";
 chrome.runtime.sendMessage({ type: "t2-version" }).then(r => { const ok = r && r.build === PAGE_BUILD; $("ver").textContent = "HAULS " + chrome.runtime.getManifest().version + (ok ? " · up to date" : "") + " · built by Vishwajeet · hauls.in"; $("stale").hidden = !!ok; }).catch(() => { $("stale").hidden = false; });
 $("reload").onclick = () => chrome.runtime.reload();
 
@@ -68,7 +68,7 @@ async function paintTrk() {
   const { trk, items } = await chrome.storage.local.get(["trk", "items"]), box = $("trk"); box.replaceChildren();
   const watched = Object.entries(items || {}).filter(([k, i]) => i && (i.target || i.wish)).length, H = (trk && trk.health) || {};
   const head = document.createElement("p"); head.className = "meta"; head.textContent = `${watched} item${watched === 1 ? "" : "s"} watched.`; box.append(head);
-  for (const [dom, name] of [["amazon.in", "Amazon"], ["flipkart.com", "Flipkart"], ["myntra.com", "Myntra"], ["reliancedigital.in", "Reliance Digital"]]) {
+  for (const [dom, name] of [["amazon.in", "Amazon"], ["flipkart.com", "Flipkart"], ["myntra.com", "Myntra"], ["reliancedigital.in", "Reliance Digital"], ["tatacliq.com", "Tata CLiQ"]]) {
     const h = H[dom], row = document.createElement("div"), b = document.createElement("b"), pill = document.createElement("span"); row.className = "srow"; b.textContent = name;
     const paused = trk && trk.pause && trk.pause[dom] > Date.now(), bad = h && h.fail > h.ok;
     pill.className = "pill" + (h && h.ok && !bad && !paused ? " on" : ""); pill.textContent = paused ? "Paused (blocked)" : !h ? "Not checked yet" : `${h.ok} ok · ${h.fail} failed`;
@@ -86,6 +86,7 @@ async function paintHist() {
   box.append(pill, t);
 }
 $("trkrun").onclick = async () => { $("tmsg").textContent = "Checking…"; const r = await chrome.runtime.sendMessage({ type: "trk-run", gesture: true }).catch(() => null); $("tmsg").textContent = r && !r.error ? `Checked ${r.checked}, new prices ${r.recorded}, waiting for a second read ${r.held}, failed ${r.failed}.` : "Couldn't run the check."; paintTrk(); };
+$("testalert").onclick = async () => { const r = await chrome.runtime.sendMessage({ type: "test-alert", gesture: true }).catch(() => null); $("tmsg").textContent = !r || !r.ok ? "Couldn't send a test alert." : r.level === "granted" ? "Test alert sent. If you saw nothing, check your system's notification settings for Chrome." : "Chrome notifications are blocked on this device. Allow them in system settings."; };
 $("abgrun").onclick = async () => { $("hmsg").textContent = "Opening one watched Amazon product in a small window…"; const r = await chrome.runtime.sendMessage({ type: "abg-run", gesture: true }).catch(() => null); $("hmsg").textContent = r && r.ok ? "Read Amazon's price history for one product." : r && r.why === "off" ? "Turn on automatic reading first." : r && r.why === "nothing due" ? "Nothing due: every watched Amazon product was read in the last day." : "Couldn't read it this time (needs Amazon sign-in and a product with a price-history button)."; paintHist(); };
 paintTrk();
 

@@ -1,6 +1,6 @@
 // Message guard for chrome.runtime.onMessage. Pure; works in the service worker (importScripts) and node (module.exports).⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌‌​​​​​‌‌​‌‌‌​‌‌​​‌‌​​​‌‌​‌​‌​‌‌​​​‌​​‌‌​​​‌‌​​‌‌​​​​​‌‌​​​‌‌⁡
 const { validateMessage, sanitizeText } = (() => {
-const MAX_JSON = 20 * 1024, TYPE_MAX = { "t2-capture": 800 * 1024 }, ADMIN = new Set(["t2-status", "t2-connect", "t2-disconnect", "t2-test", "trk-run", "abg-run"]), T2_STORES = ["Zepto", "Instamart", "BigBasket", "JioMart", "Flipkart Minutes"], PRIVILEGED = new Set(["signin", "signout", "delete-data", "contribute", "profile-update", "export-data", "account", "forget-shared", "waitlist", "iplocate", "resolve-switch", "invalidate", "t2-connect", "t2-disconnect", "t2-test"]);
+const MAX_JSON = 20 * 1024, TYPE_MAX = { "t2-capture": 800 * 1024 }, ADMIN = new Set(["t2-status", "t2-connect", "t2-disconnect", "t2-test", "trk-run", "abg-run", "test-alert"]), T2_STORES = ["Zepto", "Instamart", "BigBasket", "JioMart", "Flipkart Minutes"], PRIVILEGED = new Set(["signin", "signout", "delete-data", "contribute", "profile-update", "export-data", "account", "forget-shared", "waitlist", "iplocate", "invalidate", "t2-connect", "t2-disconnect", "t2-test"]);
 const isObj = x => x !== null && typeof x === "object" && !Array.isArray(x) && Object.getPrototypeOf(x) === Object.prototype;
 const str = (v, min, max) => typeof v === "string" && v.length >= min && v.length <= max;
 const num = (v, lo, hi) => typeof v === "number" && Number.isFinite(v) && v > lo && v < hi;
@@ -27,13 +27,14 @@ const S = {
   offers: { asin: v => typeof v === "string" && /^[A-Z0-9]{10}$/.test(v) },
   compare: { title: v => str(v, 3, 500), brand: v => v === undefined || str(v, 0, 60), mpn: v => v === undefined || str(v, 0, 40), site: v => str(v, 1, 60), price: v => num(v, 0, 1e7) },
   grocery: { q: v => str(v, 1, 120), loc, more: v => v === undefined || typeof v === "boolean" }, geocode: { pin }, reverse: { lat: v => num(v, -91, 91), lon: v => num(v, -181, 181) },
-  iplocate: {}, whoami: {}, invalidate: { reason: v => v === "user-clear-cache" },  "forget-shared": {}, disableShopify: {}, "open-options": {}, account: {}, signin: {}, signout: { clear: v => v === undefined || typeof v === "boolean" }, "resolve-switch": { choice: v => ["clear", "merge", "cancel"].includes(v) }, sync: {}, waitlist: {}, "delete-data": {}, "export-data": {}, enableShopify: {},
+  iplocate: {}, whoami: {}, invalidate: { reason: v => v === "user-clear-cache" },  "forget-shared": {}, disableShopify: {}, "open-options": {}, account: {}, signin: {}, signout: { clear: v => v === undefined || typeof v === "boolean" }, sync: {}, waitlist: {}, "delete-data": {}, "export-data": {}, enableShopify: {},
   "t2-capture": { url: v => str(v, 1, 500), method: v => str(v, 1, 10), status: v => typeof v === "number" && v >= 0 && v < 1000, body: v => str(v, 0, 700000), hdr: isObj },
   "t2-status": {}, "t2-version": {}, "t2-connect": { store: v => T2_STORES.includes(v) }, "t2-disconnect": { store: v => T2_STORES.includes(v) }, "t2-test": { store: v => T2_STORES.includes(v) },
   contribute: { on: v => typeof v === "boolean" }, toggle: { on: v => typeof v === "boolean" },
-  "profile-update": { name: v => v === undefined || str(v, 0, 80), phone: v => v === undefined || v === "" || (typeof v === "string" && /^\+?[0-9 ()-]{7,20}$/.test(v)) },
+  "test-alert": {},
+  "profile-update": { email_alerts: v => v === undefined || typeof v === "boolean", name: v => v === undefined || str(v, 0, 80), phone: v => v === undefined || v === "" || (typeof v === "string" && /^\+?[0-9 ()-]{7,20}$/.test(v)) },
 };
-const OPTIONAL = { "profile-update": ["name", "phone"], signout: ["clear"], grocery: ["more"] };
+const OPTIONAL = { "profile-update": ["name", "phone", "email_alerts"], signout: ["clear"], grocery: ["more"] };
 function validateMessage(m, sender, selfId) {
   const no = reason => ({ ok: false, reason });
   if (!sender || !selfId || sender.id !== selfId) return no("bad sender");

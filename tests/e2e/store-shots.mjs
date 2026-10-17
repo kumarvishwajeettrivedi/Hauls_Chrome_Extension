@@ -1,3 +1,5 @@
+// OBSOLETE until updated: this script captured the full-page Home screen (home.html), which was removed in 1.17.1. Capture the grocery and watchlist tabs from the panel on a product page instead.
+throw new Error("store-shots/site-capture need updating: home.html no longer exists");
 // Chrome Web Store screenshots (1280x800) from the real UI with sample data. Run: node tests/e2e/store-shots.mjs
 import { withExt, seed, sleep, poll } from "./lib/ext.mjs";
 import { Panel, openPage } from "./lib/panel.mjs";

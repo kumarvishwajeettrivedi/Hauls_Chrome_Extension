@@ -18,6 +18,15 @@ ok(T.trkParseReliance(fx("track", "reliance-pdp.html"), "1234567").reason === "w
 ok(!T.trkParseReliance("<html>no state</html>", "1").ok && T.trkParseReliance("<html>Access Denied</html>", "1").reason === "captcha", "reliance garbage / blocked");
 ok(T.trkParseReliance('<script>window.__INITIAL_STATE__ = {"productDetailsPage":{"product":{"uid":5},"product_meta":{"sellable":false,"price":{"effective":{"min":10}}}}};</script>', "5").unavailable === true, "reliance not sellable = unavailable, not a price");
 ok(T.trkParseReliance('<script>window.__INITIAL_STATE__ = {"productDetailsPage":{"product":{"uid":5},"product_meta":{"sellable":true,"price":{"effective":{"min":0}}}}};</script>', "5").reason === "no-price", "reliance zero price refused");
+// Tata CLiQ (its own product-data call)
+const TC = fx("track", "tatacliq-productdetails.json");
+r = T.trkParseTataCliq(TC, "mp000000025829896"); ok(r.ok && r.price === 1445 && r.mrp === 4990, "tata cliq: " + JSON.stringify(r));
+ok(T.trkParseTataCliq(TC, "MP000000025829896").ok === true, "id match is case-insensitive (URLs are lower-case, the API upper-case)");
+ok(T.trkParseTataCliq(TC, "mp000000099999999").reason === "wrong-page", "tata cliq: another listing id is refused");
+ok(T.trkParseTataCliq(JSON.stringify({ ...JSON.parse(TC), winningSellerAvailableStock: "0" }), "mp000000025829896").unavailable === true && T.trkParseTataCliq(JSON.stringify({ ...JSON.parse(TC), allOOStock: true }), "mp000000025829896").unavailable === true, "tata cliq: out of stock is 'unavailable', not a price");
+ok(T.trkParseTataCliq(JSON.stringify({ ...JSON.parse(TC), winningSellerPrice: { doubleValue: 0 } }), "mp000000025829896").reason === "no-price", "tata cliq: a zero price is refused");
+ok(T.trkParseTataCliq(JSON.stringify({ ...JSON.parse(TC), status: "FAILURE" }), "mp000000025829896").reason === "no-state" && T.trkParseTataCliq("<html>x</html>", "mp1").reason === "no-state" && T.trkParseTataCliq("", "mp1").reason === "empty" && T.trkParseTataCliq("Access Denied", "mp1").reason === "captcha", "tata cliq: failure, html, empty and blocked bodies are not prices");
+ok(T.trkParseTataCliq(JSON.stringify({ ...JSON.parse(TC), mrpPrice: { doubleValue: 1000 } }), "mp000000025829896").mrp === null, "an MRP below the price is dropped");
 // Flipkart
 r = T.trkParseFlipkart(fx("track", "flipkart-pdp.html"), "ACCHGG7ND9BRXRGZ"); ok(r.ok && r.price === 766 && r.mrp === 3990, "flipkart: " + JSON.stringify(r));
 ok(T.trkParseFlipkart(fx("track", "flipkart-pdp.html"), "ACCOTHEROTHER0000").reason === "wrong-page", "flipkart other pid");

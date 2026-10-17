@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HAULS – Don't Buy Blind",
-  "version": "1.17.2",
+  "version": "1.18.0",
   "homepage_url": "https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/",
   "description": "Price history, buy-or-wait verdicts and alerts for Amazon, Flipkart, Myntra, Blinkit and more.",
   "permissions": [
@@ -17,6 +17,7 @@
     "https://*.flipkart.com/*",
     "https://*.myntra.com/*",
     "https://www.reliancedigital.in/*",
+    "https://www.tatacliq.com/*",
     "https://blinkit.com/*",
     "https://nominatim.openstreetmap.org/*",
     "https://digital.dmart.in/*",

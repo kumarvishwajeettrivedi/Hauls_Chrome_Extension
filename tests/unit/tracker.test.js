@@ -20,7 +20,7 @@ const mem = {}; const notes = []; let onAlarm = null; const alarms = [];
 const chrome = { storage: { local: { async get(k) { if (k == null) return JSON.parse(JSON.stringify(mem)); const ks = Array.isArray(k) ? k : typeof k === "string" ? [k] : Object.keys(k); const o = {}; for (const x of ks) if (mem[x] !== undefined) o[x] = JSON.parse(JSON.stringify(mem[x])); return o; },
     async set(o) { Object.assign(mem, JSON.parse(JSON.stringify(o))); }, async remove(k) { [].concat(k).forEach(x => delete mem[x]); } }, onChanged: { addListener() {} } },
   runtime: { id: "x", onMessage: { addListener() {} }, onInstalled: { addListener() {} }, onStartup: { addListener() {} }, sendMessage() {}, getURL: p => p }, alarms: { create: (n2, o) => alarms.push(n2), clear: async () => true, get: async () => undefined, onAlarm: { addListener: f => { onAlarm = f; } } },
-  notifications: { create: (id, o) => notes.push({ id, ...o }) }, action: { onClicked: { addListener() {} } }, tabs: { sendMessage() {}, create() {} }, scripting: { getRegisteredContentScripts: async () => [] }, permissions: { contains: async () => false, onRemoved: { addListener() {} } }, identity: {}, windows: {}, declarativeNetRequest: {} };
+  notifications: { create: (id, o) => notes.push({ id, ...o }), onClicked: { addListener() {} }, clear() {} }, action: { onClicked: { addListener() {} } }, tabs: { sendMessage() {}, create() {} }, scripting: { getRegisteredContentScripts: async () => [] }, permissions: { contains: async () => false, onRemoved: { addListener() {} } }, identity: {}, windows: {}, declarativeNetRequest: {} };
 let fetched = []; const sandbox = { console, URL, URLSearchParams, TextEncoder, TextDecoder, crypto: globalThis.crypto, btoa, atob, setTimeout, clearTimeout, AbortController, AbortSignal, setInterval, clearInterval, Date, JSON, Math, Promise, chrome, navigator: {}, self: {},
   fetch: async u => { fetched.push(u); return { ok: true, headers: { get: () => "0" }, text: async () => '<script type="application/ld+json">{"@type":"Product","name":"Thing","offers":{"price":"450","priceCurrency":"INR"}}</script>' }; } };
 const ctx = vm.createContext(sandbox); sandbox.importScripts = (...fs2) => { for (const f of fs2) vm.runInContext(fs.readFileSync(path.join(__dirname, "../../extension", f === "config.js" && !fs.existsSync(path.join(__dirname, "../../extension/config.js")) ? "config.example.js" : f), "utf8"), ctx, { filename: f }); };
@@ -63,7 +63,13 @@ sandbox.__enq = []; vm.runInContext("getSession = async () => null; enqueue = o 
   // alert crossing: reset to 800 then 650 (target 700)
   mem.items[AK].hist = [[t - 20 * D, 800]]; mem.items[AK].checked = 0; mem.items[AK].armed = true; mem.items[AK].notified = null; delete mem.items[AK].suspect; notes.length = 0;
   t += 7 * 3600e3; out = await ctx.trkRun(t, mkFetch(() => aod(650))); ok(out.held === 1 && notes.length === 0, "crossing the target needs a second read before it records or alerts");
-  t += 25 * 60e3; out = await ctx.trkRun(t, mkFetch(() => aod(650))); ok(out.recorded === 1 && notes.length === 1 && /650/.test(notes[0].message), "confirmed: recorded and alerted once");
+  t += 25 * 60e3; out = await ctx.trkRun(t, mkFetch(() => aod(650))); ok(out.recorded === 1 && notes.length === 1 && /650/.test(notes[0].title), "confirmed: recorded and alerted once");
+  // email alert is opt-in, needs a signed-in account, and is sent by the server (no key in the extension)
+  { const calls = []; vm.runInContext("getSession = async () => ({ user: { id: 'u' } }); api = async (p, o) => { __calls.push([p, o.body]); return true; };", Object.assign(ctx, {}));
+    sandbox.__calls = calls; const it = { title: "Earbuds", url: "https://www.amazon.in/dp/B0F8BVSK21", target: 700 };
+    mem.profile = { email_alerts: false }; await ctx.emailAlert(AK, it, 650); ok(calls.length === 0, "email off: no request");
+    mem.profile = { email_alerts: true }; await ctx.emailAlert(AK, it, 650); ok(calls.length === 1 && calls[0][0] === "/rpc/ext_send_price_alert" && calls[0][1].p_price === 650 && calls[0][1].p_target === 700, "email on: one server call with price and target");
+    vm.runInContext("getSession = async () => null;", ctx); await ctx.emailAlert(AK, it, 650); ok(calls.length === 1, "signed out: no request"); }
   // captcha body never becomes a price
   mem.items[AK].checked = 0; const before = mem.items[AK].hist.length; out = await ctx.trkRun(t + 1e3, mkFetch(() => "<html>Enter the characters you see below</html>")); ok(out.failed === 1 && mem.items[AK].hist.length === before, "captcha: failure counted, no point");
   ok(mem.trk.health["amazon.in"].reasons.captcha === 1, "health records the reason");
@@ -122,5 +128,12 @@ sandbox.__enq = []; vm.runInContext("getSession = async () => null; enqueue = o 
   mem.items = { [AK]: { site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", title: "Earbuds", mrp: 3990, hist: [[Date.now() - D, 766]] } };
   await ctx.record({ key: AK, price: 766, src: "bg" }); ok(mem.items[AK].mrp === 3990 && mem.items[AK].url && mem.items[AK].site === "Amazon", "bg record without mrp/url keeps stored values");
   await ctx.record({ key: AK, site: "Amazon", url: "https://www.amazon.in/dp/B0F8BVSK21", title: "Earbuds", price: 770, mrp: null, src: "dom" }); ok(mem.items[AK].mrp === null, "a page that shows no MRP clears it");
+  { // Tata CLiQ through the scheduler: the URL is built from the id on the allowlisted host, the price is read from the JSON, a changed price is recorded
+    const TCK = "tatacliq.com:mp000000025829896", TCJ = fs.readFileSync(path.join(__dirname, "../fixtures/track/tatacliq-productdetails.json"), "utf8"), tt0 = Date.now(); fetched = []; sandbox.__enq.length = 0;
+    mem.items = { [TCK]: { site: "Tata CLiQ", title: "Airdopes", url: "https://www.tatacliq.com/boat-airdopes/p-mp000000025829896", hist: [[tt0 - 10 * D, 1500]], wish: true, target: 1000, armed: true } }; mem.profile = { contribute: true };
+    const o = await ctx.trkRun(tt0, mkFetch(() => TCJ)); ok(o.checked === 1 && o.recorded === 1 && mem.items[TCK].hist.at(-1)[1] === 1445 && mem.items[TCK].mrp === 4990, "tata cliq price recorded through the scheduler: " + JSON.stringify(o));
+    ok(fetched.length === 1 && fetched[0] === "https://www.tatacliq.com/marketplacewebservices/v2/mpl/products/productDetails/mp000000025829896?isPwa=true&isMDE=true&isDynamicVar=true", "request URL built from the id on the allowlisted host: " + fetched[0]);
+    mem.items = { "tatacliq.com:evil;id": { site: "Tata CLiQ", url: "https://evil.example/x", hist: [[tt0 - D, 100]], wish: true }, "tatacliq.com:abc123": { site: "Tata CLiQ", url: "https://www.tatacliq.com/x/p-abc123", hist: [[tt0 - D, 100]], wish: true } }; fetched = []; await ctx.trkRun(tt0 + 7 * 3600e3, mkFetch(() => TCJ)); ok(fetched.length === 0, "an id that is not an mp-code never produces a request");
+  }
   console.log(`tracker: ${n} passed, 0 failed`);
 })().catch(e => { console.error(e); process.exit(1); });

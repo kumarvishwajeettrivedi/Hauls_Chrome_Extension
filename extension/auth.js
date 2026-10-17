@@ -60,8 +60,8 @@ async function signInWithGoogle() {
 }
 
 let refreshing = null;
-// Ends the session WITHOUT touching the local watchlist: used for revoked tokens and inactivity. The UI shows a "sign in again" notice.
-async function softSignOut(reason) { await sessionLock(() => sessionStore.del()); await chrome.storage.local.remove(USER_SCOPED_KEYS); await chrome.storage.local.set({ authNotice: reason }); }
+// Ends the session: used for revoked tokens and inactivity. The account's data is put away (not deleted), and the UI shows a "sign in again" notice.
+async function softSignOut(reason) { const old = await sessionStore.get(); await sessionLock(() => sessionStore.del()); if (typeof releaseOwner === "function") await releaseOwner(old && old.user && old.user.id); /* their watchlist waits in a vault until they sign in again; the next person at this browser does not see it */ await chrome.storage.local.remove(USER_SCOPED_KEYS); await chrome.storage.local.set({ authNotice: reason }); }
 async function getSession(leeway = 60e3) {
   const session = await sessionStore.get(); if (!session) return null;
   if (inactive(session)) { await softSignOut("inactive"); return null; }
@@ -81,10 +81,13 @@ async function getSession(leeway = 60e3) {
 async function touchActive(now = Date.now()) { return sessionLock(async () => { const s = await sessionStore.get(); if (!s || now - (s.lastActiveAt || 0) < TOUCH_EVERY) return false; await sessionStore.set({ ...s, lastActiveAt: now }); return true; }); }
 async function signOut({ clear = false } = {}) {
   const session = await sessionStore.get();
+  try { if (session && typeof flush === "function") await Promise.race([flush(), new Promise(r => setTimeout(r, 4000))]); } catch {} // send anything still waiting to this account before leaving it
   if (session && configured()) fetch(HAULS_CONFIG.SUPABASE_URL + "/auth/v1/logout?scope=local", { method: "POST", headers: { apikey: HAULS_CONFIG.SUPABASE_ANON_KEY, authorization: "Bearer " + session.access_token } }).catch(() => {});
   await sessionLock(() => sessionStore.del());
-  // Wipe everything scoped to the signed-in user so the next person on this browser inherits nothing (plan, queued ops, profile). Local watchlist/history stay.
-  await chrome.storage.local.remove([...USER_SCOPED_KEYS, "authNotice", "pendingSwitch", ...(clear ? ["items", "usage", "localOwner", "waitlist", ...PERSONAL_KEYS] : [])]); // "clear this device" also removes the local watchlist + owner tag
+  // The next person on this browser must see none of this account's data: it goes to a vault (restored only when THIS account signs in again). "Sign out and clear this device" also deletes the vaults.
+  if (typeof releaseOwner === "function") await releaseOwner(session && session.user && session.user.id);
+  if (clear && typeof clearVaults === "function") await clearVaults();
+  await chrome.storage.local.remove([...USER_SCOPED_KEYS, "authNotice", ...(clear ? ["items", "usage", "localOwner", "waitlist", ...PERSONAL_KEYS] : [])]);
 }
 // Authenticated PostgREST / RPC call. Retries once after a refresh on 401.
 async function api(path, { method = "GET", body, headers = {} } = {}, retried = false) {

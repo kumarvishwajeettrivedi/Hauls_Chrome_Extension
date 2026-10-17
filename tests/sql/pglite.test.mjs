@@ -14,7 +14,7 @@ grant usage on schema public, auth to anon, authenticated, service_role;
 grant all on all tables in schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated;`);
-for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series','0011_ext_obs_src_bg','0012_ext_feedback']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
+for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series','0011_ext_obs_src_bg','0012_ext_feedback','0013_ext_watchlist_deletion','0014_ext_price_alert_email']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
 let ok=true; const T=(n,c)=>{console.log(c?'PASS':'FAIL',n); if(!c) ok=false;};
 const as=async(uid,fn)=>{await db.exec(`set role authenticated; select set_config('request.jwt.claims', '{"sub":"${uid}","role":"authenticated"}', false)`); try{return await fn()} finally{await db.exec(`reset role`)}};
 const fails=async p=>{try{await p;return false}catch(e){return true}};
@@ -318,5 +318,51 @@ T('others untouched', (await db.query(`select count(*)::int c from ext_price_obs
   T('0012: service role can read it', (await (async()=>{await db.exec(`set role service_role; select set_config('request.jwt.claims','{"role":"service_role"}',false)`); try{return (await db.query('select count(*)::int c from ext_feedback')).rows[0].c}finally{await db.exec('reset role')}})())>=5);
   await db.exec(`insert into ext_feedback(rating,created_at) select 4, now() from generate_series(1,3000)`);
   T('0012: the daily cap holds', await send('7.7.7.7',[5,[],null,null])===false);
+}
+
+// ===== 0013: watchlist deletion (blank at once, purge after 24 h, owner only) =====
+{ const mk=async(e)=>(await db.query(`insert into auth.users(email) values('${e}') returning id`)).rows[0].id; const P=await mk('p13@x.t'), Q=await mk('q13@x.t');
+  const ins=(u,k,extra='')=>as(u,()=>db.query(`insert into ext_watchlist(product_key,site,title,url,image,target_price,wish,last_price) values('${k}','Amazon','Secret phone','https://a/b','https://i/x',500,true,600)`));
+  await ins(P,'del1'); await ins(P,'keep1'); await ins(Q,'qdel1');
+  await as(P,()=>db.query(`update ext_watchlist set deleted_at=now() where product_key='del1'`));
+  const r=(await db.query(`select title,url,image,site,target_price,last_price,wish,deleted_at is not null d from ext_watchlist where user_id='${P}' and product_key='del1'`)).rows[0];
+  T('0013: deleting blanks everything about the product at once (only key + tombstone remain)', r.d===true && r.title===null && r.url===null && r.image===null && r.site===null && r.target_price===null && r.last_price===null && r.wish===false);
+  T('0013: a live item keeps its details', (await db.query(`select title from ext_watchlist where product_key='keep1' and user_id='${P}'`)).rows[0].title==='Secret phone');
+  const nobody=()=>db.exec(`select set_config('request.jwt.claims','',false)`); await nobody(); // backdating below is done as the table owner: no caller identity, so the by-itself purge must not run for anyone
+  await db.exec(`update ext_watchlist set deleted_at=now()-interval '25 hours' where product_key in ('del1','qdel1')`);
+  T('0013: another person calling purge removes nothing of mine', (await as(Q,async()=>(await db.query(`select ext_purge_my_deleted_watchlist() n`)).rows[0].n))===1 && (await db.query(`select count(*)::int c from ext_watchlist where user_id='${P}' and product_key='del1'`)).rows[0].c===1);
+  T('0013: the owner purge removes only my own old tombstones', (await as(P,async()=>(await db.query(`select ext_purge_my_deleted_watchlist() n`)).rows[0].n))===1 && (await db.query(`select count(*)::int c from ext_watchlist where user_id='${P}' and product_key='del1'`)).rows[0].c===0 && (await db.query(`select count(*)::int c from ext_watchlist where user_id='${P}' and product_key='keep1'`)).rows[0].c===1);
+  await ins(P,'del2'); await as(P,()=>db.query(`update ext_watchlist set deleted_at=now() where product_key='del2'`)); await nobody(); await db.exec(`update ext_watchlist set deleted_at=now()-interval '23 hours' where product_key='del2'`);
+  await as(P,()=>db.query(`select ext_purge_my_deleted_watchlist()`)); T('0013: a tombstone younger than 24 h stays (devices that were offline still learn of the deletion)', (await db.query(`select count(*)::int c from ext_watchlist where product_key='del2'`)).rows[0].c===1);
+  await nobody(); await db.exec(`update ext_watchlist set deleted_at=now()-interval '26 hours' where product_key='del2'`); await ins(P,'trigger1');
+  T('0013: the next change to my watchlist purges my old tombstones by itself', (await db.query(`select count(*)::int c from ext_watchlist where product_key='del2'`)).rows[0].c===0);
+  T('0013: nobody else can read or delete my rows', (await as(Q,()=>db.query(`select * from ext_watchlist where product_key='keep1'`))).rows.length===0 && (await as(Q,async()=>{await db.query(`delete from ext_watchlist where product_key='keep1'`); return 1}))===1 && (await db.query(`select count(*)::int c from ext_watchlist where product_key='keep1'`)).rows[0].c===1);
+  T('0013: anon cannot call the purge', await (async()=>{await db.exec(`set role anon; select set_config('request.jwt.claims','{"role":"anon"}',false)`); try{return await fails(db.query(`select ext_purge_my_deleted_watchlist()`))} finally{await db.exec('reset role')}})());
+  await as(P,()=>db.query(`update ext_watchlist set deleted_at=null, title='Back', wish=true where product_key='keep1'`)); T('0013: restoring a live item works', (await db.query(`select title from ext_watchlist where product_key='keep1'`)).rows[0].title==='Back');
+}
+
+// ===== 0014: price-drop email (server-side sender, opt-in, own address only) =====
+{ await db.exec(`create schema if not exists net; create table if not exists net.calls(id serial, url text, headers jsonb, body jsonb); create or replace function net.http_post(url text, headers jsonb default '{}', body jsonb default '{}') returns bigint language sql as $$ insert into net.calls(url,headers,body) values($1,$2,$3) returning id::bigint $$;
+    create schema if not exists vault; create table if not exists vault.decrypted_secrets(name text, decrypted_secret text); grant usage on schema net, vault to authenticated, anon; grant all on net.calls, vault.decrypted_secrets to authenticated;`);
+  const mk=async(e)=>(await db.query(`insert into auth.users(email) values('${e}') returning id`)).rows[0].id; const U=await mk('owner14@x.t'), V=await mk('other14@x.t');
+  const send=(u,k='amazon.in:B0ALERT001',price=450,target=500,title='boAt <b>Airdopes</b> & more',url='https://www.amazon.in/dp/B0ALERT001')=>as(u,async()=>(await db.query(`select ext_send_price_alert($1,$2,$3,$4,$5) r`,[k,title,price,target,url])).rows[0].r);
+  T('0014: off by default: nothing is sent', await send(U)==='off' && (await db.query(`select count(*)::int c from net.calls`)).rows[0].c===0);
+  await as(U,()=>db.query(`update ext_profiles set email_alerts=true where id='${U}'`)); await as(V,()=>db.query(`update ext_profiles set email_alerts=true where id='${V}'`));
+  T('0014: opted in but the sending key is not set up yet: refused, nothing sent', await send(U)==='not-configured' && (await db.query(`select count(*)::int c from net.calls`)).rows[0].c===0);
+  await db.exec(`insert into vault.decrypted_secrets values('resend_api_key','re_test_secret')`);
+  T('0014: opted in and configured: queued', await send(U)==='queued');
+  const c=(await db.query(`select url,headers,body from net.calls order by id desc limit 1`)).rows[0];
+  T('0014: the mail goes to the account\'s own address only, with the key from the vault and a fixed sender', c.url==='https://api.resend.com/emails' && c.body.to.length===1 && c.body.to[0]==='owner14@x.t' && c.headers.Authorization==='Bearer re_test_secret' && /resend\.dev|HAULS/.test(c.body.from) && /₹450/.test(c.body.subject));
+  T('0014: the product title is escaped (no markup injection)', !/<b>Airdopes/.test(c.body.html) && /&lt;b&gt;Airdopes&lt;\/b&gt; &amp; more/.test(c.body.html));
+  T('0014: a store link is included only for allowed shops', /href="https:\/\/www\.amazon\.in\/dp\/B0ALERT001"/.test(c.body.html));
+  T('0014: one mail per product per 24 h', await send(U)==='rate-limited');
+  await send(U,'amazon.in:B0ALERT002',450,500,'Other','https://evil.example/x'); const c2=(await db.query(`select body from net.calls order by id desc limit 1`)).rows[0]; T('0014: a link to any other host is dropped from the mail', !/evil\.example/.test(c2.body.html) && !/href=/.test(c2.body.html));
+  T('0014: a price above the alert price, zero prices and over-long keys are refused', await send(U,'amazon.in:B0ALERT003',900,500)==='invalid' && await send(U,'amazon.in:B0ALERT003',0,500)==='invalid' && await send(U,'k'.repeat(201))==='invalid');
+  for(let i=4;i<=11;i++) await send(U,'amazon.in:B0ALERT0'+String(i).padStart(2,'0'));
+  T('0014: at most 10 mails a day per person', await send(U,'amazon.in:B0ALERT099')==='rate-limited' && (await db.query(`select count(*)::int c from ext_alert_log where user_id='${U}'`)).rows[0].c===10);
+  T('0014: another person is unaffected by my limits and gets mail only at their own address', await send(V)==='queued' && (await db.query(`select body->'to'->>0 t from net.calls order by id desc limit 1`)).rows[0].t==='other14@x.t');
+  T('0014: signed-out callers cannot send', await (async()=>{await db.exec(`set role anon; select set_config('request.jwt.claims','{"role":"anon"}',false)`); try{return await fails(db.query(`select ext_send_price_alert('k',null,1,2,null)`))} finally{await db.exec('reset role')}})());
+  T('0014: the log table is closed to everyone but the function', await as(U,()=>fails(db.query(`select * from ext_alert_log`))) && await as(U,()=>fails(db.query(`insert into ext_alert_log(user_id,product_key) values('${U}','x')`))));
+  await as(U,()=>db.query(`update ext_profiles set email_alerts=false where id='${U}'`)); await db.exec(`delete from ext_alert_log where user_id='${U}'`); T('0014: turning it off stops the mail', await send(U,'amazon.in:B0ALERT500')==='off');
 }
 process.exit(ok?0:1);

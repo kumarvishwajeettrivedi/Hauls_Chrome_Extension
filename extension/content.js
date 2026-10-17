@@ -249,6 +249,7 @@
     if (p.mrp && p.mrp > p.price) bits.push(`${Math.round((1 - p.price / p.mrp) * 100)}% off`);
     if (per) bits.push(`₹${per}/${pk.unit === "pc" ? "pc" : "100" + pk.unit}`);
     const offerP = readOfferPrice(p.price); if (offerP) bits.push(`${fmt(offerP)} with offers`); // the page's own "Buy for ₹X" line (coupons, bank offers, cashback)
+    { const hd = honestDiscount(H, p.price, p.mrp); if (hd && (hd.inflated || (hd.claimed >= 10 && hd.real > 0))) bits.push(hd.inflated ? (hd.real > 0 ? `really ${hd.real}% below its usual ${fmt(hd.typical)}` : `usually ${fmt(hd.typical)}, not a real discount`) : `${hd.real}% below its usual price`); }
     if (bits.length) { const sub = el("div", "sub2 num", bits.join(" · ")); if (p.mrp && p.mrp > p.price) { sub.append(el("span", "mrp", fmt(p.mrp))); } main.append(sub); }
     // low / avg / high + history chart, both following the selected range
     const c3 = el("div", "chips3"), cb = el("div", "chartbox"), seg = el("div", "seg"), now = Date.now();
@@ -452,14 +453,8 @@
     const a = await chrome.runtime.sendMessage({ type: "account", gesture: gesture() }), nodes = [];
     const refresh = () => openAccount();
     if (!a.configured) { nodes.push(note("Sign-in isn't set up in this build", "Add the Supabase anon key and rebuild the config. Everything else works offline, and your data stays in this browser.")); return openSheet("Account", nodes); }
-    if (a.signedIn && a.pendingSwitch) {
-      nodes.push(el("p", "", "This browser still has a watchlist from a different HAULS account. Clear it so your account starts clean, or merge it into this one."));
-      const go = (choice, label, cls) => { const b = el("button", cls, label); b.onclick = async () => { b.textContent = "Working…"; await send({ type: "resolve-switch", choice, gesture: gesture() }); closeSheet(); draw(); }; return b; };
-      nodes.push(go("clear", "Clear and continue", "btn full"), go("merge", "Keep it and merge into this account", "btn ghost"), go("cancel", "Cancel and sign out", "link-btn"));
-      return openSheet("Different account detected", nodes);
-    }
     if (!a.signedIn) {
-      if (a.notice) { const n = el("div", "quiet warn"); n.append(el("b", "", a.notice === "inactive" ? "You were signed out after 90 days without using HAULS" : "Your session ended"), a.notice === "inactive" ? "Sign in again to sync. Your watchlist on this device is safe." : "It expired or was revoked. Sign in again to keep syncing. Your watchlist on this device is safe."); nodes.push(n); }
+      if (a.notice) { const n = el("div", "quiet warn"); n.append(el("b", "", a.notice === "inactive" ? "You were signed out after 90 days without using HAULS" : "Your session ended"), a.notice === "inactive" ? "Sign in again to see your watchlist and sync. It is saved for you." : "It expired or was revoked. Sign in again to keep syncing. Your watchlist is saved for you."); nodes.push(n); }
       [["sync", "Sync your watchlist across devices"], ["chart", "Community price history from day one"], ["bell", "Price-drop emails (coming soon)"]].forEach(([i, t]) => { const r = el("div", "row2"); r.append(ico(i), el("span", "", t)); r.style.fontWeight = "700"; nodes.push(r); });
       const btn = el("button", "btn full"), msg = el("p", "meta"); btn.append("Continue with Google"); btn.onclick = async () => { btn.textContent = "Opening Google…"; const r = await chrome.runtime.sendMessage({ type: "signin", gesture: gesture() }); if (r && r.ok) { refresh(); draw(); } else { btn.replaceChildren("Continue with Google"); msg.textContent = r && r.error ? r.error : "Sign-in failed."; } };
       nodes.push(btn, msg); { const cc = el("button", "link-btn", "Clear cache"); cc.onclick = async () => { await send({ type: "invalidate", reason: "user-clear-cache", gesture: gesture() }); cc.textContent = "Cache cleared"; }; nodes.push(cc); }
@@ -473,6 +468,8 @@
     const fg = el("button", "btn ghost", "Also remove prices I shared earlier"); fg.hidden = cb.checked;
     fg.onclick = async () => { const r = await send({ type: "forget-shared", gesture: gesture() }); fg.textContent = r && r.ok ? `Removed ${r.removed || 0} shared price${r.removed === 1 ? "" : "s"}` : "Couldn't remove them"; };
     cb.onchange = () => { chrome.runtime.sendMessage({ type: "contribute", on: cb.checked, gesture: gesture() }); fg.hidden = cb.checked; }; nodes.push(sw, fg);
+    const em = el("label", "row2"), ec = el("input"); ec.type = "checkbox"; ec.checked = !!(a.profile && a.profile.email_alerts === true); em.append(ec, el("span", "", `Email me when a price hits my target (${a.user.email})`)); em.style.cursor = "pointer"; em.style.fontWeight = "700";
+    ec.onchange = () => chrome.runtime.sendMessage({ type: "profile-update", email_alerts: ec.checked, gesture: gesture() }); nodes.push(em);
     const st = el("p", "meta", a.lastSync ? `Last synced ${new Date(a.lastSync).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })} · ${a.queued} waiting` : `Not synced yet · ${a.queued} waiting`), sy = el("button", "btn ghost"); sy.append(ico("sync"), "Sync now");
     sy.onclick = async () => { sy.textContent = "Syncing…"; const r = await chrome.runtime.sendMessage({ type: "sync" }); st.textContent = r.ok ? "Synced just now." : "Couldn't sync: " + ((r.flush && r.flush.reason) || (r.pull && r.pull.reason) || "try again"); sy.replaceChildren(ico("sync"), "Sync now"); draw(); };
     nodes.push(st, sy);

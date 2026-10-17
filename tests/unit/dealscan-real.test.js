@@ -16,4 +16,10 @@ for (const s of S) { const top = Math.max(...s.points.map(p => p[1])); const x =
 // backtest: as of each past date, did a 'Real Deal' call hold up (waiting 45 days would not have saved more than 5%)?
 let real = 0, held = 0; for (const s of S) { const P = s.points; for (let i = 5; i < P.length - 1; i++) { const t = P[i][0], price = P[i][1]; if (t - P[0][0] < 30 * DAY) continue; const r = A.dealScan(P.slice(0, i + 1), price, null, t, null); if (r.score == null || r.tone !== "real") continue; const fut = P.filter(p => p[0] > t && p[0] <= t + 45 * DAY).map(p => p[1]); if (!fut.length) continue; real++; if ((price - Math.min(...fut)) / price < 0.05) held++; } }
 ok(real >= 3 && held / real >= 0.8, `backtest on real history: ${held} of ${real} 'Real Deal' calls held up (waiting 45 days would not have saved >5%)`);
+// honest discount: "60% off" MRP vs what it really sold for
+{ const h = []; for (let d = 60; d >= 0; d--) h.push([now - d * DAY, 1000]);
+  const a = A.honestDiscount(h, 1000, 2500, now); ok(a && a.claimed === 60 && a.real === 0 && a.inflated && a.typical === 1000, "MRP 2500 but always 1000: claimed 60%, real 0%, flagged");
+  const b = A.honestDiscount(h, 800, 1000, now); ok(b && b.claimed === 20 && b.real === 20 && !b.inflated, "a genuine drop is not flagged");
+  ok(A.honestDiscount([[now - DAY, 1000]], 1000, 2500, now) === null, "too little history: no claim either way");
+  ok(A.honestDiscount(h, 1000, null, now).claimed === 0, "no MRP: nothing claimed"); }
 console.log(`dealscan-real: ${n} passed, 0 failed`);
