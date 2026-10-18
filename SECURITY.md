@@ -46,7 +46,7 @@ Out of scope:
 | | |
 |---|---|
 | Stays on your device | Browsing on shopping pages, the pages' contents, and your local price history, unless you opt in below. |
-| Stored in your account, only if you sign in with Google | Name, email and avatar from Google; watchlist and alert targets; settings and saved places (location rounded to about 1 km); optional phone number you type yourself. Visible only to you through row-level security. |
+| Stored in your account (the watchlist and alerts need a Google sign-in) | Name, email and avatar from Google; watchlist and alert targets; settings and saved places (location rounded to about 1 km); optional phone number you type yourself. Visible only to you through row-level security. |
 | Shared only if you turn on "contribute" (off by default) | Anonymous product price observations. They are kept apart from your name and email and shown only as combined history across several contributors. You can delete what you shared from Settings. |
 | Feedback form | Rating, optional reasons and message. A plain SHA-256 hash of the sender's network address (with a fixed, public prefix, so not a secret salt) is stored for rate limiting; the address itself is not. A hash of an IP address can be reversed by trying every address, so treat it as pseudonymous, not anonymous. Feedback older than a year is deleted by `ext_purge_old_data()` when the maintainer schedules it. |
 | Email alerts, only if you turn them on | The alert is sent to your account email through Resend. |

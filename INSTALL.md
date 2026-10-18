@@ -21,7 +21,7 @@ Open a product on Amazon.in, Flipkart or Myntra: a small HAULS tab appears on th
 
 **Notes**
 - The browser may show a "disable developer mode extensions" notice on startup: keep HAULS enabled.
-- Google sign-in is optional. It keeps your watchlist across devices and lets you turn on price alert emails, which our server sends only when a price reaches your alert price. Each account has its own watchlist on this computer; items you delete are blanked on our server immediately and purged within 24 hours of your account's next sync or sign-in, or by the server-side purge if the maintainer has scheduled it.
+- Google sign-in is needed for the watchlist and price alerts (the heart and Set alert ask you to sign in; the background refuses them otherwise). Price history, the verdict, compare and grocery work without it. Signing in keeps your watchlist across devices and lets you turn on price alert emails, which our server sends only when a price reaches your alert price. Each account has its own watchlist on this computer; items you delete are blanked on our server immediately and purged within 24 hours of your account's next sync or sign-in, or by the server-side purge if the maintainer has scheduled it.
 - Price checks and alerts work while the browser is open.
 - Phones are not supported yet.
 - Found a security problem? See [SECURITY.md](SECURITY.md).

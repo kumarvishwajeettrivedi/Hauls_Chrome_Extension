@@ -25,6 +25,8 @@ async function product(ctx, { id = PRODUCT_ID, price = 830, mrp = 1299, seller =
 const lum = c => { const m = c.match(/[\d.]+/g).map(Number), f = v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }; return .2126 * f(m[0]) + .7152 * f(m[1]) + .0722 * f(m[2]); };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
 const HIST = now => [[now - 70 * D, 1299], [now - 55 * D, 1199], [now - 40 * D, 799], [now - 25 * D, 899], [now - 12 * D, 849], [now - 36e5, 830]];
+// Hearts and price alerts need a Google sign-in (the background answers {error:"signin"} otherwise): tests of what happens AFTER saving start signed in with a fake session + fake Supabase.
+const signIn = async (ctx, sw, profile = {}) => { const api = await fakeSupabase(ctx); await seedSession(sw, SESSION); await seed(sw, { profile: { plan: "free", contribute: false, name: "Test User", ...profile } }); return api; };
 
 const tests = [];
 const test = (id, name, fn, o = {}) => tests.push({ id, name, fn, ...o });
@@ -63,6 +65,7 @@ test("2", "notch: drag moves, no open, persists, arrow keys", t => withExt({}, a
 
 // ---------------------------------------------------------------- 3 panel
 test("3", "panel: tabs, heart, trap price, Escape", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw);
   const { p, panel } = await product(ctx), k = key(PRODUCT_ID);
   await panel.open();
   t.check((await panel.count(".tabs button")) === 3, "3 tabs");
@@ -208,6 +211,7 @@ if (!NOLIVE) for (const c of CASES) test("7:" + c.id, "extraction (live): " + c.
 
 // ---------------------------------------------------------------- 8 quota
 test("8", "quota: 50/50 limited state; wishlist cap 20", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw);
   const now = Date.now(), keys = Array.from({ length: 49 }, (_, i) => `amazon.in:FILLER${String(i).padStart(5, "0")}`).concat(key("B0SEENPRD1"));
   await seed(sw, { usage: { month: monthKey(), keys }, items: seedItem("B0SEENPRD1", [[now - 20 * D, 900], [now - 36e5, 900]]) });
   let r = await product(ctx, { id: "B0SEENPRD1", price: 900 }); await r.panel.open();
@@ -290,6 +294,7 @@ const MSG0 = "Enter a price above ₹0", MSGHI = "Alert price must be below toda
 
 // ---------------------------------------------------------------- 12 trap editor
 test("12", "trap editor: step size, hold-to-repeat, typed persist, invalid rejected", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw);
   const id = "B0TRAPED01", k = key(id), { p, panel } = await product(ctx, { id, price: 766, mrp: null }); await panel.open();
   t.check(await panel.has(".trapbox .stp .stp-b") && (await panel.count(".trapbox .stp-b")) === 2 && await panel.has(".trapbox .stp-in input") && await panel.has(".trapbox .stp-msg"), "stepper markup: 2 .stp-b, .stp-in input, .stp-msg");
   t.check((await panel.val(".trapbox .stp-in input")) === "727", "new-trap default = floor(766*0.95) = 727: " + await panel.val(".trapbox .stp-in input"));
@@ -334,6 +339,7 @@ test("12", "trap editor: step size, hold-to-repeat, typed persist, invalid rejec
 
 // ---------------------------------------------------------------- 13 watchlist edit
 test("13", "watchlist: inline stepper edit persists, invalid rejected, 'Set a trap' = floor(price*0.95)", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw);
   const now = Date.now(), h = [[now - 5 * D, 1000], [now - 36e5, 1000]], A = key("B0WISHONL1"), B = key("B0TRAPPED1");
   await seed(sw, { items: { [A]: { site: "Amazon", title: "Wish Only Thing", url: "https://www.amazon.in/dp/B0WISHONL1", hist: h, wish: true }, [B]: { site: "Amazon", title: "Trapped Thing", url: "https://www.amazon.in/dp/B0TRAPPED1", hist: h, target: 800 } } });
   const { p, panel } = await product(ctx, { id: "B0WLPAGE01", price: 830 }); await panel.open(); await panel.tab(2);
@@ -532,6 +538,7 @@ test("36", "chart reader: health counters tick (read/stored/refused), Settings s
 }));
 
 test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy to Wait, saves the choice, and offers an alert price", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw);
   const now = Date.now(), id = "B0HORIZON1"; await seed(sw, { items: seedItem(id, [[now - 60 * D, 1050], [now - 40 * D, 1000], [now - 20 * D, 1050], [now - 36e5, 1050]]) });
   const { panel } = await product(ctx, { id, price: 1050, mrp: 0 }); await panel.open();
   const word = () => panel.text(".vcard .vw"), pick = async h => { await panel.click(`.hz [data-h="${h}"]`); await sleep(500); };
@@ -971,6 +978,7 @@ test("15", "notch: ₹1,23,456 / ₹1Cr+ pill contained, no overflow (desktop + 
 
 // ---------------------------------------------------------------- 16 remove trap
 test("16", "remove trap: Remove link clears target, keeps wish, UI returns to Set", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw);
   const id = "B0REMOVE01", k = key(id), now = Date.now();
   await seed(sw, { items: seedItem(id, [[now - 10 * D, 900], [now - 36e5, 830]], { target: 700, wish: true }) });
   const { p, panel } = await product(ctx, { id, price: 830, mrp: null }); await panel.open();
@@ -989,6 +997,7 @@ test("16", "remove trap: Remove link clears target, keeps wish, UI returns to Se
 
 // ---------------------------------------------------------------- 17 heart
 test("17", "heart: on/off persists across reload, aria-pressed, watchlist follows", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw);
   const id = "B0HEART001", k = key(id), { p, panel } = await product(ctx, { id, price: 830 }); await panel.open();
   const pr = () => panel.run(".heart", function () { return this.getAttribute("aria-pressed"); });
   t.check((await pr()) === "false", "starts aria-pressed=false");
@@ -1248,6 +1257,62 @@ test("g4", "export: the account sheet's Export button opens Settings at #export,
   await np.close();
   const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await poll(() => o.isVisible("#export"), 6000);
   const [dl2] = await Promise.all([o.waitForEvent("download", { timeout: 8000 }), o.click("#export")]); t.check(dl2.suggestedFilename() === "hauls-my-data.json", "Settings' own Export button downloads it");
+}));
+
+// ---------------------------------------------------------------- si: hearts and price alerts need a Google sign-in
+const PROMPT = /Sign in with Google to save this to your watchlist and get alerts\./;
+const sheetOf = panel => panel.ev(function () { const w = this.querySelector(".w"), s = this.querySelector(".sheet"); return { open: !!w && w.classList.contains("sheetopen"), text: s ? s.textContent : "", btns: s ? [...s.querySelectorAll("button")].map(b => b.textContent.trim()) : [] }; });
+const rawMsg = (o, m) => o.evaluate(x => chrome.runtime.sendMessage(x), m);
+test("si1", "signed out: the heart and Set show the sign-in prompt, store nothing; the background itself answers {error:'signin'}; the empty Watchlist shows the same prompt", t => withExt({}, async ({ ctx, sw, extId }) => {
+  const id = "B0SIGNOUT1", k = key(id), { panel } = await product(ctx, { id, price: 830 }); await panel.open();
+  await panel.click(".heart"); await panel.waitFor(".w.sheetopen", 4000); await sleep(400);
+  let sh = await sheetOf(panel);
+  t.check(sh.open && PROMPT.test(sh.text) && sh.btns.includes("Continue with Google") && sh.btns.includes("Not now"), "heart: prompt with Continue with Google + Not now: " + JSON.stringify(sh).slice(0, 200));
+  t.check(!(await panel.has(".heart.on")) && (await panel.run(".heart", function () { return this.getAttribute("aria-pressed"); })) === "false", "the heart is not pressed after a refused save");
+  let it = (await store(sw, "items")).items?.[k]; t.check(it && !it.wish, "nothing hearted in storage: " + JSON.stringify(it && it.wish));
+  await panel.click(".sheet .link-btn"); await sleep(500); t.check(!(await panel.has(".w.sheetopen")), "Not now closes the prompt");
+  await panel.type(".trapbox .stp-in input", "700"); await panel.click(".trapbox .btn"); await panel.waitFor(".w.sheetopen", 4000); await sleep(400);
+  sh = await sheetOf(panel); t.check(sh.open && PROMPT.test(sh.text), "Set price alert: the same prompt"); await panel.click(".sheet .link-btn"); await sleep(400);
+  it = (await store(sw, "items")).items?.[k]; t.check(it && it.target === undefined && !it.wish && !(it.armed), "no alert stored: " + JSON.stringify({ target: it && it.target, armed: it && it.armed }));
+  t.check(await panel.has(".trapbox .btn") && !(await panel.has(".trapbox .link-btn")), "the trap box still says Set (no Remove link)");
+  await panel.tab(2); t.check(await panel.has("main .vcard.wait") && PROMPT.test(await panel.text("main .vcard.wait")) && await panel.has("main .btn.full") && !(await panel.has("main .empty")), "empty Watchlist signed out: the prompt and Continue with Google instead of 'Nothing saved'");
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`);
+  t.check((await rawMsg(o, { type: "wish", key: k, on: true })).error === "signin" && (await rawMsg(o, { type: "track", key: k, target: 700 })).error === "signin", "raw wish / track messages are refused with {error:'signin'}");
+  it = (await store(sw, "items")).items?.[k]; t.check(it && !it.wish && it.target === undefined, "and nothing changed in storage");
+}));
+test("si2", "signed out: items saved before sign-in still show; removing, un-hearting and removing an alert still work; changing an alert asks for sign-in", t => withExt({}, async ({ ctx, sw, extId }) => {
+  const now = Date.now(), h = [[now - 5 * D, 1000], [now - 36e5, 1000]], A = key("B0LEGACY01"), B = key("B0LEGACY02");
+  await seed(sw, { items: { [A]: { site: "Amazon", title: "Old Heart", url: "https://www.amazon.in/dp/B0LEGACY01", hist: h, wish: true }, [B]: { site: "Amazon", title: "Old Alert", url: "https://www.amazon.in/dp/B0LEGACY02", hist: h, target: 800 } } });
+  const { panel } = await product(ctx, { id: "B0SIGNOUT2", price: 830 }); await panel.open(); await panel.tab(2);
+  t.check((await panel.count("main .wrow")) === 2 && !(await panel.has("main .vcard.wait")), "both old items are listed, no sign-in card");
+  await panel.type("main .wrow .stp-in input", "750"); await panel.press("main .wrow .stp-b", 1); await sleep(1500);
+  t.check((await store(sw, "items")).items[B].target === 800 && await panel.has(".w.sheetopen"), "changing an old alert signed out is refused (still 800) and the prompt opens");
+  await panel.click(".sheet .link-btn");
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`);
+  t.check((await rawMsg(o, { type: "untrack", key: B })) === true && (await store(sw, "items")).items[B].target === undefined, "removing an alert works signed out");
+  t.check((await rawMsg(o, { type: "wish", key: A, on: false })) === true && !(await store(sw, "items")).items[A].wish, "un-hearting works signed out");
+  t.check((await rawMsg(o, { type: "remove", key: A })) === true && !(await store(sw, "items")).items[A], "removing an item works signed out");
+}));
+const fakeGoogle = sw => sw.evaluate(s => { globalThis.signInWithGoogle = async () => { await sessionStore.set(s); }; }, SESSION); // no Google window in a test: the sign-in just stores a session
+test("si3", "signed out: heart -> Continue with Google -> the heart is saved by itself and shows pressed", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw }) => {
+  await fakeSupabase(ctx); await fakeGoogle(sw);
+  const id = "B0REPLAY01", k = key(id), { panel } = await product(ctx, { id, price: 830 }); await panel.open();
+  await panel.click(".heart"); await panel.waitFor(".w.sheetopen", 4000); await sleep(400);
+  t.check(!(await panel.has(".heart.on")) && !((await store(sw, "items")).items[k] || {}).wish, "before sign-in: nothing saved, heart not pressed");
+  await panel.press(".sheet .btn.full"); // a real press: sign-in needs user activation
+  const done = await poll(async () => (await store(sw, "items")).items?.[k]?.wish === true, 8000, 250);
+  t.check(!!done, "after sign-in the same heart was saved (wish=true)"); await sleep(600);
+  t.check(!(await panel.has(".w.sheetopen")) && await panel.has(".heart.on"), "prompt closed and the heart shows pressed");
+  t.check(!!(await sessionOf(sw)), "a session exists now");
+}));
+test("si4", "signed out: Set alert at 700 -> Continue with Google -> the alert is saved at 700", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw }) => {
+  await fakeSupabase(ctx); await fakeGoogle(sw);
+  const id = "B0REPLAY02", k = key(id), { panel } = await product(ctx, { id, price: 830 }); await panel.open();
+  await panel.type(".trapbox .stp-in input", "700"); await panel.click(".trapbox .btn"); await panel.waitFor(".w.sheetopen", 4000); await sleep(400);
+  t.check(((await store(sw, "items")).items[k] || {}).target === undefined, "before sign-in: no alert stored");
+  await panel.press(".sheet .btn.full");
+  t.check(!!(await poll(async () => (await store(sw, "items")).items?.[k]?.target === 700, 8000, 250)), "after sign-in the alert was saved at 700");
+  await sleep(600); t.check(await panel.has(".trapbox .link-btn") && !(await panel.has(".w.sheetopen")), "the trap box now shows Remove and the prompt is closed");
 }));
 
 // ---------------------------------------------------------------- runner

@@ -210,7 +210,16 @@
 
   const send = m => chrome.runtime.sendMessage(m);
   // One plain message per way a save can fail (wish/track reply true or {error}); null = saved.
-  const failMsg = r => r === true ? null : r && r.error === "limit" ? T.limit : r && r.error === "storage-full" ? "Your browser storage is full. Free some space and try again." : r && r.error === "gone" ? "This item was removed. Reload the page and try again." : "Couldn't save. Try again.";
+  const failMsg = r => r === true ? null : r && r.error === "signin" ? T.signinShort : r && r.error === "limit" ? T.limit : r && r.error === "storage-full" ? "Your browser storage is full. Free some space and try again." : r && r.error === "gone" ? "This item was removed. Reload the page and try again." : "Couldn't save. Try again.";
+  // Hearts and price alerts need a Google sign-in (the background refuses them signed out with {error:"signin"} and saves nothing). One button for every place that asks; done() runs after a good sign-in.
+  function googleBtn(done) {
+    const btn = el("button", "btn full"), msg = el("p", "meta"); msg.setAttribute("role", "status"); btn.append(T.google);
+    btn.onclick = async () => { if (btn.disabled) return; btn.disabled = true; msg.textContent = ""; btn.textContent = "Opening Google…"; const r = await chrome.runtime.sendMessage({ type: "signin", gesture: gesture() }).catch(() => null); if (r && r.ok) done(); else { btn.disabled = false; btn.replaceChildren(T.google); msg.textContent = /cancel/i.test((r && r.error) || "") ? "Sign-in was cancelled." : offline(r && r.error) ? "You're offline. Connect and try again." : "Couldn't sign in. Check your internet and try again."; } };
+    return [btn, msg];
+  }
+  const signinPrompt = again => { const [btn, msg] = googleBtn(async () => { await Promise.resolve(again && again()).catch(() => {}); closeSheet(); draw(); }), nn = el("button", "link-btn", T.notNow); nn.onclick = closeSheet; openSheet("Sign in to save", [el("p", "", T.signinSave), btn, msg, nn]); }; // again() = the same save the person just tried
+  // Send a wish/track; signed out => the prompt opens and, after sign-in, the same message is sent again. Returns the plain failure text or null.
+  const saveMsg = async m => { const r = await send(m).catch(() => null); if (r && r.error === "signin") signinPrompt(() => send(m)); return failMsg(r); };
   const offline = why => !navigator.onLine || /fetch|network|timeout|abort|offline/i.test(String(why || ""));
   // After an alert fires the row says so, even if the system notification was missed: the date comes from the history point at that price.
   const hitEl = it => { const at = [...(it.hist || [])].reverse().find(h => h[1] === it.notified); return el("p", "hit", `Reached your alert price${at ? " on " + dshort(at[0]) : ""}: ${fmt(it.notified)}`); };
@@ -237,7 +246,7 @@
   }
   // Trap box on the product tab: set once, then edit (autosave) or remove right here.
   function trapEditor(p, it) {
-    const tb = el("div", "trapbox"), save = async v => { const f = failMsg(await send({ type: "track", key: p.key, target: v }).catch(() => null)); if (f) return f; it.target = v; lbl.lastChild.textContent = ` Price alert at ${fmt(v)}`; return null; };
+    const tb = el("div", "trapbox"), save = async v => { const f = await saveMsg({ type: "track", key: p.key, target: v }); if (f) return f; it.target = v; lbl.lastChild.textContent = ` Price alert at ${fmt(v)}`; return null; };
     const lbl = el("p", "lbl"); lbl.append(ico("bell"), el("span")); lbl.lastChild.textContent = it.target ? ` Price alert at ${fmt(it.target)}` : " Set price alert";
     const start = it.target || Math.max(1, Math.floor(p.price * 0.95)), st = stepper({ value: start, price: p.price, autosave: !!it.target, onSave: save }), row = el("div", "stp-row"); row.append(st.el);
     if (it.target) { const rm = el("button", "link-btn", "Remove"); rm.onclick = async () => { await send({ type: "untrack", key: p.key }); delete it.target; draw(); }; row.append(rm); }
@@ -261,7 +270,7 @@
     countUp(price, p.price);
     const heart = el("button", "heart" + (it.wish ? " on" : "")); heart.append(ico("heart")); heart.setAttribute("aria-pressed", String(!!it.wish)); heart.setAttribute("aria-label", it.wish ? T.wished : T.wish); heart.title = it.wish ? T.wished : T.wish;
     const hmsg = el("p", "meta bad"); hmsg.setAttribute("role", "status");
-    heart.onclick = async () => { const on = !heart.classList.contains("on"), f = failMsg(await chrome.runtime.sendMessage({ type: "wish", key: p.key, on }).catch(() => null)); hmsg.textContent = f || ""; if (f) { heart.title = f; return; }
+    heart.onclick = async () => { const on = !heart.classList.contains("on"), f = await saveMsg({ type: "wish", key: p.key, on }); hmsg.textContent = f || ""; if (f) { heart.title = f; return; }
       it.wish = on; heart.classList.toggle("on", on); heart.setAttribute("aria-pressed", String(on)); heart.title = on ? T.wished : T.wish; if (on) burst(heart); };
     hero.append(sw, heart); main.append(hero, hmsg);
     const lc = lastChange(H);
@@ -300,7 +309,7 @@
           const nodes = [ul]; if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") nodes.push(note("Discount context", `Advertised ${Math.round(d.adv * 100)}% off the listed MRP. Against recent observed prices it's ${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"}.`));
           openSheet(w.title, nodes); };
         const row = el("div", "bn-row"), right = el("div", "bn-right"); if (sc.score != null) { const gw = el("div", "bn-g"), lg = el("div", "bn-lg"); lg.append(el("span", "bad", "Bad time"), el("span", "good", "Good time")); gw.append(gaugeEl(sc.score, "Deal score", 112), lg); row.append(gw); } right.append(el("p", "lbl", "Our recommendation"), vc); row.append(right);
-        const kids = [row]; if (w.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Set price alert at ${fmt(w.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const f = failMsg(await send({ type: "track", key: p.key, target: w.alertAt }).catch(() => null)); ab.textContent = f || `Alert set at ${fmt(w.alertAt)}`; if (f) ab.disabled = false; }; kids.push(ab); }
+        const kids = [row]; if (w.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Set price alert at ${fmt(w.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const f = await saveMsg({ type: "track", key: p.key, target: w.alertAt }); ab.textContent = f || `Alert set at ${fmt(w.alertAt)}`; if (f) ab.disabled = false; }; kids.push(ab); }
         body.replaceChildren(...kids); body.classList.remove("busy"); body.classList.add("fresh"); setTimeout(() => body.classList.remove("fresh"), 400);
       };
       let curH = horizon, tmr = 0;
@@ -482,7 +491,7 @@
       else if (await hasVault()) nodes.push(el("p", "meta strong", T.signedOutNote));
       [["sync", "Sync your watchlist across devices"], ["chart", "Community price history from day one"]].forEach(([i, t]) => { const r = el("div", "row2"); r.append(ico(i), el("span", "", t)); r.style.fontWeight = "700"; nodes.push(r); });
       { const r = el("label", "row2"), c = el("input"); c.type = "checkbox"; c.disabled = true; r.append(c, el("span", "", "Email me when a price reaches my alert price")); r.style.fontWeight = "700"; nodes.push(r, el("p", "meta", "Sign in to turn on alert emails.")); }
-      const btn = el("button", "btn full"), msg = el("p", "meta"); msg.setAttribute("role", "status"); btn.append("Continue with Google"); btn.onclick = async () => { if (btn.disabled) return; btn.disabled = true; msg.textContent = ""; btn.textContent = "Opening Google…"; const r = await chrome.runtime.sendMessage({ type: "signin", gesture: gesture() }).catch(() => null); if (r && r.ok) { refresh(); draw(); } else { btn.disabled = false; btn.replaceChildren("Continue with Google"); msg.textContent = /cancel/i.test((r && r.error) || "") ? "Sign-in was cancelled." : offline(r && r.error) ? "You're offline. Connect and try again." : "Couldn't sign in. Check your internet and try again."; } };
+      const [btn, msg] = googleBtn(() => { refresh(); draw(); });
       nodes.push(btn, msg);
       { const sg = el("button", "btn ghost"); sg.append(ico("gear"), "Independent stores & settings"); sg.onclick = () => send({ type: "open-options" }); nodes.push(sg); }
       nodes.push(el("p", "meta", "We store your name, email and watchlist. Prices are shared only if you turn sharing on, never with your name. You can delete your cloud data any time."));
@@ -620,8 +629,9 @@
   async function drawTraps() {
     const items = safeItems((await chrome.storage.local.get("items")).items), rows = Object.entries(items).filter(([k, i]) => (i.target || i.wish) && !(pendingRm && pendingRm.k === k)).sort((a, b) => !!b[1].target - !!a[1].target);
     const who = await send({ type: "whoami" }).catch(() => null);
-    if (who && !who.signedIn && await hasVault()) { const c = el("div", "vcard wait"), sb = el("button", "btn ghost", T.signIn); c.append(el("span", "vl", T.signedOutNote)); sb.onclick = openAccount; main.append(c, sb); }
-    if (!rows.length) return main.append(el("p", "empty", T.emptyTraps));
+    const out = who && !who.signedIn, vault = out && await hasVault();
+    if (vault) { const c = el("div", "vcard wait"), sb = el("button", "btn ghost", T.signIn); c.append(el("span", "vl", T.signedOutNote)); sb.onclick = openAccount; main.append(c, sb); }
+    if (!rows.length) { if (!out) return main.append(el("p", "empty", T.emptyTraps)); if (vault) return; const c = el("div", "vcard wait"); c.append(el("span", "vl", T.signinSave)); return main.append(c, ...googleBtn(draw)); } // signed out and nothing saved: ask for the sign-in instead of "Nothing saved"
     if (rows.length >= 3) {
       const { waitlist } = await chrome.storage.local.get("waitlist"), signed = !!(who && who.signedIn), w = el("div", "wl"), b = el("button", "btn", waitlist ? T.joined : signed ? T.join : T.joinSignIn), wm = el("p", "wlm"); wm.setAttribute("role", "status"); b.disabled = !!waitlist;
       w.append(el("b", "", "Android app coming"), "Compare across the apps on your phone. If you are signed in we use your account email only to tell you when it launches.");
@@ -641,8 +651,8 @@
         const t2 = setTimeout(async () => { await commitRm(); draw(); }, 5000); pendingRm = { k, bar, t: t2 }; ub.onclick = () => { clearTimeout(t2); pendingRm = null; bar.remove(); draw(); }; draw(); };
       top.append(img, t, x); d.append(top);
       const line = el("div", "trap-line"), lab = el("span", "tl", "Alert price");
-      if (it.target) { line.append(lab, stepper({ value: it.target, price: cp, onSave: async v => failMsg(await send({ type: "track", key: k, target: v }).catch(() => null)) }).el); }
-      else { const set = el("button", "btn ghost", "Set price alert"); set.onclick = async () => { if (!cp) return; const v = Math.max(1, Math.floor(cp * 0.95)), f = failMsg(await send({ type: "track", key: k, target: v }).catch(() => null)); if (f) { set.textContent = f; return; } draw(); }; line.append(lab, set); }
+      if (it.target) { line.append(lab, stepper({ value: it.target, price: cp, onSave: v => saveMsg({ type: "track", key: k, target: v }) }).el); }
+      else { const set = el("button", "btn ghost", "Set price alert"); set.onclick = async () => { if (!cp) return; const v = Math.max(1, Math.floor(cp * 0.95)), f = await saveMsg({ type: "track", key: k, target: v }); if (f) { set.textContent = f; return; } draw(); }; line.append(lab, set); }
       d.append(line); if (!it.target && it.wish) d.append(el("p", "meta al", "Alerts you at a 10% drop")); if (it.notified > 0) d.append(hitEl(it)); list.append(d);
     }
     main.append(list);

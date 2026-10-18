@@ -153,6 +153,14 @@ sandbox.__enq = []; vm.runInContext("getSession = async () => null; enqueue = o 
   const inCtx = o => vm.runInContext("(" + JSON.stringify(o) + ")", ctx), send = (m, page) => new Promise(r => onMsg(inCtx(m), inCtx(page ? { id: "x", url: "chrome-extension://x/options.html" } : { id: "x", tab: { id: 1 } }), r)), // objects must be built inside the context (the guard checks prototypes)
      HK = "amazon.in:B0HEARTAAA1", hv = { site: "Amazon", title: "Heart", url: "https://www.amazon.in/dp/B0HEARTAAA1" };
   mem.items = { [HK]: { ...hv, hist: [[Date.now() - D, 1000]] } }; sandbox.__enq.length = 0;
+  // sign-in gate (signed out here): the background refuses to CREATE hearts / alerts and changes nothing; looking, un-hearting, untrack and remove stay open for items saved before
+  { const r1 = await send({ type: "wish", key: HK, on: true }), r2 = await send({ type: "track", key: HK, target: 900 }), r3 = await send({ type: "wish", key: "amazon.in:B0NOPE0000", on: true });
+    ok(r1.error === "signin" && r2.error === "signin" && r3.error === "signin" && !mem.items[HK].wish && mem.items[HK].target === undefined && sandbox.__enq.length === 0, "signed out: heart and alert answer {error:'signin'}, nothing is stored or queued: " + JSON.stringify([r1, r2]));
+    mem.items[HK] = { ...hv, hist: [[Date.now() - D, 1000]], wish: true, wishPrice: 1000, target: 800 };
+    ok((await send({ type: "track", key: HK, target: 700 })).error === "signin" && mem.items[HK].target === 800, "signed out: an old alert cannot be changed either");
+    ok((await send({ type: "untrack", key: HK })) === true && mem.items[HK].target === undefined && (await send({ type: "wish", key: HK, on: false })) === true && !mem.items[HK].wish, "signed out: removing an alert and un-hearting an old item still work");
+    mem.items[HK].wish = true; ok((await send({ type: "remove", key: HK })) === true && !mem.items[HK], "signed out: remove still works");
+    mem.items = { [HK]: { ...hv, hist: [[Date.now() - D, 1000]] } }; sandbox.__enq.length = 0; vm.runInContext("getSession = async () => ({ user: { id: 'u' } });", ctx); }
   ok((await send({ type: "wish", key: "amazon.in:B0NOPE0000", on: true })).error === "gone" && (await send({ type: "track", key: "amazon.in:B0NOPE0000", target: 5 })).error === "gone", "heart / alert from a stale tab (item gone) answers {error:'gone'} instead of success");
   ok((await send({ type: "wish", key: HK, on: true })) === true && mem.items[HK].wish && mem.items[HK].wishPrice === 1000 && sandbox.__enq.some(o => o.t === "watch" && o.key === HK), "heart remembers the price it was hearted at and queues the sync op");
   notes.length = 0; await ctx.record({ key: HK, ...hv, price: 950, src: "dom" }); ok(notes.length === 0, "a heart without a target does not alert on a small dip");

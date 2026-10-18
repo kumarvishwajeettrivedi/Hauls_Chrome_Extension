@@ -96,11 +96,13 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       const it = await withLock(() => record(m.p)), comm = await Promise.race([fetchCommunity(m.p.key), new Promise(r => setTimeout(() => r([]), 2500))]), chart = await Promise.race([fetchChart(m.p.key), new Promise(r => setTimeout(() => r([]), 2500))]);
       reply({ it, usage: { used: q.used, limit: q.limit }, comm, chart });
     }
-    else if (m.type === "track") {
+    else if (m.type === "track") { // saving or changing a price alert needs a Google sign-in (alerts, email, sync, abuse limits): this is the check, the panel's prompt is only the courtesy. Remove / untrack / view never need it.
+      if (!(await getSession())) return reply({ error: "signin" });
       reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (!it) return { error: "gone" }; const plan = planOf((await chrome.storage.local.get("plan")).plan);
         if (!it.target && !it.wish && trackedCount(items) >= LIMITS[plan].tracked) return { error: "limit" };
         it.target = m.target; it.notified = null; it.armed = !(it.hist.length && it.hist[it.hist.length - 1][1] <= m.target); it.u = Date.now(); await put(items); quiet(enqueue(watchOp(m.key, it))); quiet(flush()); return true; })); }
-    else if (m.type === "wish") {
+    else if (m.type === "wish") { // same rule: hearting (on) needs a session; un-hearting an existing item stays open
+      if (m.on && !(await getSession())) return reply({ error: "signin" });
       reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (!it) return { error: "gone" }; const plan = planOf((await chrome.storage.local.get("plan")).plan);
         if (m.on && !it.wish && !it.target && trackedCount(items) >= LIMITS[plan].tracked) return { error: "limit" };
         if (m.on && !it.wish) { if (it.hist.length) it.wishPrice = it.hist[it.hist.length - 1][1]; else delete it.wishPrice; if (!(it.target > 0)) { it.notified = null; delete it.armed; } } else if (!m.on) delete it.wishPrice; // a heart alone alerts at a 10% drop from the price it was hearted at (analysis.js alertDecision)

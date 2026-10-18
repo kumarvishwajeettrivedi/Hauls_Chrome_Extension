@@ -23,7 +23,7 @@
 
 Open a product on Amazon.in, Flipkart or Myntra and HAULS adds a small tab to the right edge of the page. Click it to see how the price has moved, whether the "discount" is real, who else sells the item and for how much, and whether to buy now or wait. Click the toolbar icon to open or close the same panel.
 
-You do not need an account. Signing in with Google is optional and only adds sync across devices and email alerts.
+Price history, the buy-or-wait verdict, compare and grocery prices work without an account. The watchlist and price alerts need a Google sign-in (it is how alerts, alert emails, sync across devices and fair-use limits work); the panel asks you to sign in the moment you tap the heart or set an alert.
 
 | Price history and verdict | Grocery comparison | Watchlist |
 |---|---|---|
@@ -39,8 +39,8 @@ You do not need an account. Signing in with Google is optional and only adds syn
 - **Other sellers.** On Amazon and Flipkart, every seller's price for the same item with the lowest marked. On Myntra, the sellers listed on the page with a price per size.
 - **Same-product compare.** Compares Amazon, Flipkart and Reliance Digital and lists only results it can confirm are the same item (brand, model, version, storage and size are checked). The closest rejected result is shown with the reason.
 - **Grocery comparison.** Search once and compare quick-commerce stores at your pincode. A store shows a price only if it confirms delivery to that pincode.
-- **Price alerts.** Set the price you want and get a browser notification when it is reached. Optional email alerts after you sign in. Alerts and background checks run while the browser is open.
-- **Watchlist.** Each account has its own watchlist on a computer. Signing out and in again with the same account brings the items back.
+- **Price alerts.** Set the price you want and get a browser notification when it is reached (needs a Google sign-in). Optional email alerts once you are signed in. Alerts and background checks run while the browser is open.
+- **Watchlist.** Saving to it (the heart or a price alert) needs a Google sign-in; without one nothing is saved. Items already on this computer from before keep working and can still be removed. Each account has its own watchlist on a computer. Signing out and in again with the same account brings the items back.
 - **Amazon's own price graph.** When Amazon draws its "Price history" chart, HAULS reads the chart data, merges it with its own history and shows lowest/highest prices. An opt-in setting can read it automatically in the background.
 
 ## Supported stores
@@ -57,7 +57,7 @@ Runs in Chrome, Edge, Brave and other Chromium browsers on a computer. Phones ar
 ## Privacy
 
 - **Stays on your device.** Browsing history of prices, the Impulse Check memory and your settings are stored in your browser first.
-- **Syncs only if you sign in.** Watchlist, saved places and settings are backed up to your own account and visible only to you (row-level security in the database).
+- **Syncs when you sign in, which the watchlist needs.** Watchlist, saved places and settings are backed up to your own account and visible only to you (row-level security in the database).
 - **Shared only if you opt in.** Contributing anonymous prices and Amazon chart data is off by default. Shared data is kept apart from your name and email and shown only as combined history once at least 3 different contributors have reported the product. You can remove what you shared from Settings.
 - **Deletion.** Items you delete from your watchlist are blanked on the server immediately (only a key-only marker stays so your other devices learn about the deletion). The marker is purged within 24 hours of your account's next sync or sign-in, or by the server-side purge function (`ext_purge_old_data`, which covers these markers from migration 0018 and runs only if the maintainer schedules it). An account that never returns and has no scheduled purge keeps the marker. You can export or delete your cloud data from the account menu in the panel.
 - **No selling.** HAULS does not sell or rent data and has no ads or trackers.
