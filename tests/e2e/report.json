@@ -1,16 +1,70 @@
 {
-  "at": "2026-10-17T18:32:45.041Z",
+  "at": "2026-10-17T22:35:58.812Z",
   "summary": {
-    "pass": 1,
+    "pass": 7,
     "fail": 0,
     "skip": 0
   },
   "results": [
     {
-      "id": "37",
-      "name": "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in",
+      "id": "1",
+      "name": "smoke: loads, SW up, knob shows, no console errors",
       "status": "PASS",
-      "ms": 3647,
+      "ms": 4115,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "30",
+      "name": "settings: background price check card shows per-store health and runs on demand (admin message accepted from the extension page)",
+      "status": "PASS",
+      "ms": 1278,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "36",
+      "name": "chart reader: health counters tick (read/stored/refused), Settings shows them, and a remote disabled_features flag stops reading",
+      "status": "PASS",
+      "ms": 8587,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "56",
+      "name": "Amazon history opened by YOU on 1M: HAULS switches Amazon's own panel to 1Y once, so 30D / 90D / 1Y all have real data (and never loops)",
+      "status": "PASS",
+      "ms": 11996,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "49",
+      "name": "Settings: first install opens the guided tour; Amazon history is the first card with a clear On/Off switch; the Get started card ticks itself",
+      "status": "PASS",
+      "ms": 10674,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "52",
+      "name": "panel header: nothing overlaps the HAULS title (desktop and phone), and the cross exists only in the phone layout",
+      "status": "PASS",
+      "ms": 2802,
+      "failures": [],
+      "notes": [],
+      "attempts": 1
+    },
+    {
+      "id": "20",
+      "name": "options page: loads, enable button + state pill",
+      "status": "PASS",
+      "ms": 1001,
       "failures": [],
       "notes": [],
       "attempts": 1

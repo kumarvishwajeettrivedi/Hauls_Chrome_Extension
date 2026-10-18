@@ -27,6 +27,7 @@ Goal: a login that behaves like a professional app (stay signed in for weeks, se
 ## 3. Login & session lifecycle
 ```
 click "Continue with Google"  (user gesture)
+ → service worker, when GOOGLE_CLIENT_ID is set: Google id_token with a hashed nonce, sent to Supabase (signInDirect in auth.js); otherwise the PKCE path below:
  → service worker: PKCE verifier+challenge → launchWebAuthFlow(Supabase /authorize → Google → Supabase /callback)
  → redirect https://<extId>.chromiumapp.org/?code=…  → exchange code (PKCE) → session
  → store session in IndexedDB + { signedInAt, lastActiveAt } → ext_ensure_profile()
