@@ -17,7 +17,7 @@ const product = p => isObj(p) && Object.keys(p).every(k => PK.includes(k)) && ke
 const loc = l => isObj(l) && Object.keys(l).every(k => ["lat", "lon", "pin"].includes(k)) && num(l.lat, -91, 91) && num(l.lon, -181, 181) && (l.pin === undefined || pin(l.pin));
 // per type: allowed extra keys -> validator. Missing optional keys are only allowed where the validator tolerates undefined.
 const S = {
-  seen: { p: product }, track: { key, target: v => num(v, 0, 1e7) }, untrack: { key }, wish: { key, on: v => typeof v === "boolean" }, remove: { key },
+  seen: { p: product }, pass: {}, nudge: { key, act: v => v === "dismiss" || v === "asked" }, track: { key, target: v => num(v, 0, 1e7) }, untrack: { key }, wish: { key, on: v => typeof v === "boolean" }, remove: { key },
   "history-ref": { key, days: v => num(v, 6, 401), low: v => num(v, 0, 1e7), high: v => num(v, 0, 1e7) },
   "trk-run": {},
   urg: { key: v => key(v) && v.length <= 80, price: v => typeof v === "number" && v > 0 && v < 1e7, cues: v => Array.isArray(v) && v.length <= 8 && v.every(c => isObj(c) && ["stock", "timer", "deal", "bought", "viewers", "deadline"].includes(c.kind) && (c.n === undefined || c.n === null || (typeof c.n === "number" && c.n >= 0 && c.n < 1e7)) && (c.secs === undefined || (typeof c.secs === "number" && c.secs > 0 && c.secs < 14 * 86400)) && (c.gran === undefined || c.gran === "s" || c.gran === "m") && Object.keys(c).every(k => ["kind", "n", "secs", "gran", "text"].includes(k)) && (c.text === undefined || (typeof c.text === "string" && c.text.length <= 80))) },

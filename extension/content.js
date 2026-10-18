@@ -91,7 +91,7 @@
     svg.style.width = w + "px"; svg.style.height = Math.round(w * 0.58) + "px"; g.style.width = w + "px"; const gn = el("div", "gnum num", String(score)); if (caption) gn.append(el("small", "", caption)); g.append(svg, gn); return g;
   };
   // Small rating dot for rows: green/amber/red ring by seller rating (grey when unknown).
-  const ratingDot = (rating, ratings) => { const d = el("i", "rdot"); d.style.setProperty("--c", !rating ? "#B9B9C4" : rating >= 4 ? "#19B968" : rating >= 3 ? "#F5A524" : "#E5484D"); d.title = rating ? `Seller ${rating}★ (${ratings})` : "No seller rating"; return d; };
+  const ratingDot = (rating, ratings) => { const d = el("i", "rdot"); d.style.setProperty("--c", !rating ? "#B9B9C4" : rating >= 4 ? "#19B968" : rating >= 3 ? "#F5A524" : "#E5484D"); d.title = rating ? `Seller ${rating}★${ratings ? ` (${ratings})` : ""}` : "No seller rating"; return d; };
   // The shared (community) chart for this product: rows {day, price, reporters} -> points. Ignored when its last price is far from the price on this page (stale or wrong product).
   const sharedChart = (rows, price) => { const pts = (rows || []).map(r => [Date.parse(r.day + "T12:00:00Z"), r.price]).filter(x => x[0] > 0 && x[1] > 0).sort((a, b) => a[0] - b[0]); if (pts.length < 6) return { points: [], n: 0 }; // a thin series draws a misleading line
     const age = Math.floor((Date.now() - pts[pts.length - 1][0]) / 864e5); if (age > 14 || Math.abs(pts[pts.length - 1][1] - price) / price > 0.08) return { points: [], n: 0 }; return { points: pts, n: Math.max(...(rows || []).map(r => r.reporters || 1)), age: Math.max(0, age) }; };
@@ -164,7 +164,7 @@
   // Amazon reader state (drawn in the chart box): ahBusy = a read is running; ahState "reading" | "failed" | null; ahLast = what the observer last read/stored (the reader waits on it); ahAutoOn = Settings switch.
   let ahBusy = false, ahState = null, ahReadAt = 0, ahAutoOn = false, ahLast = { n: 0 };
   const TABS = ["product", "grocery", "traps"];
-  let sheetOpener = null;
+  let sheetOpener = null, focusVerdict = false; // focusVerdict: after "Pass this time" the redrawn verdict heading takes focus (the pressed button is gone)
   const closeSheet = () => { wrap.classList.remove("sheetopen"); sheet.setAttribute("aria-hidden", "true"); if (sheetOpener && sheetOpener.isConnected) sheetOpener.focus({ preventScroll: true }); sheetOpener = null; };
   const openSheet = (title, nodes) => { sheetOpener = sheetOpener || sh.activeElement; const h = el("h4", "", title); h.tabIndex = -1; const cx = el("button", "x"); cx.append(ico("x")); cx.setAttribute("aria-label", "Close"); cx.onclick = closeSheet; const head = el("div", "sheet-h"); head.append(h, cx); sheet.replaceChildren(head, ...nodes); sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true"); sheet.setAttribute("aria-label", title); sheet.removeAttribute("aria-hidden"); wrap.classList.add("sheetopen"); setTimeout(() => h.focus({ preventScroll: true }), 50); };
   scrim.onclick = closeSheet;
@@ -197,7 +197,7 @@
   const idleRedraw = () => { const a = sr.activeElement; if (canRedraw({ open: wrap.classList.contains("open"), tab, typing: !!a && /^(INPUT|TEXTAREA)$/.test(a.tagName) })) { redrawPending = false; draw(); } else redrawPending = true; };
   sr.addEventListener("focusout", () => { if (redrawPending) setTimeout(() => { const a = sr.activeElement; if (redrawPending && !(a && /^(INPUT|TEXTAREA)$/.test(a.tagName))) idleRedraw(); }, 150); });
   // Draws run one after another: two overlapping draws each appended their rows after an await, which doubled the watchlist.
-  let drawQ = Promise.resolve(); const draw = () => (drawQ = drawQ.then(drawNow, drawNow));
+  let drawQ = Promise.resolve(); const draw = () => (redrawPending = false, drawQ = drawQ.then(drawNow, drawNow)); // any draw satisfies a waiting redraw: a stale flag must not redraw the panel on the next focus change
   async function drawNow() {
     tabs.style.setProperty("--i", TABS.indexOf(tab));
     tabs.replaceChildren(el("i"), ...TABS.map(k => { const b = el("button", "", T.tabs[k]); if (k === "grocery") b.append(" ", el("span", "beta", "Beta")); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(k === tab)); b.tabIndex = k === tab ? 0 : -1; b.onclick = () => { if (tab !== k) { tab = k; draw(); } }; b.onkeydown = e => { const i = TABS.indexOf(k), n = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0; if (n) { e.preventDefault(); tab = TABS[(i + n + TABS.length) % TABS.length]; draw().then(() => { const t2 = tabs.querySelectorAll("button")[TABS.indexOf(tab)]; if (t2) t2.focus(); }); } }; return b; }));
@@ -260,7 +260,10 @@
     if (loading) { ["64px", "56px", "110px", "52px"].forEach(h => { const s = el("div", "sk"); s.style.setProperty("--h", h); main.append(s); }); return; }
     if (!cur && unreadable) { const n = el("div", "quiet"); n.append(el("b", "", "Couldn't read this page's price"), "HAULS found the product but not its price. The page layout may be new. Try reloading; if it keeps happening, the Grocery and Watchlist tabs still work."); const rb = el("button", "btn ghost", "Try again"); rb.onclick = () => { tries = 0; unreadable = false; loading = true; draw(); run(); }; return main.append(n, rb); }
     if (!cur) return main.append(el("p", "empty", T.emptyProduct));
-    if (cur.limited) { main.append(el("div", "vcard wait", ""), quotaRow()); const nx = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1); main.firstChild.append(el("span", "vl", `You've used all ${cur.limit} free lookups this month. They reset on ${dshort(nx)}. Saved items still update.`)); return; }
+    if (cur.limited) { // signed-in free user at the monthly limit (signed-out visitors are never limited): a calm card, two honest actions. Nothing here is a purchase.
+      const nx = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1), c = el("section", "limitcard"), a = el("div", "nudge-a"), pb = el("button", "btn", T.pass), msg = el("p", "nudge-m"); msg.setAttribute("role", "status"); c.setAttribute("role", "group"); c.setAttribute("aria-label", "Free lookups");
+      pb.onclick = async () => { pb.disabled = true; msg.textContent = ""; const r = await send({ type: "pass" }).catch(() => null); if (r !== true) { pb.disabled = false; msg.textContent = "Couldn't continue. Try again."; return; } tries = 0; unreadable = false; loading = true; focusVerdict = true; draw(); run(); };
+      a.append(pb); c.append(el("h3", "", T.limitTitle.replace("{n}", cur.limit)), el("p", "meta", T.limitSub.replace("{d}", dshort(nx))), a, el("p", "meta", T.passNote), msg); main.append(c, quotaRow()); return; }
     cur.it = withStoredFlags(cur.it, safeItems((await chrome.storage.local.get("items")).items), cur.p.key); ahAutoOn = (await chrome.storage.local.get("ahAuto")).ahAuto === true;
     const { p, it } = cur, ahp = ahPoints(it.ahist), cch = sharedChart(cur.chart, p.price), H = ahMerge(ahMerge(cur.comm && cur.comm.length ? mergeHistory(it.hist, cur.comm) : it.hist, ahp), cch.points), s = stats(H), horizon = (await chrome.storage.local.get("horizon")).horizon || "1w", bw = buyWait(H, p.price, p.mrp, Date.now(), it.ref, horizon), d = bw.deal;
     // hero: price sticker + lowest tag + heart
@@ -301,6 +304,21 @@
     const sc = dealScan(H, p.price, p.mrp, Date.now(), it.ref);
     // "Should you buy this now?": the horizon tabs refresh THIS card only (short skeleton, then the new verdict); nothing else in the panel redraws.
     { const bn = el("div", "buynow"), hz = el("div", "seg hz"), body = el("div", "bn-body"); hz.setAttribute("role", "group"); hz.setAttribute("aria-label", "How soon do you need it");
+      const nudge = (v, done) => {
+        const box = el("div", "nudge"), t = el("p", "nudge-t"), a = el("div", "nudge-a"), go = el("button", "btn", T.set), no = el("button", "btn ghost", T.notNow), msg = el("p", "nudge-m"), m = { type: "track", key: p.key, target: v };
+        box.setAttribute("aria-live", "polite"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Price alert suggestion");
+        const fin = foc => { const ch = el("button", "link-btn", T.nudgeChange), t2 = el("p", "nudge-t"); t2.append(ico("check"), `${T.nudgeDone} ${fmt(v)}`); box.className = "nudge ok"; box.removeAttribute("aria-label"); box.removeAttribute("role");
+          ch.onclick = () => { const i = sr.querySelector(".trapbox input"); if (i) { i.scrollIntoView({ block: "center" }); i.focus({ preventScroll: true }); } }; box.replaceChildren(t2, ch); if (foc) ch.focus({ preventScroll: true }); };
+        const back = () => { const b = hz.querySelector("[aria-pressed=true]"); if (b) b.focus({ preventScroll: true }); };
+        no.onclick = () => { cur.nudge = { ...cur.nudge, dismissed: true }; delete cur.nudgeFail; send({ type: "nudge", key: p.key, act: "dismiss" }).catch(() => {}); box.remove(); back(); };
+        go.onclick = async () => { go.disabled = true; msg.textContent = ""; delete cur.nudgeFail; it.target = v; cur.nudgeSet = { key: p.key, at: v }; // optimistic, so the storage echo does not redraw the whole panel under the reader
+          const r = await send(m).catch(() => null);
+          if (r === true) { fin(true); const tb = sr.querySelector(".trapbox"); if (tb) tb.replaceWith(trapEditor(p, it)); return; }
+          delete it.target; delete cur.nudgeSet;
+          if (r && r.error === "signin") { cur.nudge = { ...cur.nudge, asked: true }; send({ type: "nudge", key: p.key, act: "asked" }).catch(() => {}); sheetOpener = hz.querySelector("[aria-pressed=true]"); box.remove(); signinPrompt(async () => { const r2 = await send(m).catch(() => null); if (r2 === true) cur.nudgeSet = { key: p.key, at: v }; else cur.nudgeFail = { key: p.key, msg: failMsg(r2) }; }); return; } // one sign-in ask per product per session from here; the heart and the alert box can still ask
+          go.disabled = false; msg.textContent = failMsg(r); };
+        t.append(ico("bell"), `${T.nudgeTitle} ${fmt(v)}`); a.append(go, no); if (!done && cur.nudgeFail && cur.nudgeFail.key === p.key) msg.textContent = cur.nudgeFail.msg; box.append(t, el("p", "meta", T.nudgeSub), a, msg); if (done) fin(); return box;
+      };
       const paintBuy = h => {
         const w = buyWait(H, p.price, p.mrp, Date.now(), it.ref, h), vc = el("div", "vcard " + w.verdict), info = el("button", "info"), tipEl = el("span", "itip"); tipEl.setAttribute("role", "tooltip"); tipEl.textContent = (w.reasons || []).slice(0, 2).join(" ") || w.short;
         info.append(ico("info"), tipEl); info.setAttribute("aria-label", "Why this verdict");
@@ -309,14 +327,15 @@
           const nodes = [ul]; if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") nodes.push(note("Discount context", `Advertised ${Math.round(d.adv * 100)}% off the listed MRP. Against recent observed prices it's ${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"}.`));
           openSheet(w.title, nodes); };
         const row = el("div", "bn-row"), right = el("div", "bn-right"); if (sc.score != null) { const gw = el("div", "bn-g"), lg = el("div", "bn-lg"); lg.append(el("span", "bad", "Bad time"), el("span", "good", "Good time")); gw.append(gaugeEl(sc.score, "Deal score", 112), lg); row.append(gw); } right.append(el("p", "lbl", "Our recommendation"), vc); row.append(right);
-        const kids = [row]; if (w.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Set price alert at ${fmt(w.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const f = await saveMsg({ type: "track", key: p.key, target: w.alertAt }); ab.textContent = f || `Alert set at ${fmt(w.alertAt)}`; if (f) ab.disabled = false; }; kids.push(ab); }
+        const kids = [row], nz = cur.nudge || {}, ns = cur.nudgeSet; // below the verdict, never over it: a suggested alert with the price filled in. Signed out, the sign-in only opens on tap.
+        if (ns && ns.key === p.key && it.target === ns.at) kids.push(nudge(ns.at, true)); else if (w.alertAt && !it.target && !nz.dismissed && (!nz.asked || (cur.nudgeFail && cur.nudgeFail.key === p.key))) kids.push(nudge(w.alertAt)); // after a sign-in whose replayed save failed, the strip returns with the reason
         body.replaceChildren(...kids); body.classList.remove("busy"); body.classList.add("fresh"); setTimeout(() => body.classList.remove("fresh"), 400);
       };
       let curH = horizon, tmr = 0;
       HORIZONS.forEach(([k, l]) => { const b = el("button", "", l); b.setAttribute("aria-pressed", String(k === horizon)); b.dataset.h = k; b.onclick = () => { if (k === curH) return; curH = k; chrome.storage.local.set({ horizon: k }); [...hz.children].forEach(x => x.setAttribute("aria-pressed", String(x.dataset.h === k)));
         body.classList.add("busy"); body.replaceChildren(...[0, 1, 2].map(() => el("div", "skel"))); clearTimeout(tmr); tmr = setTimeout(() => paintBuy(k), 260); }; hz.append(b); });
-      bn.append(el("p", "lbl bn-h", "Should you buy this now?"), hz, el("p", "meta", "Select based on how soon you need the item."), body); paintBuy(horizon);
-      main.append(bn); }
+      const bh = el("p", "lbl bn-h", "Should you buy this now?"); bh.tabIndex = -1; bn.append(bh, hz, el("p", "meta", "Select based on how soon you need the item."), body); paintBuy(horizon);
+      main.append(bn); if (focusVerdict) { focusVerdict = false; bh.focus({ preventScroll: true }); } }
     // Impulse Check: urgency messages found in the product part of the page, with what the evidence says (observations only, never a verdict on the seller)
     { const cues = impCues(impCollect()); if (cues.length) {
         const mem = it.urg || null, v = impVerdict(cues, mem, H, Date.now(), cur.tickKey === p.key ? cur.tick : null), ic = el("button", "impulse " + v.level), top = el("div", "imp-top"), chips = el("div", "s-chips");
@@ -386,17 +405,19 @@
     // other sellers on this Amazon product (one click, one request)
     const asinM = dom === "amazon.in" && /^amazon\.in:([A-Z0-9]{10})$/.exec(p.key), pidM = dom === "flipkart.com" && /^flipkart\.com:([A-Z0-9]{16})$/.exec(p.key);
     if (asinM || pidM) {
-      const ob = el("div", "offers"), obtn = el("button", "btn ghost full", "See other sellers"), paintOff = r => {
-        ob.replaceChildren(); if (r.failed) return void ob.append(el("p", "meta", "Couldn't load other sellers right now."), obtn);
-        if (!r.offers.length) return void ob.append(el("p", "meta", "Only one seller for this product."));
+      const ob = el("div", "offers"), obtn = el("button", "btn ghost full", "See other sellers"), store = pidM ? "Flipkart" : "Amazon", paintOff = r => {
+        ob.replaceChildren(); if (!r || r.failed || !Array.isArray(r.offers)) { obtn.disabled = false; obtn.textContent = "Try again"; return void ob.append(el("p", "meta", r && r.reason === "blocked" ? `${store} asked for a check, so sellers didn't load. Try again in a minute.` : r && r.reason === "parse" ? `Couldn't read ${store}'s seller list for this item.` : "Couldn't load other sellers right now."), obtn); }
+        if (!r.offers.length) { ob.append(el("p", "meta", asinM ? "Amazon isn't listing other sellers for your delivery location. Open the page's own See all buying options." : "Flipkart didn't list any sellers for this item.")); if (asinM) { const a = el("a", "btn ghost full", "See all buying options"); a.href = new URL(p.url).origin + "/dp/" + asinM[1] + "?aod=1"; a.target = "_blank"; a.rel = "noopener"; ob.append(a); } return; }
+        if (r.offers.length === 1 && r.offers[0].here) return void ob.append(el("p", "meta", "Only one seller for this product."));
         const best = offBest(r.offers, p.price), here = (p.seller && p.seller.name || "").toLowerCase();
         if (best && best.saving > 0) ob.append(el("p", "off-save", `${fmt(best.saving)} less from ${best.lowest.seller}${best.lowest.rating && best.lowest.rating <= 2 ? ` (seller rated ${best.lowest.rating}★)` : ""}`));
         r.offers.slice(0, 8).forEach(o => { const row = el(o.sid ? "a" : "div", "off-r" + (best && o === best.lowest ? " low" : "") + (o.dormant ? " dim" : "")); if (o.sid) { row.href = new URL(p.url).origin + "/sp?seller=" + o.sid; row.target = "_blank"; row.rel = "noopener"; }
-          const mine = o.here || (here && o.seller.toLowerCase() === here); row.append(ratingDot(o.rating, o.ratings), el("span", "on", o.seller + (mine ? " (here)" : "")), el("b", "num", fmt(o.price)),
+          const mine = (o.here && (!pidM || o.price === p.price)) || (here && o.seller.toLowerCase() === here); row.append(ratingDot(o.rating, o.ratings), el("span", "on", o.seller + (mine ? " (here)" : "")), el("b", "num", fmt(o.price)),
             el("small", "", [o.cond !== "New" ? o.cond : "", o.ships ? "Ships from " + o.ships : "", o.delivery ? "Delivery " + o.delivery : "", o.rating ? `Seller ${o.rating}★${o.ratings ? ` (${o.ratings} rating${o.ratings === 1 ? "" : "s"})` : ""}` : ""].filter(Boolean).join(" · "))); ob.append(row); });
-        ob.append(el("p", "meta", `Read from ${pidM ? "Flipkart" : "Amazon"}'s own seller list for this item. Delivery, returns and seller quality can differ.`));
+        ob.append(el("p", "meta", `Read from ${store}'s own seller list for this item. Delivery, returns and seller quality can differ.${pidM ? (r.pin ? ` Delivery dates are for pincode ${r.pin}.` : " Shown for Flipkart's default location; set your pin in HAULS to match yours.") : ""}`));
       };
-      obtn.onclick = async () => { obtn.disabled = true; obtn.textContent = "Loading sellers…"; offDone[p.key] = await send(pidM ? { type: "offers-fk", pid: pidM[1] } : { type: "offers", asin: asinM[1] }).catch(() => ({ failed: true, offers: [] })); if (cur && cur.p && cur.p.key === p.key) { paintOff(offDone[p.key]); if (sellerFill) sellerFill(); } };
+      obtn.onclick = async () => { obtn.disabled = true; obtn.textContent = "Loading sellers…"; const m = pidM ? { type: "offers-fk", pid: pidM[1] } : { type: "offers", asin: asinM[1] }, got = await Promise.race([Promise.resolve().then(() => send(m)), new Promise(ok => setTimeout(ok, 12000))]).catch(() => null), r = got && Array.isArray(got.offers) ? got : { failed: true, offers: [], reason: "lost" }; // a lost or late reply is a failure, never a stuck button
+        if (!r.failed && r.offers.length) offDone[p.key] = r; if (cur && cur.p && cur.p.key === p.key) { paintOff(r); if (sellerFill) sellerFill(); } };
       if (offDone[p.key]) paintOff(offDone[p.key]); else ob.append(obtn); main.append(ob);
     }
     // Myntra: the sellers are inside the page itself, so this needs no request
@@ -409,7 +430,7 @@
       }
     }
     // stores
-    const { links } = smartLinks(p.title, S ? S.name : ""), SHOW = 5, sec = el("div"), st = el("div", "stores");
+    const { links } = smartLinks(p.title, S ? S.name : "", p.brand), SHOW = 5, sec = el("div"), st = el("div", "stores");
     sec.append(el("p", "lbl", "Compare"));
     // best price across stores: runs only when asked, one search page per store
     const cbox = el("div", "cmp"), cbtn = el("button", "btn ghost full", "Find the best price across stores");
@@ -532,7 +553,8 @@
   refreshWho(); whoHook = refreshWho;
 
   function quotaRow() {
-    const u = cur && cur.usage || { used: 0, limit: 50 }, q = el("div", "quota"), b = el("div", "bar"), i = el("i");
+    if (!(cur && cur.usage)) return document.createDocumentFragment(); // signed out: no limit, so no counter
+    const u = cur.usage, q = el("div", "quota"), b = el("div", "bar"), i = el("i");
     i.style.width = Math.min(100, (u.used / (u.limit || 1)) * 100) + "%"; b.append(i); q.append(el("span", "num", `${u.used}/${u.limit === Infinity ? "∞" : u.limit} lookups`), b); return q;
   }
 
@@ -677,7 +699,7 @@
     if (!p) { cur = null; setBadge(); if (tries++ < 5) return void setTimeout(run, 1500); loading = false; unreadable = !!(S ? S.id(new URL(location.href)) : SHOP); idleRedraw(); return; }
     const r = await chrome.runtime.sendMessage({ type: "seen", p });
     if (!r || r.error) { cur = null; loading = false; setBadge(); idleRedraw(); return; }
-    cur = r.limited ? { limited: true, limit: r.limit, usage: { used: r.used, limit: r.limit } } : { p, it: r.it, usage: r.usage, comm: r.comm || [], chart: r.chart || [] };
+    cur = r.limited ? { limited: true, limit: r.limit, usage: { used: r.used, limit: r.limit } } : { p, it: r.it, usage: r.usage, comm: r.comm || [], chart: r.chart || [], nudge: r.nudge || {} };
     loading = false; setBadge(); idleRedraw(); ahAutoRead().catch(() => {});
   }
   run();

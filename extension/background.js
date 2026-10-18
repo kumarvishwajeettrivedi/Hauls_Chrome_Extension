@@ -85,17 +85,27 @@ async function afterSignIn() {
   await flush(); await pull(); return account();
 }
 
+const NUDGE_ALL = "\u0000"; // session-wide "Not now" flag inside the same record; no product key can contain a control character (okKey)
+const nudges = async () => { try { return (await chrome.storage.session.get("nudge")).nudge || {}; } catch { return {}; } }; // per browser session (chrome.storage.session): which products had the alert suggestion dismissed / a sign-in asked
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
   const g = validateMessage(m, sender, chrome.runtime.id); if (!g.ok) { reply({ error: "rejected", why: g.reason }); return; }
   if (m.type === "t2-capture") { T2.onCapture(sender, m); reply(true); return; } // page data, not a user action: never counts as activity
   touchActive().catch(() => {}); // a real user action keeps the 90-day inactivity window alive (background alarms never do)
   (async () => { try { await ready;
     if (m.type === "seen") {
-      const q = await withLock(async () => { const { usage, plan } = await chrome.storage.local.get(["usage", "plan"]), q = useLookup(safeUsage(usage), m.p.key, planOf(plan)); if (q.allowed) await chrome.storage.local.set({ usage: q.usage }); return q; });
+      // Signed-out visitors have no lookup limit and nothing is counted. Signed-in free users get 50 a month; over it, "Pass this time" (message "pass") lets them keep browsing for the rest of the local day.
+      const sess = await getSession().catch(() => null), uid = sess && sess.user && sess.user.id;
+      const q = !sess ? { allowed: true } : await withLock(async () => { const { usage, plan, lookupPass } = await chrome.storage.local.get(["usage", "plan", "lookupPass"]), u0 = safeUsage(usage), items = await get(), sv = Object.hasOwn(items, m.p.key) && !!(items[m.p.key].wish || items[m.p.key].target), q = useLookup(u0, m.p.key, planOf(plan));
+        if (sv) { q.allowed = true; q.used = u0 && u0.month === q.usage.month ? u0.keys.length : 0; } // a saved item (heart / alert) is never locked behind the limit and is not counted as a new lookup
+        else if (q.allowed) await chrome.storage.local.set({ usage: q.usage }); else if (passOk(lookupPass, uid)) q.allowed = true; return q; });
       if (!q.allowed) return reply({ limited: true, used: q.used, limit: q.limit });
       const it = await withLock(() => record(m.p)), comm = await Promise.race([fetchCommunity(m.p.key), new Promise(r => setTimeout(() => r([]), 2500))]), chart = await Promise.race([fetchChart(m.p.key), new Promise(r => setTimeout(() => r([]), 2500))]);
-      reply({ it, usage: { used: q.used, limit: q.limit }, comm, chart });
+      const na = await nudges(), n = na[m.p.key] || {}; // the verdict nudge: any "Not now" hides it on every product for the rest of the browser session (NUDGE_ALL); the sign-in ask is per product
+      reply({ it, usage: sess ? { used: q.used, limit: q.limit } : null, comm, chart, nudge: { dismissed: !!(n.d || na[NUDGE_ALL]), asked: !!n.a } });
     }
+    else if (m.type === "pass") { const s = await getSession().catch(() => null); if (!s || !s.user) return reply({ error: "signin" }); await chrome.storage.local.set({ lookupPass: { uid: s.user.id, day: dayKey() } }); reply(true); }
+    else if (m.type === "nudge") { reply(await withLock(async () => { const all = await nudges(); all[m.key] = { ...all[m.key], [m.act === "dismiss" ? "d" : "a"]: 1 }; if (m.act === "dismiss") all[NUDGE_ALL] = 1;
+      const old = Object.keys(all).find(k => k !== m.key && k !== NUDGE_ALL); if (Object.keys(all).length > 200 && old) delete all[old]; await chrome.storage.session.set({ nudge: all }); return true; })); }
     else if (m.type === "track") { // saving or changing a price alert needs a Google sign-in (alerts, email, sync, abuse limits): this is the check, the panel's prompt is only the courtesy. Remove / untrack / view never need it.
       if (!(await getSession())) return reply({ error: "signin" });
       reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (!it) return { error: "gone" }; const plan = planOf((await chrome.storage.local.get("plan")).plan);
@@ -125,8 +135,8 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "ahist-tried") { await withLock(async () => { const items = await get(), it = items[m.key]; if (it) { it.ahist = it.ahist || { ranges: {} }; it.ahist.tried = Date.now(); await put(items); } }); reply({ ok: true }); }
     else if (m.type === "seller") reply(await offSeller({ sid: m.sid }).catch(() => ({ failed: true })));
     else if (m.type === "urg") reply(await withLock(async () => { const items = await get(), it = items[m.key]; if (!it) return null; it.urg = impRecord(it.urg, m.cues, m.price, Date.now()); await put(items); return it.urg; }).catch(() => null));
-    else if (m.type === "offers-fk") reply(await offFindFlipkart({ pid: m.pid }).catch(() => ({ offers: [], failed: true })));
-    else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true })));
+    else if (m.type === "offers-fk") reply(await chrome.storage.local.get("pin").then(s => offFindFlipkart({ pid: m.pid, pin: s.pin })).catch(() => ({ offers: [], failed: true, reason: "network" })));
+    else if (m.type === "offers") reply(await offFind({ asin: m.asin }).catch(() => ({ offers: [], failed: true, reason: "network" })));
     else if (m.type === "compare") reply(await cmpFind({ title: m.title, brand: m.brand, mpn: m.mpn, site: m.site, price: m.price }).catch(e => ({ results: [], failed: [], error: e.message })));
     else if (m.type === "test-alert") { const level = await notifyLevel(), ok = await notifyUser("hauls-test", { type: "basic", iconUrl: "icons/icon-128.png", title: "HAULS alerts work", message: "This is a test. A real alert looks like this when a price reaches your alert.", priority: 2 }), { profile } = await chrome.storage.local.get("profile"); reply({ ok, level, email: !(await sessionStore.get()) ? "signed-out" : profile && profile.email_alerts === true ? "on" : "off" }); }
     else if (m.type === "abg-run") reply(await abgRun(Date.now(), { force: true }).catch(e => ({ ok: false, why: e.message })));
@@ -155,7 +165,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       await api(`/ext_profiles?id=eq.${s.user.id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body }); const { profile } = await chrome.storage.local.get("profile"); await chrome.storage.local.set({ profile: { ...(profile || {}), ...body } }); reply({ ok: true }); } catch (e) { reply({ ok: false, error: String(e.message).slice(0, 120) }); } }
     else if (m.type === "export-data") { try { reply({ ok: true, data: await api("/rpc/ext_export_my_data", { method: "POST", body: {} }), local: (await chrome.storage.local.get("items")).items || {} }); } catch (e) { reply({ ok: false, error: String(e.message).slice(0, 120) }); } }
     else if (m.type === "delete-data") { try { const sess = await sessionStore.get(), uid = sess && sess.user && sess.user.id; await api("/rpc/ext_delete_my_data", { method: "POST", body: {} });
-      await withLock(() => chrome.storage.local.remove(["items", "outbox", "usage", "lastPull"])); // the erased list must not be uploaded again on the way out, or restored from a vault at the next sign-in
+      await withLock(() => chrome.storage.local.remove(["items", "outbox", "usage", "lastPull", "lookupPass"])); // the erased list must not be uploaded again on the way out, or restored from a vault at the next sign-in
       await signOut(); await chrome.storage.local.remove(["profile", "outbox", ...(uid ? ["vault:" + uid] : [])]); reply({ ok: true }); } catch (e) { reply({ ok: false, error: String(e.message) }); } }
   } catch (e) { reply({ error: isQuota(e) ? "storage-full" : String(e && e.message || e).slice(0, 120) }); }
   })();

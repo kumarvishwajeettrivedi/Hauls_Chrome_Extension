@@ -17,7 +17,7 @@ const inactive = (s, now = Date.now()) => !!s && now - (s.lastActiveAt || s.sign
 const isInvalidGrant = e => [400, 401, 403].includes(e && e.status) && /invalid[_ ]grant|refresh[_ ]token[_ ]not[_ ]found|refresh[_ ]token[_ ]already[_ ]used|session[_ ]not[_ ]found|session[_ ]expired|invalid refresh|already used|not found|revoked/i.test(`${e.code || ""} ${e.message || ""}`);
 // One writer at a time for the stored session, so "I was active" can never overwrite a freshly rotated token (that would force a sign-out).
 const sessionLock = (() => { let c = Promise.resolve(); return fn => { const r = c.then(fn, fn); c = r.then(() => {}, () => {}); return r; }; })();
-const USER_SCOPED_KEYS = ["histCache", "lastPull", "profile", "plan", "outbox", "lastSync", "setStamps"];
+const USER_SCOPED_KEYS = ["histCache", "lastPull", "profile", "plan", "outbox", "lastSync", "setStamps", "lookupPass"];
 const PERSONAL_KEYS = ["places", "pin", "range", "loc", "lastPin"]; // personal settings: removed by "sign out and clear this device" (a shared computer must not keep someone's saved places)
 // The session lives in the extension's OWN IndexedDB (origin chrome-extension://...), which content scripts and web pages cannot read.
 // Where IndexedDB doesn't exist (unit tests) it falls back to chrome.storage.local.

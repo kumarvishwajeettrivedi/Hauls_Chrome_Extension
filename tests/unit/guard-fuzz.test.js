@@ -18,7 +18,7 @@ const pick = a => a[Math.floor(rnd() * a.length)], int = n => Math.floor(rnd() *
 // one valid example per message type: a new type without an example fails the coverage check below
 const P = { key: "amazon.in:B0TESTTEST1", site: "Amazon", url: "https://www.amazon.in/dp/B0TESTTEST1", title: "Thing", image: "https://m.media-amazon.com/i.jpg", price: 99, mrp: 120, src: "dom", seller: { name: "S", ships: "A", text: "t", href: "/sp" }, brand: "B", mpn: "M123" };
 const TPL = {
-  seen: { p: P }, track: { key: "k", target: 50 }, untrack: { key: "k" }, wish: { key: "k", on: true }, remove: { key: "k" }, "history-ref": { key: "k", days: 30, low: 10, high: 20 }, "trk-run": {},
+  seen: { p: P }, pass: {}, nudge: { key: "k", act: "dismiss" }, track: { key: "k", target: 50 }, untrack: { key: "k" }, wish: { key: "k", on: true }, remove: { key: "k" }, "history-ref": { key: "k", days: 30, low: 10, high: 20 }, "trk-run": {},
   urg: { key: "k", price: 99, cues: [{ kind: "stock", n: 3, secs: 60, gran: "m", text: "only 3 left" }] }, "offers-fk": { pid: "ABCDEFGHJK123456" }, "abg-run": {},
   ahist: { key: "k", range: "1M", days: 30, points: [[1.7e12, 100], [1.71e12, 99]], current: 99, offer: null, highest: { price: 120, on: "1 Jan" } }, "ahist-tried": { key: "k" }, "ahist-health": { event: "read", reason: "x" },
   seller: { sid: "A1B2C3D4E5" }, offers: { asin: "B0TESTTES1" }, compare: { title: "boAt Airdopes 141", brand: "boAt", mpn: "A1", site: "Amazon", price: 700 }, grocery: { q: "milk", loc: { lat: 12, lon: 77, pin: "560001" }, more: true },

@@ -9,7 +9,7 @@ const EXTRA_SITES = {
   "tatacliq.com": { name: "Tata CLiQ", id: u => m(u, /\/p-(mp\d+)\/?$/i), search: "https://www.tatacliq.com/search/?searchCategory=all&text=", color: "#B60D2B", ld: true, verified: "2026-10-17" },
   "nykaa.com": { name: "Nykaa", id: u => m(u, /\/p\/(\d+)\/?$/), search: "https://www.nykaa.com/search/result/?q=", color: "#FC2779", ld: true, verified: "2026-10-17" },
   // /p/261632/slug and /p/P260811/260813/slug
-  "vijaysales.com": { name: "Vijay Sales", id: u => m(u, /^\/p\/(P?\d+)\//), search: "https://www.vijaysales.com/search/", color: "#E31E24", ld: true, verified: "2026-10-17" },
+  "vijaysales.com": { name: "Vijay Sales", id: u => m(u, /^\/p\/(P?\d+)\//), search: "https://www.vijaysales.com/search-listing?q=", color: "#E31E24", ld: true, verified: "2026-10-17" },
   "snapdeal.com": { name: "Snapdeal", id: u => m(u, /^\/product\/[^/]+\/(\d+)\/?$/), search: "https://www.snapdeal.com/search?keyword=", color: "#E40046", ld: true, verified: "2026-10-17" },
 };
 if (typeof module !== "undefined") module.exports = { EXTRA_SITES };

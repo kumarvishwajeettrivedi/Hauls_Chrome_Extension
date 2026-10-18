@@ -5,6 +5,8 @@ const TT = {
     brand: "HAULS", sub: "Don't buy blind", open: "Open HAULS", close: "Close",
     tabs: { product: "This product", grocery: "Grocery", traps: "Watchlist" },
     low: "Lowest", avg: "Average", high: "Highest", why: "Why?", set: "Set alert", update: "Update", saved: "Saved", limit: "Your watchlist is full. Remove one to add another.",
+    nudgeTitle: "Alert me at", nudgeSub: "We'll tell you if the price reaches it.", nudgeDone: "Alert set at", nudgeChange: "Change",
+    limitTitle: "You've used your {n} free lookups this month", limitSub: "Free lookups reset on {d}. Saved items keep updating.", pass: "Pass this time", passNote: "Passing keeps HAULS working for the rest of today.",
     alertLabel: "Alert me below", elsewhere: "Compare elsewhere", howWeKnow: "How we know this", trust: "No ads. No sponsored ranking. No data sold.",
     search: "Search", pin: "Pincode", find: "Find the cheapest", locate: "Use my location", cheapest: "Cheapest", ownSite: "Search on their own site",
     emptyProduct: "Open a product page to see its price history here.", emptyTraps: "Nothing saved yet. Tap the heart on a product to add it here.", signinSave: "Sign in with Google to save this to your watchlist and get alerts.", signinShort: "Sign in to save this.", notNow: "Not now", google: "Continue with Google", signedOutNote: "Signed out. Your saved items and alerts come back when you sign in again with the same account.", signIn: "Sign in", wish: "Add to watchlist", wished: "On your watchlist", join: "Join the Android waitlist", joinSignIn: "Sign in to join the Android waitlist", joinFail: "Couldn't join. Try again.", joined: "You're on the list",
@@ -203,6 +205,12 @@ const TT = {
   .undo{position:absolute;left:18px;right:18px;bottom:18px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px 6px 16px;background:var(--ink);color:#fff;border-radius:99px;font-size:13px;font-weight:700;box-shadow:3px 3px 0 var(--mint)}.undo button{all:unset;cursor:pointer;font-weight:800;color:var(--mint);padding:8px 12px;border-radius:99px;text-decoration:underline}.undo button:focus-visible{outline:3px solid #fff}
   .row2 input:disabled+span{color:var(--ink-2)}
   .wl .wlm{margin:8px 0 0;font-size:12px;font-weight:700}.wlm:empty{display:none}
+  /* verdict nudge + lookup-limit card: calm, never blurs or hides the verdict */
+  .nudge{margin-top:12px;padding:10px 12px;border:2px solid var(--bd);border-radius:14px;background:var(--wash);display:grid;gap:8px;animation:up .25s var(--ease) both}
+  .nudge-t{margin:0;font-size:14px;font-weight:800}.nudge-t svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px}.nudge .meta{margin:0}
+  .nudge.ok{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 12px}
+  .nudge-a{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.nudge-a .btn{padding:0 16px}.nudge .btn{margin-top:0}.nudge .link-btn,.limitcard .link-btn{min-height:44px;padding:10px 12px;box-sizing:border-box;display:inline-flex;align-items:center}.nudge .stp-msg,.nudge-m{margin:0;font-size:12px;font-weight:700}.nudge-m:empty{display:none}
+  .limitcard{border:2px solid var(--bd);border-radius:16px;box-shadow:3px 3px 0 var(--sh);padding:14px;background:var(--wash);display:grid;gap:10px}.limitcard h3{margin:0;font-size:16px;font-weight:800;line-height:1.25}.limitcard p{margin:0}.limitcard .nudge-a{margin-top:2px}
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:1ms!important;animation-delay:0s!important;transition-duration:1ms!important}}
   .ggrid + .btn.sm,.gbox .btn.sm.later{margin-top:12px}
   /* grocery results: even spacing, wrapping text, search + button on one line on wide pages */

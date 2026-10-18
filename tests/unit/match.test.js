@@ -90,5 +90,58 @@ T("Philips Air Fryer NA120", "Philips", "Philips Air Fryer NA1200", null, "NA120
   assert.ok(g("Brand").ok && g("Brand").v === "Apple" && g("Model").v === "17E" && g("Version").v === "Standard" && g("Storage").v === "256GB" && g("Storage").ok === true, "rows agree: " + JSON.stringify(rows)); n++;
   assert.ok(g("Colour") && g("Colour").ok === false && g("Colour").info, "different colour is shown as info, not a mismatch"); n++;
   const r2 = M.mtChecks(f, { title: "Apple iPhone 17e", brand: "Apple" }, S); assert.equal(r2.find(r => r.k === "Storage").ok, null, "storage not stated by the listing"); n++; }
+// ---- compare audit (2026-10-18). Titles are real listings from that run; "[abbreviated]" / "[synthetic]" mark the ones that are not verbatim. ----
+{ const LG = "LG 108 cm (43 inches) 4K Ultra HD Smart LED TV 43UR7500PSC (Black)", FKLG = "LG UR7500 108 cm (43 inch) 4K Ultra HD LED Smart TV with ThinQ AI Alexa Built-in Dolby Atmos Active HDR 10 Pro Magic remote supported 5-Year Guaranteed Warranty with New OS Experience Free Wall mount service 43UR7500PSC [abbreviated]";
+  const f = M.mtFacts(LG, "LG", "43UR7500PSC"), g = c => M.mtCompare(f, { title: c, brand: "LG" });
+  assert.equal(g(FKLG).verdict, "exact", "model number after the 30th word still matches"); n++; assert.equal(g(FKLG).mpnHit, true); n++;
+  assert.equal(g("Remote Control Cover for LG 43UR7500PSC TV").verdict, null, "an accessory carrying the model number is still rejected"); n++;
+  assert.equal(g("Wall Mount Bracket Stand for LG 43UR7500PSC 43 inch TV [synthetic]").verdict, null, "so is a 'for LG ...' mount"); n++;
+  assert.equal(g("LG UR7500 108 cm (43 inch) 4K Smart TV 43UR7500PSC Renewed [synthetic]").verdict, null, "and a renewed one"); n++;
+  assert.equal(M.mtCompare(M.mtFacts("Apple iPhone 17e 256 GB White", "Apple", "MHRW4HN/A"), { title: "Apple iPhone 17e 512 GB (MHRW4HN/A) [synthetic]" }).verdict, null, "model number never overrides a storage conflict"); n++; }
+// litres: a model code ending in L is not a volume
+assert.ok(!/000ml/.test(M.mtNorm("Sony KD-55X75L")) && !/000ml/.test(M.mtNorm("Vivo Y200L")) && /1500ml/.test(M.mtNorm("Philips 1.5L Airfryer")) && /5000ml/.test(M.mtNorm("Prestige 5 Litre")) && /1000ml/.test(M.mtNorm("Amul 1 L")), "litre regex leaves model codes alone"); n++;
+T("Sony Bravia KD-55X75L 55 inch 4K TV [synthetic]", "Sony", "Sony Bravia 55 inch KD-55X75K 4K Google TV [synthetic]", null, "75L vs 75K");
+T("Sony Bravia KD-55X75L 55 inch 4K TV [synthetic]", "Sony", "Sony BRAVIA KD-55X75L 55 inch 4K Google TV [synthetic]", "exact", "75L vs 75L");
+// generation
+T("Apple AirPods Pro (2nd Generation) with MagSafe Case (USB-C)", "Apple", "Apple AirPods Pro (1st Generation) with MagSafe Charging Case", null, "1st vs 2nd generation");
+T("Apple AirPods Pro (2nd Generation) with MagSafe Case (USB-C)", "Apple", "Apple AirPods Pro 2nd Gen (USB-C) with MagSafe Case", "exact", "2nd generation = 2nd gen");
+T("Apple AirPods Pro (2nd Generation) with MagSafe Case (USB-C)", "Apple", "Apple AirPods Pro (USB-C) with MagSafe Case", "likely", "listing does not say the generation: likely");
+T("Airdopes 141, Up to 50 Hours Playtime, Quad Mics ENx Tech, BT v5.3, IPX4 TWS Earbuds (Matte Charcoal)", "boAt", "boAt Airdopes 141 Gen 2, 4 Mics ENx Tech,48H Battery,ASAP Charge,Low Latency,BT v5.4 Bluetooth", "likely", "a Gen 2 listing for a page without a gen is not confirmed");
+T("HP Laptop 15, 13th Gen Intel Core i5-1335U (16GB DDR4, 512GB SSD) 15.6-inch, FHD, Win 11", "HP", "HP 15 Intel Core i5 12th Gen 1235U (16 GB/512 GB SSD/Windows 11 Home) 15-fd0xxx [abbreviated]", null, "13th vs 12th gen");
+// storage: the listing may add the RAM figure, never change RAM or ROM
+T("Samsung Galaxy M35 5G 128GB", "Samsung", "Samsung Galaxy M35 5G (Thunder Grey, 128 GB) 8 GB RAM", "exact", "RAM only on the listing");
+T("OnePlus 12R 256GB Cool Blue", "OnePlus", "OnePlus 12R (Cool Blue, 256 GB) 16 GB RAM", "exact", "RAM only on the listing (OnePlus)");
+T("Samsung Galaxy M35 5G (Moonlight Blue, 8GB RAM, 128GB Storage)", "Samsung", "Samsung Galaxy M35 5G (Thunder Grey, 128 GB) 8 GB RAM", "exact", "same RAM and ROM");
+T("Samsung Galaxy M35 5G (Moonlight Blue, 8GB RAM, 128GB Storage)", "Samsung", "Samsung Galaxy M35 5G (Thunder Grey, 128 GB) 6 GB RAM", null, "6 GB RAM variant");
+T("Samsung Galaxy M35 5G (Moonlight Blue, 8GB RAM, 128GB Storage)", "Samsung", "Samsung Galaxy M35 5G (Thunder Grey, 256 GB) 8 GB RAM", null, "256 GB variant");
+T("Apple MacBook Air 13 inch M3 (8GB, 256GB SSD) [synthetic]", "Apple", "Apple MacBook Air 13 inch M3 (1 TB SSD, 8GB) [synthetic]", null, "TB vs GB");
+// compound words
+T("Philips Air Fryer HD9200/90, uses up to 90% less fat, 1400W, 4.1 Liter, Rapid Air Technology (Black), Large", "Philips", "Philips Essential Spectre 4.1L Airfryer with Healthy Frying with Rapid Air technology (HD9200)", "exact", "Air Fryer = Airfryer");
+T("Philips Air Fryer HD9200/90, 4.1 Liter", "Philips", "Philips Air Fryer HD9252/90 4.1 L", null, "other Philips fryer");
+T("Boult Power Bank 10000mAh [synthetic]", "Boult", "Boult Powerbank 10000mAh [synthetic]", "exact", "Power Bank = Powerbank");
+// "90% less fat" is marketing copy, not a model number
+T("PHILIPS HD9200/90 uses up to 90% less fat 1400W, with Rapid Air Technology Air Fryer 4.1 L", "PHILIPS", "Philips Essential Spectre 4.1L Airfryer with Healthy Frying with Rapid Air technology (HD9200), Black [abbreviated]", "exact", "90% is not a model");
+T("PHILIPS HD9200/90 uses up to 90% less fat 1400W, with Rapid Air Technology Air Fryer 4.1 L", "PHILIPS", "Air Fryer HD9200/90, uses up to 90% less fat, 1400W, 4.1 Liter, with Rapid Air Technology (Black), Large (Pack of 2)", null, "pack of 2");
+// no model number: order-insensitive containment, never better than Likely, a different line is rejected
+T("Prestige Svachh Deluxe Alpha Stainless Steel Pressure Cooker, 5 Litre, Silver", "Prestige", "Prestige Svachh Deluxe Alpha 5 L Outer Lid Induction Bottom Pressure Cooker Stainless Steel", "likely", "same line, listing re-worded");
+T("Prestige Svachh Deluxe Alpha Stainless Steel Pressure Cooker, 5 Litre, Silver", "Prestige", "Prestige Popular Steel Svachh 5 L Outer Lid Pressure Cooker [abbreviated]", null, "other Prestige line");
+T("Prestige Svachh Deluxe Alpha Stainless Steel Pressure Cooker, 5 Litre, Silver", "Prestige", "TTK Prestige Marvel GTM 04 Cooktop Hob", null, "cooktop");
+T("Prestige Svachh Deluxe Alpha Stainless Steel Pressure Cooker, 5 Litre, Silver", "Prestige", "Prestige Svachh Deluxe Alpha 3 L Outer Lid Pressure Cooker Stainless Steel [synthetic]", null, "3 L vs 5 L");
+T("Wakefit Eco TV Unit | Engineered Wood TV Stand for Living Room, Walnut Finish", "Wakefit", "Wakefit Fabric 3 Seater Sofa [abbreviated]", null, "sofa for a TV unit");
+// books: ISBN, else main title + author in any order; nothing from a summary / other language / other binding
+{ const AH = "Atomic Habits: The life-changing million copy bestseller by James Clear (Paperback)", f = M.mtFacts(AH, "James Clear", "9781847941831"), g = c => M.mtCompare(f, { title: c, brand: "" });
+  assert.equal(g("Atomic Habits: An Easy & Proven Way to Build Good Habits & Break Bad Ones (English, Paperback, Clear James)").verdict, "likely", "title + author, author reversed"); n++;
+  assert.equal(g("Atomic Habits (English, Paperback, Clear James) 9781847941831 [synthetic]").verdict, "exact", "ISBN in the listing"); n++;
+  assert.equal(g("Atomic Habits (Hindi, Paperback, Clear James)").verdict, null, "other language"); n++;
+  assert.equal(g("Atomic Habits (English, Hardcover, Clear James)").verdict, null, "other binding"); n++;
+  assert.equal(g("Summary of Atomic Habits by James Clear (English, Paperback) [synthetic]").verdict, null, "a summary is another book"); n++;
+  assert.equal(g("Atomic Habits (English, Paperback, Someone Else) [synthetic]").verdict, null, "other author"); n++;
+  assert.equal(g("Atomic Habits Journal (English, Paperback, Clear James) [synthetic]").verdict, null, "a journal is another book"); n++;
+  assert.equal(M.mtCompare(M.mtFacts("Philips Air Fryer HD9200/90", ""), { title: "Philips Air Fryer HD9200/90" }).verdict, null, "no brand and not a book: never matched"); n++; }
+{ const f = M.mtFacts("Atomic Habits: The life-changing million copy bestseller by James Clear (Paperback)", "James Clear", "9781847941831");
+  assert.equal(M.mtCompare(f, { title: "Atomic Habits (Assamese) Assamese, Paperback, Clear James", brand: "" }).verdict, null, "Assamese edition"); n++;
+  assert.equal(M.mtCompare(f, { title: "Atomic Habits  - Tiny Changes, Remarkable Results English, Paperback, Clear James", brand: "" }).verdict, "likely", "English paperback"); n++; }
+assert.equal(M.mtFacts("Atomic Habits (Paperback)", "").authors.length, 0, "a book without an author cannot be matched"); n++;
+assert.equal(M.mtCompare(M.mtFacts("Atomic Habits (Paperback)", ""), { title: "Atomic Habits (English, Paperback, Clear James)" }).verdict, null, "title alone is not enough"); n++;
 assert.equal(wrongExact, 0, `${wrongExact} gold pair(s) wrong`);
 console.log(`match: ${n} passed, 0 failed`);

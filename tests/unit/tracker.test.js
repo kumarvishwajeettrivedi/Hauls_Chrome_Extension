@@ -15,6 +15,12 @@ ok(A.alertDecision({ target: 500, armed: false }, 700).patch.armed === true, "ar
 ok(A.alertDecision({ target: 500 }, 450).fire, "old items without armed still alert");
 ok(!A.alertDecision({}, 450).fire && !A.alertDecision(null, 450).fire && !A.alertDecision({ target: 500 }, 0).fire, "no target / bad price: nothing");
 
+// ---- the alert price offered under the verdict (the nudge): on Wait/Fair at every horizon incl. the default 1 week, never on Buy, never at or above today's price
+{ const now = 2e12, h = [[now - 60 * D, 1000], [now - 40 * D, 1000], [now - 20 * D, 1000], [now, 1200]], f = [[now - 60 * D, 1050], [now - 40 * D, 1000], [now - 20 * D, 1050], [now, 1050]];
+  ok(A.buyWait(h, 1200, null, now, null, "1w").alertAt === 1030 && A.buyWait(h, 1200, null, now, null, "3d").alertAt === 1030 && A.buyWait(h, 1200, null, now, null, "1m").alertAt === 1030, "Wait: alertAt is 3% over the low at every horizon");
+  ok(A.buyWait(f, 1050, null, now, null, "1w").alertAt === 1030 && A.buyWait(f, 1050, null, now, null, "1m").alertAt === 1030 && A.buyWait(f, 1050, null, now, null, "3d").alertAt === null, "Fair gets one; the same price is a Buy for 2-3 days and then gets none");
+  ok(A.buyWait([[now - 60 * D, 1000], [now, 800]], 800, null, now, null, "1w").alertAt === null && A.buyWait([[now - 60 * D, 1000], [now, 1010]], 1010, null, now, null, "1w").alertAt === null, "a Buy, or a price not above low+3%: no alertAt"); }
+
 // ---- hysteresis, cooldown, default alert for a heart without a target
 { const run = (target, seq, t0 = 1e12) => { let it = { target, hist: [], armed: true }, fires = 0; seq.forEach((p, i) => { const d = A.alertDecision(it, p, t0 + i * 60e3); if (d.fire) fires++; Object.assign(it, d.patch); }); return fires; };
   ok(run(1000, [990, 1010, 990, 1010, 990, 980, 980]) === 1, "a price flickering around the target alerts once, not on every crossing");
@@ -212,5 +218,25 @@ sandbox.__enq = []; vm.runInContext("getSession = async () => null; enqueue = o 
   { vm.runInContext("api = async () => true; getSession = async () => null;", ctx); mem.session = { access_token: "a", expires_at: 9e15, user: { id: "u1" } }; mem.localOwner = "u1"; mem.items = { "amazon.in:B0ERASE001": { site: "Amazon", wish: true, hist: [[1, 5]] } }; mem.outbox = [{ t: "watch", id: "w", key: "amazon.in:B0ERASE001", wish: true, u: 1 }]; mem.usage = { month: "2026-10", keys: ["a"] }; mem["vault:u1"] = { at: Date.now(), data: { items: { z: { hist: [] } } } };
     const r = await send({ type: "delete-data" }, true); ok(r.ok === true && !mem.items && !mem.outbox && !mem["vault:u1"] && !mem.session, "erase: local list, queue and vault are gone: " + Object.keys(mem).join(","));
     await ctx.claimOwner("u1"); ok(!mem.items && !mem.outbox, "a later sign-in has nothing old to restore or upload"); for (const k of Object.keys(mem)) delete mem[k]; }
+  // ---- lookup limit: signed-out visitors are never limited or counted; signed-in free users are limited at 50 a month, "Pass this time" lifts it for the local day (per account), tomorrow it returns; the nudge flags live in chrome.storage.session
+  { for (const k of Object.keys(mem)) delete mem[k]; const ses = {}; chrome.storage.session = { async get(k) { return k in ses ? { [k]: JSON.parse(JSON.stringify(ses[k])) } : {}; }, async set(o) { Object.assign(ses, JSON.parse(JSON.stringify(o))); } };
+    const mon = vm.runInContext("monthKey()", ctx), full = { month: mon, keys: Array.from({ length: 50 }, (_, i) => "amazon.in:FILL" + i) }, NK = "amazon.in:B0NEWPROD1", seen = () => send({ type: "seen", p: { key: NK, site: "Amazon", url: "https://www.amazon.in/dp/B0NEWPROD1", title: "Thing", image: null, price: 700, mrp: null, src: "dom" } });
+    vm.runInContext("getSession = async () => null;", ctx); mem.usage = full; let r = await seen();
+    ok(!r.limited && !r.error && r.usage === null, "signed out at 50/50: never limited, no usage in the reply: " + JSON.stringify(r).slice(0, 80)); ok(mem.usage.keys.length === 50 && !mem.usage.keys.includes(NK), "signed out: nothing is counted");
+    vm.runInContext('getSession = async () => ({ user: { id: "u1" } });', ctx); r = await seen(); ok(r.limited === true && r.used === 50 && r.limit === 50, "signed in at 50/50: limited: " + JSON.stringify(r));
+    ok((await send({ type: "pass" })) === true && mem.lookupPass.uid === "u1" && mem.lookupPass.day === vm.runInContext("dayKey()", ctx), "pass is stored for this account and today");
+    r = await seen(); ok(!r.limited && r.it && r.usage.used === 50 && mem.usage.keys.length === 50, "after Pass this time the product shows and is still not counted: " + JSON.stringify(r).slice(0, 80));
+    vm.runInContext('getSession = async () => ({ user: { id: "u2" } });', ctx); ok((await seen()).limited === true, "another account does not inherit the pass");
+    vm.runInContext('getSession = async () => ({ user: { id: "u1" } });', ctx); mem.lookupPass = { uid: "u1", day: "2000-01-01" }; ok((await seen()).limited === true, "yesterday's pass is over: the card returns");
+    vm.runInContext("getSession = async () => null;", ctx); ok((await send({ type: "pass" })).error === "signin", "pass needs a session");
+    ok((await send({ type: "nudge", key: NK, act: "asked" })) === true && (await seen()).nudge.asked === true && (await seen()).nudge.dismissed === false, "asking for sign-in is remembered per product and does not dismiss");
+    ok((await send({ type: "nudge", key: NK, act: "dismiss" })) === true && (await seen()).nudge.dismissed === true && (await seen()).nudge.asked === true, "dismissing the alert nudge is remembered for the session");
+    { const o = await send({ type: "seen", p: { key: "amazon.in:B0OTHERPRD", site: "Amazon", url: "https://www.amazon.in/dp/B0OTHERPRD", title: "Other", image: null, price: 700, mrp: null, src: "dom" } }); ok(o.nudge.dismissed === true && o.nudge.asked === false, "one Not now hides the nudge on every product for the session; the sign-in ask stays per product"); }
+    for (let i = 0; i < 230; i++) await send({ type: "nudge", key: "amazon.in:EV" + i, act: "asked" }); ok(Object.keys(ses.nudge).length <= 201 && ses.nudge["amazon.in:EV229"].a === 1 && ses.nudge["\u0000"] === 1, "eviction is bounded and never drops the key just written or the session-wide flag");
+    // a product already saved (heart / alert) is never locked behind the limit and is not counted
+    vm.runInContext('getSession = async () => ({ user: { id: "u1" } });', ctx); mem.lookupPass = null; mem.usage = full; mem.items = { "amazon.in:B0SAVED0001": { site: "Amazon", title: "Saved", wish: true, hist: [[Date.now() - 36e5, 700]] } };
+    r = await send({ type: "seen", p: { key: "amazon.in:B0SAVED0001", site: "Amazon", url: "https://www.amazon.in/dp/B0SAVED0001", title: "Saved", image: null, price: 700, mrp: null, src: "dom" } }); ok(!r.limited && r.it && r.usage.used === 50 && mem.usage.keys.length === 50 && !mem.usage.keys.includes("amazon.in:B0SAVED0001"), "saved item at 50/50 opens and is not counted: " + JSON.stringify(r).slice(0, 80));
+    mem.items["amazon.in:B0SAVED0001"] = { site: "Amazon", title: "Saved", hist: [[Date.now() - 36e5, 700]] }; r = await send({ type: "seen", p: { key: "amazon.in:B0SAVED0001", site: "Amazon", url: "https://www.amazon.in/dp/B0SAVED0001", title: "Saved", image: null, price: 700, mrp: null, src: "dom" } }); ok(r.limited === true, "a merely viewed (unsaved) item is limited");
+    for (const k of Object.keys(mem)) delete mem[k]; }
   console.log(`tracker: ${n} passed, 0 failed`);
 })().catch(e => { console.error(e); process.exit(1); });

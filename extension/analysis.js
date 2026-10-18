@@ -36,8 +36,9 @@ function horizonVerdict(v, horizon) { return v === "okay" && horizon === "3d" ? 
 const cheaperShare = (hist, price, now) => { const p = hist.filter(h => h[0] >= now - 90 * DAY); if (p.length < 2) return null; let tot = 0, ch = 0; p.forEach((h, i) => { const d = (i + 1 < p.length ? p[i + 1][0] : now) - h[0]; tot += d; if (h[1] < price * 0.99) ch += d; }); return tot ? Math.round(ch / tot * 100) : null; };
 // The horizon changes the advice, not just the label: 2-3 days cannot wait for a sale, a month can. "1 week" is the base verdict.
 function buyWait(hist, price, mrp, now = Date.now(), ref = null, horizon = "1w") {
-  const r = buyWait0(hist, price, mrp, now, ref); if (horizon === "1w") return r;
-  const hz = HORIZONS.find(h => h[0] === horizon)[1], low = r.deal && r.deal.w ? r.deal.w.min : ref ? ref.low : null, near = !!low && price <= low * 1.02, alertTo = low ? Math.round(low * 1.03) : null;
+  const r = buyWait0(hist, price, mrp, now, ref), low = r.deal && r.deal.w ? r.deal.w.min : ref ? ref.low : null, alertTo = low ? Math.round(low * 1.03) : null; // alertAt: a price just above the low worth an alert, on every verdict except Buy (the nudge under the verdict card uses it)
+  if (horizon === "1w") return { ...r, alertAt: r.verdict !== "buy" && alertTo && alertTo < price ? alertTo : null };
+  const hz = HORIZONS.find(h => h[0] === horizon)[1], near = !!low && price <= low * 1.02;
   let v = r.verdict, short = r.short;
   if (horizon === "3d") { if (v === "okay") { v = "buy"; short = `Fair price. Fine if you need it in ${hz}.`; } else if (v === "wait") short = `Pricey, and a drop may not come in ${hz}. Buy only if you must.`; }
   else { if (v === "okay") { v = "wait"; short = `Fair, but you can wait ${hz} for a lower price.`; } else if (v === "buy") { if (near) short = `At its low. Waiting ${hz} is unlikely to beat it.`; else { v = "okay"; short = `Good price, but you have ${hz}. A lower one may come.`; } } else short = `High right now. ${hz} is long enough for a sale.`; }

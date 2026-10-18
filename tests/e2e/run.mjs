@@ -2,11 +2,13 @@
 // HAULS end-to-end regression suite.  Usage: node tests/e2e/run.mjs [--only 4,6,live] [--no-live] [--retries N]
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { withExt, seed, seedSession, sessionOf, store, sleep, poll, ROOT, EXT, CHROME } from "./lib/ext.mjs";
 import { Panel, openPage } from "./lib/panel.mjs";
 import { D, inr, dshort, monthKey, key, seedItem, routeProduct, routeLd, fakeSupabase, SESSION, verdictCases } from "./lib/fixtures.mjs";
 import { BLOCK, CASES, pageTruth, pageState } from "./lib/live.mjs";
 
+const A = createRequire(import.meta.url)("../../extension/analysis.js"); // the verdict maths itself: the nudge must show exactly what buyWait says
 const argv = process.argv.slice(2), arg = n => { const i = argv.indexOf(n); return i < 0 ? null : argv[i + 1]; };
 const ONLY = (arg("--only") || "").split(",").filter(Boolean), NOLIVE = argv.includes("--no-live"), RETRIES = +(arg("--retries") ?? 1);
 
@@ -218,10 +220,16 @@ test("8", "quota: 50/50 limited state; wishlist cap 20", t => withExt({}, async 
   t.check(await r.panel.has(".hero .price"), "already-counted product still works at 50/50");
   await r.p.close();
   const url = await routeProduct(ctx, { id: "B0NEWPROD1", price: 700, mrp: null }); r = await openPage(ctx, url); await r.panel.open();
-  const txt = await r.panel.text(".vcard"), q = await r.panel.text(".quota .num");
-  t.check(/used all 50 free lookups this month/.test(txt), `limited message: "${txt.trim()}"`); t.check(/50\/50 lookups/.test(q), "quota row 50/50: " + q);
+  const txt = await r.panel.text(".limitcard"), q = await r.panel.text(".quota .num");
+  t.check(/You've used your 50 free lookups this month/.test(txt) && /Free lookups reset on /.test(txt) && /Pass this time/.test(txt) && !/About Pro|upgrade|subscribe|purchase|\bpay\b|[₹$]|per month|\/mo|price|offer/i.test(txt), `limit card: "${txt.trim()}"`); t.check(/50\/50 lookups/.test(q), "quota row 50/50: " + q);
+  t.check(!(await r.panel.has(".limitcard .vcard.wait")) && !(await r.panel.has(".nudge")), "calm card, not an error, and no alert nudge on it");
   t.check(!(await r.panel.has(".hero .price")), "no price hero when limited");
   t.check((await store(sw, "usage")).usage.keys.length === 50, "no 51st lookup recorded");
+  await r.p.close();
+  // a saved (hearted) product is never locked behind the limit, and is not counted as a new lookup
+  await seed(sw, { items: seedItem("B0SAVEPRD1", [[now - 20 * D, 700], [now - 36e5, 700]], { wish: true }) });
+  r = await product(ctx, { id: "B0SAVEPRD1", price: 700, mrp: null }); await r.panel.open();
+  t.check(await r.panel.has(".hero .price") && !(await r.panel.has(".limitcard")), "at 50/50 a watchlist product opens normally"); t.check((await store(sw, "usage")).usage.keys.length === 50, "and it is not counted as a new lookup");
   await r.p.close();
   // wishlist cap
   const items = {}; for (let i = 0; i < 20; i++) items[`x:${i}`] = { site: "Amazon", title: "w" + i, url: "https://www.amazon.in/x" + i, wish: true, hist: [[now, 100]] };
@@ -477,7 +485,8 @@ if (!NOLIVE) test("28", "other sellers (live): one click lists Amazon sellers by
 if (!NOLIVE) test("28b", "other sellers (live): a single-seller product says so", t => withExt({}, async ({ ctx }) => {
   const { panel } = await product(ctx, { id: "B0F8BVSK21", price: 766, title: "boAt Airdopes 141 Gen 2 Bluetooth Earbuds" }); await panel.open(); await sleep(800);
   await panel.click(".offers .btn"); await poll(async () => /Only one|Couldn/.test(await panel.text(".offers")), 25000, 500);
-  const txt = await panel.text(".offers"); if (/Couldn/.test(txt)) return t.skip("Amazon blocked: " + txt); t.check(/Only one seller/.test(txt), "single seller text: " + txt);
+  const txt = await panel.text(".offers"); if (/Couldn/.test(txt)) return t.skip("Amazon blocked: " + txt); t.check(/Only one seller|isn't listing other sellers for your delivery location/.test(txt), "single-seller or honest no-location text: " + txt); t.check(!/Only one seller/.test(txt) || !/delivery location/.test(txt), "never both"); // an empty cookieless list is no longer called 'only one seller'
+
 }));
 
 if (!NOLIVE) test("29", "tracker (live): the service worker reads real Amazon, Flipkart and Myntra prices with no tab open and grows history", t => withExt({}, async ({ sw }) => {
@@ -550,9 +559,9 @@ test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy 
   t.check(await panel.run(".hero", function () { return this.__keep === 1; }) && await panel.run(".chips3", function () { return this.__keep === 1; }), "only the buy-now card refreshed: the rest of the panel was not redrawn");
   await pick("1w"); await pick("3d"); t.check(/Buy/.test(await word()), "need it in 2-3 days: Buy: " + await word());
   await pick("1m"); t.check(/Wait/.test(await word()), "can wait a month: Wait: " + await word());
-  const ab = await panel.text(".btn.ghost.full"); t.check(/Set price alert at ₹1,0\d\d/.test(ab), "alert price offered between the low and today: " + ab);
+  const ab = await panel.text(".nudge"); t.check(/Alert me at ₹1,0\d\d/.test(ab), "alert price offered between the low and today: " + ab);
   const st = await store(sw, "horizon"); t.check(st.horizon === "1m", "choice saved: " + st.horizon);
-  await panel.click(".btn.ghost.full"); await sleep(600); const it = Object.values((await store(sw, "items")).items).find(i => i.target); t.check(it && it.target > 1000 && it.target < 1050, "alert target stored: " + (it && it.target));
+  await panel.click(".nudge .btn"); await sleep(600); const it = Object.values((await store(sw, "items")).items).find(i => i.target); t.check(it && it.target > 1000 && it.target < 1050, "alert target stored: " + (it && it.target));
 }));
 
 test("34", "auto-read (opt-in): clicks Amazon's own Price-history button in the tab you are on, reads the chart (1M, 3M, 1Y), closes the panel; off by default", t => withExt({}, async ({ ctx, sw }) => {
@@ -676,7 +685,9 @@ test("38", "Flipkart + Myntra sellers: Flipkart lists sellers on a click (one re
   t.check(await f.panel.has(".offers .btn"), "flipkart: 'See other sellers' button shown"); t.check(posts === 0, "no request before the click");
   await f.panel.click(".offers .btn"); await poll(async () => (await f.panel.count(".off-r")) >= 5, 8000, 300);
   const txt = await f.panel.text(".offers"); t.check(posts === 1 && (await f.panel.count(".off-r")) === 5, "five sellers from one request: " + posts);
-  t.check(/RetailNet \(here\)/.test(txt) && /Delivery 24 Oct, Saturday/.test(txt) && /Seller 4\.3★/.test(txt), "here + delivery + rating shown: " + txt.slice(0, 160));
+  t.check(/RetailNet \(here\)/.test(txt) && /Seller 4\.3★/.test(txt) && !/\(0/.test(txt), "here + rating shown, no '(0)' count: " + txt.slice(0, 160));
+  t.check(!/Delivery /.test(txt) && /default location/.test(txt), "no pin saved: Flipkart's default-location delivery dates are not shown, and the note says why: " + txt.slice(-160));
+  t.check(!(await f.panel.ev(function () { return [...this.querySelectorAll(".rdot")].some(d => /\(0\)/.test(d.title)); })), "rating dot tooltip has no '(0)'");
   t.check(await f.panel.count(".off-r.low") === 1 && /RetailNet/.test(await f.panel.text(".off-r.low")), "lowest is the cheapest active seller");
   const m = await openPage(ctx, "https://www.myntra.com/lounge/levis/tee/12027436/buy"); await m.panel.open(); await sleep(1200);
   const mt = await m.panel.text(".offers"); t.check(/Vision Star/.test(mt) && /MODENIK/.test(mt) && /₹376/.test(mt) && /₹421/.test(mt), "myntra: both sellers with their prices: " + mt.slice(0, 200));
@@ -775,6 +786,49 @@ test("43", "Seller Intel v2a: the seller card shows one neutral tier (Looks fine
   await seed2("AJ6SIZC8YQDZX", tiny);
   ({ p, panel } = await product(ctx, { id: "B0TIERLTD01", price: 900, seller: { name: "Tiny Traders", ships: "Tiny Traders", fba: false } })); await panel.open();
   await poll(async () => /Limited/.test(await panel.text(".seller")), 12000, 400); row = await panel.text(".seller"); t.check(/Limited data/.test(row) && !/closer look|Looks fine/.test(row), "few ratings: limited data only: " + row);
+}));
+
+// ---- seller list: honest empty / failure states on a fake page. Fixtures are real cookieless Amazon.in fragments (tests/fixtures/offers/aod-*.html) and the real Flipkart response; the captcha page is SYNTHETIC.
+const aodFx = n => import("node:fs").then(fs => fs.readFileSync(new URL(`../fixtures/offers/${n}.html`, import.meta.url), "utf8"));
+const aodRoute = async (ctx, pick) => { const hits = []; await ctx.route("https://www.amazon.in/gp/product/ajax/aodAjaxMain/**", async r => { const asin = new URL(r.request().url()).searchParams.get("asin"); hits.push(asin); const b = await pick(asin, hits.length); if (b === "hang") return; r.fulfill({ status: 200, contentType: "text/html", body: b }); }); return hits; };
+test("90", "sellers (Amazon): an empty list for the delivery location is said honestly with a link to the page's own offers, never 'Only one seller'; a real single offer says so; the buy-box seller is marked (here)", t => withExt({}, async ({ ctx }) => {
+  const by = { B0AODNOLOC: "aod-noloc", B0AODONLY1: "aod-pinned-only", B0AODPINN1: "aod-pinned" }, fx = {}; for (const k of Object.values(by)) fx[k] = await aodFx(k);
+  await aodRoute(ctx, a => fx[by[a]]);
+  const open = async id => { const r = await product(ctx, { id, price: 57650 }); await r.panel.open(); await sleep(500); await r.panel.click(".offers .btn"); await poll(async () => !/Loading sellers/.test(await r.panel.text(".offers")), 12000, 300); return r; };
+  let r = await open("B0AODNOLOC"), txt = await r.panel.text(".offers");
+  t.check(/isn't listing other sellers for your delivery location/.test(txt) && !/Only one seller/.test(txt), "empty list: honest text, not 'Only one seller': " + txt);
+  const href = await r.panel.ev(function () { const a = this.querySelector(".offers a.btn"); return a && a.getAttribute("href") + "|" + a.target + "|" + a.rel; }); t.check(/\/dp\/B0AODNOLOC\?aod=1\|_blank\|noopener/.test(href || ""), "link to the page's own See all buying options: " + href); await r.p.close();
+  r = await open("B0AODONLY1"); txt = await r.panel.text(".offers"); t.check(/Only one seller/.test(txt) && !(await r.panel.has(".off-r")), "a response with exactly one offer says 'Only one seller': " + txt); await r.p.close();
+  r = await open("B0AODPINN1"); txt = await r.panel.text(".offers"); t.check(/SUPREME-TRADES \(here\)/.test(txt) && (await r.panel.count(".off-r")) === 5 && (txt.match(/\(here\)/g) || []).length === 1, "buy-box seller listed and marked (here) once: " + txt.slice(0, 200));
+}));
+test("91", "sellers (Amazon): a blocked answer says so, offers Try again, is not cached, and the retry works", t => withExt({}, async ({ ctx }) => {
+  const ok = await aodFx("aod-pinned"), hits = await aodRoute(ctx, (a, n) => n === 1 ? "<html><form action=/errors/validateCaptcha>Enter the characters you see below</form></html>" : ok); // SYNTHETIC captcha, then a real fragment
+  const { panel } = await product(ctx, { id: "B0AODBLOCK", price: 57650 }); await panel.open(); await sleep(500);
+  await panel.click(".offers .btn"); await poll(async () => /asked for a check/.test(await panel.text(".offers")), 12000, 300);
+  t.check(/asked for a check/.test(await panel.text(".offers")) && !/Only one seller|Loading/.test(await panel.text(".offers")), "blocked cause named: " + await panel.text(".offers"));
+  const b = await panel.ev(function () { const x = this.querySelector(".offers .btn"); return x && x.textContent + "|" + x.disabled; }); t.check(b === "Try again|false", "button restored as Try again, enabled: " + b);
+  await panel.click(".offers .btn"); await poll(async () => (await panel.count(".off-r")) >= 5, 12000, 300);
+  t.check((await panel.count(".off-r")) === 5 && hits.length === 2, "the failure was not cached; retry listed 5 sellers after 2 requests: " + hits.length);
+}));
+test("92", "sellers: a lost service-worker reply never leaves 'Loading sellers…' stuck: after ~12 s it says it couldn't load and offers Try again, which works", t => withExt({}, async ({ ctx, sw }) => {
+  const ok = await aodFx("aod-pinned"); await aodRoute(ctx, () => ok);
+  await sw.evaluate(() => { globalThis.__offFind = offFind; offFind = () => new Promise(() => {}); }); // the worker never answers
+  const { panel } = await product(ctx, { id: "B0AODLOST1", price: 57650 }); await panel.open(); await sleep(500);
+  await panel.click(".offers .btn"); await sleep(1500); t.check(/Loading sellers/.test(await panel.text(".offers")), "loading while waiting");
+  await poll(async () => /Couldn't load/.test(await panel.text(".offers")), 20000, 500);
+  const b = await panel.ev(function () { const x = this.querySelector(".offers .btn"); return x && x.textContent + "|" + x.disabled; }); t.check(/Couldn't load other sellers/.test(await panel.text(".offers")) && b === "Try again|false", "timed out into a failure message and a live Try again button: " + b);
+  await sw.evaluate(() => { offFind = globalThis.__offFind; });
+  await panel.click(".offers .btn"); await poll(async () => (await panel.count(".off-r")) >= 5, 12000, 300); t.check((await panel.count(".off-r")) === 5, "retry after the worker is back lists sellers");
+}));
+test("93", "sellers (Flipkart): the pincode saved in HAULS is sent as locationContext and its delivery dates are shown with the pincode named; without one the dates stay hidden", t => withExt({}, async ({ ctx, sw }) => {
+  const fs = await import("node:fs"), fk = fs.readFileSync(new URL("../fixtures/offers/flipkart-sellers.json", import.meta.url), "utf8"); let body;
+  await ctx.route("https://1.rome.api.flipkart.com/**", r => { body = JSON.parse(r.request().postData()); r.fulfill({ status: 200, contentType: "application/json", body: fk }); });
+  await ctx.route("https://www.flipkart.com/pin-laptop/p/itm2*", r => r.fulfill({ status: 200, contentType: "text/html", body: `<!doctype html><html><head><meta charset=utf-8><title>Test Laptop</title><script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "Product", name: "Test Laptop", image: "https://example.com/i.jpg", offers: { "@type": "Offer", price: "60990", priceCurrency: "INR" } })}</script></head><body><h1>Test Laptop</h1></body></html>` }));
+  await seed(sw, { pin: "560001" });
+  const f = await openPage(ctx, "https://www.flipkart.com/pin-laptop/p/itm2?pid=COMGZUYDGFJGHZR4"); await f.panel.open(); await sleep(800);
+  await f.panel.click(".offers .btn"); await poll(async () => (await f.panel.count(".off-r")) >= 5, 8000, 300); const txt = await f.panel.text(".offers");
+  t.check(body && body.locationContext.pincode === "560001", "saved pin sent: " + JSON.stringify(body && body.locationContext));
+  t.check(/Delivery 24 Oct, Saturday/.test(txt) && /pincode 560001/.test(txt) && !/default location/.test(txt), "delivery shown and its pincode named: " + txt.slice(-170));
 }));
 
 test("44", "header Settings icon: sits between account and close, is a 44px target on a phone, and opens the Settings page in one click", t => withExt({}, async ({ ctx, extId }) => {
@@ -882,6 +936,23 @@ test("51", "compare card: a one-line answer first (cheaper elsewhere / lowest he
   await mock({ results: [{ store: "Flipkart", title: "x", price: 7200, url: "https://www.flipkart.com/x/p/itm1", confidence: "Exact", checks: [] }], failed: [], why: {}, near: [], here: "Amazon", seen: {} });
   const { panel: p2 } = await product(ctx, { id: "B0CMPCARD2", price: 6999, mrp: 9999 }); await p2.open(); await sleep(600); await p2.click(".cmp .btn"); await poll(async () => (await p2.count(".cmp-sum")) > 0, 8000, 300);
   t.check(/Lowest price here/.test(await p2.text(".cmp-sum")) && await p2.has(".cmp-r.low"), "when you already have the lowest price the card says so");
+}));
+
+test("80", "compare, real service worker: a bot-challenge page shows as 'Couldn't check (blocked)' and is not kept; real answers are kept in chrome.storage.session (not worker memory) and reused", t => withExt({}, async ({ ctx, sw }) => {
+  const fx = n => readFileSync(path.join(ROOT, "tests/fixtures/compare", n + ".html"), "utf8"), BM = "<html><head><meta http-equiv=\"refresh\" content=\"0;URL='/s?bm-verify=AAQAAAAF'\"></head></html>"; // SYNTHETIC challenge page (the real Akamai body was not saved)
+  await sw.evaluate(() => chrome.storage.session.remove("cmp"));
+  await sw.evaluate(h => { globalThis.__calls = []; globalThis.fetch = async u => { __calls.push(u); return { ok: true, status: 200, text: async () => h }; }; }, BM); // every store answers 200 with the challenge page
+  const a = await product(ctx, { id: "B0CMPBLOCK1", price: 899, mrp: 1299 }); await a.panel.open(); await sleep(600); await a.panel.click(".cmp .btn"); await poll(async () => /Couldn't check/.test(await a.panel.text(".cmp")), 12000, 300);
+  const txt = await a.panel.text(".cmp"); t.check(/Couldn't check: .*Flipkart \(blocked\)/.test(txt) && /Reliance Digital \(blocked\)/.test(txt), "challenge page shown as blocked: " + txt.slice(0, 200));
+  t.check(await sw.evaluate(async () => Object.keys((await chrome.storage.session.get("cmp")).cmp || {}).length) === 0, "a blocked answer is not cached");
+  // real answers: Flipkart gives the boAt page, Reliance 503
+  const FK = fx("flipkart"); await sw.evaluate(h => { globalThis.__calls = []; globalThis.fetch = async u => { __calls.push(u); const host = new URL(u).hostname; return /flipkart/.test(host) ? { ok: true, status: 200, text: async () => h } : { ok: false, status: 503 }; }; }, FK);
+  const b = await product(ctx, { id: "B0CMPBLOCK2", price: 899, mrp: 1299 }); await b.panel.open(); await sleep(600); await b.panel.click(".cmp .btn"); await poll(async () => (await b.panel.count(".cmp .cmp-r")) >= 2, 12000, 300);
+  t.check(/Flipkart/.test(await b.panel.text(".cmp")), "the Flipkart row is shown: " + (await b.panel.text(".cmp")).slice(0, 160));
+  const keys = await sw.evaluate(async () => Object.keys((await chrome.storage.session.get("cmp")).cmp || {})); t.check(keys.length >= 1 && keys.every(k => /^(Flipkart|Myntra)\|/.test(k)) && !keys.some(k => /^Reliance/.test(k)), "only stores that answered are kept in chrome.storage.session: " + keys);
+  t.check(await sw.evaluate(() => typeof cmpCache === "undefined"), "no cache left in worker memory");
+  const again = await sw.evaluate(async () => { await cmpFind({ title: "boAt Airdopes 141 Bluetooth Earbuds", brand: "boAt", site: "Amazon", price: 899 }); return { flipkart: __calls.filter(u => /flipkart/.test(u)).length }; });
+  t.check(again.flipkart === 1, "second compare reuses the stored Flipkart answer (Flipkart fetched " + again.flipkart + "x in total)");
 }));
 
 test("52", "panel header: nothing overlaps the HAULS title (desktop and phone), and the cross exists only in the phone layout", t => withExt({ viewport: { width: 1280, height: 900 } }, async ({ ctx, sw }) => {
@@ -1314,6 +1385,95 @@ test("si4", "signed out: Set alert at 700 -> Continue with Google -> the alert i
   t.check(!!(await poll(async () => (await store(sw, "items")).items?.[k]?.target === 700, 8000, 250)), "after sign-in the alert was saved at 700");
   await sleep(600); t.check(await panel.has(".trapbox .link-btn") && !(await panel.has(".w.sheetopen")), "the trap box now shows Remove and the prompt is closed");
 }));
+
+// ---------------------------------------------------------------- 70+ verdict nudge + lookup limit
+const nudgeOf = panel => panel.ev(function () { const n = this.querySelector(".nudge"); return n ? { text: n.textContent, ok: n.classList.contains("ok") } : null; });
+const sessNudge = sw => sw.evaluate(() => chrome.storage.session.get("nudge")).then(r => r.nudge || {});
+const NV = now => Object.fromEntries(verdictCases(now).map(c => [c.want, c])), openV = (ctx, c, o = {}) => product(ctx, { id: c.id, price: c.price, mrp: null, ...o });
+test("70", "verdict nudge: 'Alert me at ₹X' under the verdict on Wait and Fair only, X is the verdict's own alert price and follows the how-soon tabs; none on Buy or when an alert exists; the verdict is never covered", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw); const now = Date.now(), V = NV(now);
+  await seed(sw, { items: { ...seedItem(V.Wait.id, V.Wait.hist), ...seedItem(V.Fair.id, V.Fair.hist), ...seedItem(V.Buy.id, V.Buy.hist), ...seedItem("B0NUDGEHAS", V.Wait.hist, { target: 1100 }) } });
+  const want = (c, h) => A.buyWait(c.hist.concat([[now, c.price]]), c.price, null, now, undefined, h).alertAt;
+  let r = await openV(ctx, V.Wait); await r.panel.open(); let n = await nudgeOf(r.panel);
+  t.check(n && n.text.includes("Alert me at " + inr(want(V.Wait, "1w"))) && n.text.includes("1,030"), "Wait: nudge offers the verdict's alert price: " + (n && n.text));
+  t.check((await r.panel.text(".vcard .vw")).startsWith("Wait") && (await r.panel.rect(".vcard")).bottom <= (await r.panel.rect(".nudge")).top + 1, "the verdict stays visible and the nudge sits below it");
+  t.check((await r.panel.text(".nudge .btn")).trim() === "Set alert" && (await r.panel.text(".nudge .btn.ghost")).trim() === "Not now", "a clear primary and an equal-weight dismiss"); await r.p.close();
+  r = await openV(ctx, V.Fair); await r.panel.open(); n = await nudgeOf(r.panel); t.check(n && n.text.includes(inr(want(V.Fair, "1w"))), "Fair: nudge shown: " + (n && n.text));
+  await r.panel.click('.hz [data-h="3d"]'); await sleep(700); t.check(/Buy/.test(await r.panel.text(".vcard .vw")) && !(await nudgeOf(r.panel)), "need it in 2-3 days -> Buy: the nudge goes away");
+  await r.panel.click('.hz [data-h="1m"]'); await sleep(700); n = await nudgeOf(r.panel); t.check(/Wait/.test(await r.panel.text(".vcard .vw")) && n && n.text.includes(inr(want(V.Fair, "1m"))), "a month -> Wait: the nudge is back with that verdict's price: " + (n && n.text)); await r.p.close();
+  r = await openV(ctx, V.Buy); await r.panel.open(); t.check(/Buy/.test(await r.panel.text(".vcard .vw")) && !(await nudgeOf(r.panel)), "Buy: nothing to wait for, no nudge"); await r.p.close();
+  r = await openV(ctx, { id: "B0NUDGEHAS", price: V.Wait.price }); await r.panel.open(); const wd = await r.panel.text(".vcard .vw"), nd = await nudgeOf(r.panel); t.check(/Wait/.test(wd) && !nd, `an alert already exists: no nudge (verdict "${wd}", nudge ${JSON.stringify(nd)})`);
+}));
+test("71", "verdict nudge, signed in: Set alert saves the alert at that price, confirms calmly without redrawing the panel, 'Change' goes to the alert box, and the nudge is gone after a reload", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw); const now = Date.now(), V = NV(now), k = key(V.Wait.id); await seed(sw, { items: seedItem(V.Wait.id, V.Wait.hist) });
+  const { p, panel } = await openV(ctx, V.Wait); await panel.open(); await panel.run(".hero", function () { this.__keep = 1; });
+  await panel.click(".nudge .btn"); t.check(!!(await poll(async () => (await store(sw, "items")).items?.[k]?.target === 1030, 5000, 200)), "alert saved at the suggested ₹1,030: " + JSON.stringify((await store(sw, "items")).items?.[k]?.target));
+  await sleep(500); const n = await nudgeOf(panel); t.check(n && n.ok && /Alert set at ₹1,030/.test(n.text), "calm confirmation: " + (n && n.text));
+  t.check(await panel.run(".hero", function () { return this.__keep === 1; }), "no full redraw under the reader"); t.check(await panel.has(".trapbox .link-btn") && (await panel.val(".trapbox input")) === "1030" && /Price alert at ₹1,030/.test(await panel.text(".trapbox .lbl")), "the alert box now shows the alert (Remove, 1030)");
+  t.check(await panel.ev(function () { const a = this.activeElement; return !!a && !!a.closest(".nudge.ok"); }), "after Set alert, focus moves to the confirmation's Change button");
+  await panel.click(".nudge.ok .link-btn"); await sleep(300); t.check(await panel.ev(function () { const a = this.activeElement; return !!a && !!a.closest(".trapbox"); }), "Change moves focus to the alert box");
+  await p.reload({ waitUntil: "domcontentloaded" }); await panel.waitKnob(); await panel.open(); t.check(!(await nudgeOf(panel)), "after a reload the alert exists, so no nudge");
+}));
+const fakeGoogle2 = sw => sw.evaluate(s => { globalThis.signInWithGoogle = async () => { await sessionStore.set(s); }; }, SESSION);
+test("72", "verdict nudge, signed out: tapping opens the sign-in sheet (nothing saved); after sign-in the alert is saved at that price; 'Not now' on the sheet means no second nudge ask for that product, but the heart still asks", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw }) => {
+  await fakeSupabase(ctx); await fakeGoogle2(sw); const now = Date.now(), V = NV(now), A1 = "B0NUDGESO1", A2 = "B0NUDGESO2";
+  await seed(sw, { items: { ...seedItem(A1, V.Wait.hist), ...seedItem(A2, V.Wait.hist) } });
+  let r = await openV(ctx, { ...V.Wait, id: A1 }); await r.panel.open(); await r.panel.click(".nudge .btn"); await r.panel.waitFor(".w.sheetopen", 4000); await sleep(400);
+  let sh = await sheetOf(r.panel); t.check(sh.open && PROMPT.test(sh.text) && sh.btns.includes("Continue with Google") && sh.btns.includes("Not now"), "sign-in sheet with an equal 'Not now': " + JSON.stringify(sh).slice(0, 160));
+  t.check(((await store(sw, "items")).items[key(A1)] || {}).target === undefined, "nothing saved before sign-in");
+  await r.panel.click(".sheet .link-btn"); await sleep(500); t.check(!(await r.panel.has(".w.sheetopen")) && !(await nudgeOf(r.panel)), "Not now closes the sheet and the nudge does not ask again");
+  t.check((await sessNudge(sw))[key(A1)]?.a === 1, "the ask is remembered for this browser session");
+  await r.p.reload({ waitUntil: "domcontentloaded" }); await r.panel.waitKnob(); await r.panel.open(); await sleep(500); t.check(!(await nudgeOf(r.panel)) && !(await r.panel.has(".w.sheetopen")), "after a reload: no nudge and the sheet does not open by itself");
+  await r.panel.click(".heart"); await r.panel.waitFor(".w.sheetopen", 4000); t.check(await r.panel.has(".w.sheetopen"), "an explicit heart tap still asks to sign in"); await r.p.close();
+  const full = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`amazon.in:FULL${String(i).padStart(5, "0")}`, { site: "Amazon", title: "w" + i, url: "https://www.amazon.in/dp/FULL" + i, wish: true, hist: [[now, 100]] }]));
+  await seed(sw, { items: { ...seedItem(A1, V.Wait.hist), ...seedItem(A2, V.Wait.hist), ...full } }); // a full watchlist: the alert replayed after sign-in is refused
+  r = await openV(ctx, { ...V.Wait, id: A2 }); await r.panel.open(); await r.panel.click(".nudge .btn"); await r.panel.waitFor(".w.sheetopen", 4000); await sleep(400); await r.panel.press(".sheet .btn.full");
+  await poll(async () => /watchlist is full/.test((await r.panel.text(".nudge")) || ""), 8000, 250).catch(() => null); const fm = await r.panel.text(".nudge");
+  t.check(/watchlist is full/.test(fm) && !(await r.panel.has(".w.sheetopen")) && (await store(sw, "items")).items?.[key(A2)]?.target === undefined, "a failed replay after sign-in says why in the nudge strip instead of nothing: " + fm.trim());
+  await seed(sw, { items: { ...seedItem(A1, V.Wait.hist), ...seedItem(A2, V.Wait.hist) } }); await r.panel.click(".nudge .btn"); await sleep(600);
+  t.check(!!(await poll(async () => (await store(sw, "items")).items?.[key(A2)]?.target === 1030, 8000, 250)), "after sign-in the alert is saved at ₹1,030");
+  await sleep(800); const n = await nudgeOf(r.panel); t.check(n && n.ok && /Alert set at ₹1,030/.test(n.text) && !(await r.panel.has(".w.sheetopen")), "sheet closed and the confirmation shows: " + (n && n.text));
+}));
+test("73", "verdict nudge: Not now on one product hides the nudge on every product for the rest of the browser session (still hidden after a reload), and no alert is stored", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw); const now = Date.now(), V = NV(now), B = "B0NUDGENO2"; await seed(sw, { items: { ...seedItem(V.Wait.id, V.Wait.hist), ...seedItem(B, V.Wait.hist) } });
+  const { p, panel } = await openV(ctx, V.Wait); await panel.open(); t.check(!!(await nudgeOf(panel)), "nudge is there");
+  await panel.click(".nudge .btn.ghost"); await sleep(400); t.check(!(await nudgeOf(panel)), "Not now removes it"); t.check((await sessNudge(sw))[key(V.Wait.id)]?.d === 1, "dismissal kept in the browser session store");
+  t.check(Object.values((await store(sw, "items")).items).every(i => i.target === undefined), "dismissing stores no alert");
+  await p.reload({ waitUntil: "domcontentloaded" }); await panel.waitKnob(); await panel.open(); await sleep(500); t.check(!(await nudgeOf(panel)) && /Wait/.test(await panel.text(".vcard .vw")), "after a reload: still hidden, verdict still there"); await p.close();
+  const r = await openV(ctx, { ...V.Wait, id: B }); await r.panel.open(); t.check(!(await nudgeOf(r.panel)) && /Wait/.test(await r.panel.text(".vcard .vw")), "dismiss on product A hides it on product B in the same session, verdict still there");
+}));
+test("74", "lookup limit: a signed-out visitor is never limited and nothing is counted, even with usage at 55; no counter is shown", t => withExt({}, async ({ ctx, sw }) => {
+  const keys = Array.from({ length: 55 }, (_, i) => `amazon.in:FILLER${String(i).padStart(5, "0")}`); await seed(sw, { usage: { month: monthKey(), keys } });
+  const r = await product(ctx, { id: "B0NEWPROD2", price: 700, mrp: null }); await r.panel.open();
+  t.check(await r.panel.has(".hero .price") && !(await r.panel.has(".limitcard")) && !(await r.panel.has(".quota")), "price shown, no limit card, no counter");
+  t.check(!/free lookups|Pass this time/i.test(await r.panel.ev(function () { return this.querySelector("main").textContent; })), "no limit wording anywhere");
+  t.check((await store(sw, "usage")).usage.keys.length === 55, "nothing counted for a signed-out visitor");
+}));
+test("75", "lookup limit, signed in at 50: calm card; Pass this time reveals the product for the rest of the day (survives a reload, not counted); tomorrow the card returns; no teaser, no purchase wording", t => withExt({}, async ({ ctx, sw }) => {
+  await signIn(ctx, sw); const keys = Array.from({ length: 50 }, (_, i) => `amazon.in:FILLER${String(i).padStart(5, "0")}`); await seed(sw, { usage: { month: monthKey(), keys } });
+  const { p, panel } = await product(ctx, { id: "B0NEWPROD3", price: 700, mrp: null }); await panel.open();
+  t.check(await panel.has(".limitcard") && !(await panel.has(".hero .price")), "limit card, product hidden until the person chooses");
+  const lc = await panel.text(".limitcard"); t.check(!/About Pro|upgrade|subscribe|purchase|buy|\bpay\b|[₹$]|per month|\/mo|price|offer|discount|plan/i.test(lc) && (await panel.ev(function () { return this.querySelectorAll(".limitcard button").length === 1 && this.querySelector(".limitcard").getAttribute("role") === "group"; })), "limit card: one button, a labelled group, no teaser or purchase wording: " + lc.trim());
+  await panel.click(".limitcard .btn"); t.check(!!(await panel.waitFor(".hero .price", 8000)), "Pass this time shows the product"); await sleep(400);
+  t.check(await panel.ev(function () { const a = this.activeElement; return !!a && !!a.closest(".buynow"); }), "after Pass this time focus lands on the verdict card, not on <body>");
+  const lp = (await store(sw, "lookupPass")).lookupPass; t.check(lp && lp.uid === SESSION.user.id, "the pass is remembered for this account: " + JSON.stringify(lp));
+  t.check((await store(sw, "usage")).usage.keys.length === 50, "a passed lookup is not counted");
+  await p.reload({ waitUntil: "domcontentloaded" }); await panel.waitKnob(); await panel.open(); await sleep(600); t.check(await panel.has(".hero .price") && !(await panel.has(".limitcard")), "same day, after a reload: no card");
+  await seed(sw, { lookupPass: { uid: SESSION.user.id, day: "2000-01-01" } }); await p.reload({ waitUntil: "domcontentloaded" }); await panel.waitKnob(); await panel.open(); await sleep(600);
+  t.check(await panel.has(".limitcard") && !(await panel.has(".hero .price")), "next day (stored day changed): the card is back");
+  await seed(sw, { lookupPass: { uid: "someone-else", day: dayKeyNow() } }); await p.reload({ waitUntil: "domcontentloaded" }); await panel.waitKnob(); await panel.open(); await sleep(600); t.check(await panel.has(".limitcard"), "another account's pass does not count");
+}));
+test("76", "verdict nudge and limit card on a phone (390x844): 44px targets, no sideways scroll", t => withExt({ viewport: { width: 390, height: 844 } }, async ({ ctx, sw }) => {
+  await signIn(ctx, sw); const now = Date.now(), V = NV(now); await seed(sw, { items: seedItem(V.Wait.id, V.Wait.hist) });
+  let r = await openV(ctx, V.Wait); await r.panel.open(); await sleep(500);
+  const m = await r.panel.ev(function () { const h = s => [...this.querySelectorAll(s)].map(e => Math.round(e.getBoundingClientRect().height)), m = this.querySelector("main"); return { btn: h(".nudge .btn, .nudge .link-btn"), over: m.scrollWidth > m.clientWidth + 1 }; });
+  t.check(m.btn.length === 2 && m.btn.every(x => x >= 44) && m.btn[0] === m.btn[1] && !m.over, "nudge buttons >= 44px and panel does not scroll sideways: " + JSON.stringify(m)); await r.p.close();
+  await seed(sw, { usage: { month: monthKey(), keys: Array.from({ length: 50 }, (_, i) => "amazon.in:FILLER" + String(i).padStart(5, "0")) } });
+  r = await product(ctx, { id: "B0NEWPROD4", price: 700, mrp: null }); await r.panel.open(); await sleep(500);
+  const l = await r.panel.ev(function () { const c = this.querySelector(".limitcard"), m = this.querySelector("main"); return c ? { btn: [...c.querySelectorAll("button")].map(e => Math.round(e.getBoundingClientRect().height)), over: m.scrollWidth > m.clientWidth + 1 } : null; });
+  t.check(l && l.btn.length === 1 && l.btn.every(x => x >= 44) && !l.over, "limit card buttons >= 44px, no sideways scroll: " + JSON.stringify(l));
+}));
+const dayKeyNow = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 
 // ---------------------------------------------------------------- runner
 const results = [], sel = tests.filter(x => !ONLY.length || ONLY.some(o => x.id === o || x.id.startsWith(o + ":") || (o === "live" && x.live)));

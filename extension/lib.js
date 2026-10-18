@@ -58,15 +58,15 @@ function parsePack(t) {
 // Price per 100 g/ml (or per piece) so different pack sizes compare fairly.
 const unitPrice = (price, pack) => !pack ? null : Math.round((price / pack.amt) * (pack.unit === "pc" ? 1 : 100) * 100) / 100;
 // Smart compare links: guess the category from the title, then list every store that plausibly sells it.
-// ponytail: keyword guess + search URL templates (unverified for stores marked "?"); swap for a classifier / link checker if it misfires.
+// ponytail: keyword guess + search URL templates; every template answered 200 on 2026-10-18 (Vijay Sales /search/ and Shoppers Stop /search?q= were 404 and are fixed). Swap for a classifier / link checker if it misfires.
 const STORE = { // [search url prefix, brand colour]
   Amazon: ["https://www.amazon.in/s?k=", "#FF9900"], Flipkart: ["https://www.flipkart.com/search?q=", "#2874F0"], Myntra: ["https://www.myntra.com/", "#FF3F6C"], Ajio: ["https://www.ajio.com/search/?text=", "#2C4152"],
   "Tata CLiQ": ["https://www.tatacliq.com/search/?searchCategory=all&text=", "#B60D2B"], Meesho: ["https://www.meesho.com/search?q=", "#9F2089"], Snapdeal: ["https://www.snapdeal.com/search?keyword=", "#E40046"],
-  Croma: ["https://www.croma.com/searchB?text=", "#12D8B0"], "Reliance Digital": ["https://www.reliancedigital.in/products?q=", "#E42529"], "Vijay Sales": ["https://www.vijaysales.com/search/", "#E31E24"],
-  "Shoppers Stop": ["https://www.shoppersstop.com/search?q=", "#1A1A1A"], Westside: ["https://www.westside.com/search?q=", "#2E7D32"], Decathlon: ["https://www.decathlon.in/search?Ntt=", "#0082C3"],
+  Croma: ["https://www.croma.com/searchB?text=", "#12D8B0"], "Reliance Digital": ["https://www.reliancedigital.in/products?q=", "#E42529"], "Vijay Sales": ["https://www.vijaysales.com/search-listing?q=", "#E31E24"],
+  "Shoppers Stop": ["https://www.shoppersstop.com/search/result?q=", "#1A1A1A"], Westside: ["https://www.westside.com/search?q=", "#2E7D32"], Decathlon: ["https://www.decathlon.in/search?Ntt=", "#0082C3"],
   Nykaa: ["https://www.nykaa.com/search/result/?q=", "#FC2779"], "Nykaa Fashion": ["https://www.nykaafashion.com/catalogsearch/result/?q=", "#FC2779"], Purplle: ["https://www.purplle.com/search?q=", "#E5457C"], Tira: ["https://www.tirabeauty.com/products?q=", "#111111"],
   FirstCry: ["https://www.firstcry.com/search?q=", "#F79220"], Pepperfry: ["https://www.pepperfry.com/site_product/search?q=", "#F26722"], IKEA: ["https://www.ikea.com/in/en/search/?q=", "#0058A3"],
-  Crossword: ["https://www.crossword.in/search?q=", "#C8102E"], Bata: ["https://www.bata.in/search?q=", "#E1251B"], Blinkit: ["https://blinkit.com/s/?q=", "#F8CB46"], Zepto: ["https://www.zepto.com/search?query=", "#7B3FE4"],
+  Crossword: ["https://www.crossword.in/search?q=", "#C8102E"], Bata: ["https://www.bata.com/in/search?q=", "#E1251B"], Blinkit: ["https://blinkit.com/s/?q=", "#F8CB46"], Zepto: ["https://www.zepto.com/search?query=", "#7B3FE4"],
   Instamart: ["https://www.swiggy.com/instamart/search?custom_back=true&query=", "#FC8019"], BigBasket: ["https://www.bigbasket.com/ps/?q=", "#84C225"], JioMart: ["https://www.jiomart.com/products?q=", "#0078AD"], DMart: ["https://www.dmart.in/search?searchTerm=", "#00A651"],
   "Google Shopping": ["https://www.google.com/search?tbm=shop&q=", "#4285F4"],
 };
@@ -82,8 +82,9 @@ const CATS = [
   ["electronics", /\b(keyboards?|mouse|mice|laptops?|monitors?|headphones?|earbuds?|earphones?|airdopes|airpods|speakers?|soundbar|tv|television|phones?|smartphones?|mobiles?|chargers?|cables?|camera|tablets?|ssd|hard ?disk|pen ?drive|router|printer|smart ?watch|powerbank|power bank|gaming|webcam|microphone|projector|ipad|iphone|macbook)\b/i, ["Amazon", "Flipkart", "Croma", "Reliance Digital", "Vijay Sales", "Tata CLiQ", "Snapdeal", "Meesho"]],
   ["general", /./, ["Amazon", "Flipkart", "Croma", "Reliance Digital", "Tata CLiQ", "Snapdeal", "Meesho", "Vijay Sales"]],
 ];
-function smartLinks(title, here) {
-  const q = String(title || "").split(/,|\||\(|\s[–-]\s/)[0].replace(/[\[\]{}"]/g, " ").split(/\s+/).filter(Boolean).slice(0, 7).join(" ");
+function smartLinks(title, here, brand) {
+  // same query as the compare fetch when match.js is loaded (mtQuery); otherwise the head of the title, cut at the first colon / comma / bracket / dash
+  const q = typeof mtQuery === "function" ? mtQuery(title, brand) : String(title || "").split(/[:;,|(\[]|\s[–-]\s|\swith\s/i)[0].replace(/[{}"]/g, " ").split(/\s+/).filter(Boolean).slice(0, 6).join(" ");
   const [cat, , names] = CATS.find(c => c[1].test(title));
   const enc = n => n === "Myntra" ? q.replace(/\s+/g, "-").toLowerCase() : encodeURIComponent(q);
   const ns = [...names.filter(n => n !== here), "Google Shopping"];
@@ -167,6 +168,9 @@ function safeItems(raw) {
 const featureOff = (flags, name) => !!(flags && Array.isArray(flags.disabled_features) && flags.disabled_features.includes(name));
 const safeOutbox = raw => (Array.isArray(raw) ? raw : []).filter(o => o && typeof o === "object" && (o.t === "watch" || (o.t === "obs" && Number.isFinite(o.at) && Number.isFinite(o.price) && o.price > 0 && o.price < 1e7) || (o.t === "chart" && Array.isArray(o.series) && o.series.length >= 2 && o.series.length <= 130 && o.series.every(q => Array.isArray(q) && q.length === 2 && isFinite(q[0]) && isFinite(q[1])))) && typeof o.key === "string" && o.key.length <= 200).map(o => (typeof o.id === "string" && o.id ? o : { ...o, id: _uid() })).slice(-500);
 const safeUsage = raw => raw && typeof raw === "object" && typeof raw.month === "string" && Array.isArray(raw.keys) ? { month: raw.month, keys: raw.keys.filter(k => typeof k === "string").slice(0, 5000) } : null;
+// "Pass this time" (signed-in free users over the monthly lookup limit): the person's own choice to keep browsing for the rest of the LOCAL day. Remembered per account; tomorrow the limit card returns while they are still over it.
+const dayKey = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const passOk = (pass, uid, now = new Date()) => !!uid && !!pass && typeof pass === "object" && pass.uid === uid && pass.day === dayKey(now);
 // The Product tab's heart/trap must mirror the stored watchlist (it changes from the Watchlist tab, another tab, or a sync). Missing item = not wished, no trap.
 function withStoredFlags(it, items, key) { const st = (items && items[key]) || {}, o = { ...it, wish: !!st.wish }; if (st.target) o.target = st.target; else delete o.target; return o; }
 // S6: what an open panel should do about a storage change made elsewhere (another tab, a sync, the popup). Never rebuilds the panel under a typing user.
@@ -214,4 +218,4 @@ const locConsistent = (loc, centroid, maxKm = 40) => !loc || !centroid || typeof
 const canRedraw = ({ open, tab, typing }) => !!open && tab === "product" && !typing;
 // Pincode field next to "Use my location": clean = nothing to save, dirty = a different valid pincode waiting for the sync icon, bad = not 6 digits.
 const pinFieldState = (draft, saved) => { const d = String(draft == null ? "" : draft).trim(); return !PIN6.test(d) ? "bad" : d === saved ? "clean" : "dirty"; };
-if (typeof module !== "undefined") module.exports = { planOf, cleanText, cleanUrl, okKey, featureOff, pinFieldState, canRedraw, MAX_PLACES, safePlaces, addPlace, updatePlace, removePlace, placeForPin, distKm, locConsistent, sortGrocery, packChips, filterPack, withStoredFlags, liveUpdate, safeItem, safeItems, safeOutbox, safeUsage, cleanProduct, trapStep, validateTrap, sliceHistory, downsample, notchAmount, mergeHistory, smartLinks, parsePack, unitPrice, SITES, siteFor, num, parseLd, addPoint, stats };
+if (typeof module !== "undefined") module.exports = { planOf, cleanText, cleanUrl, okKey, featureOff, pinFieldState, canRedraw, MAX_PLACES, safePlaces, addPlace, updatePlace, removePlace, placeForPin, distKm, locConsistent, sortGrocery, packChips, filterPack, withStoredFlags, liveUpdate, safeItem, safeItems, safeOutbox, safeUsage, dayKey, passOk, cleanProduct, trapStep, validateTrap, sliceHistory, downsample, notchAmount, mergeHistory, smartLinks, parsePack, unitPrice, SITES, siteFor, num, parseLd, addPoint, stats };
