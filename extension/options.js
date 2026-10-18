@@ -37,7 +37,7 @@ const showPin = pin => { $("pinval").textContent = pin || "not set"; };
 chrome.storage.local.get("pin").then(v => showPin(v.pin)); chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.pin) showPin(ch.pin.newValue); });
 
 // Is the background (service worker) the same build as this page? A stale one rejects the unknown message.
-const PAGE_BUILD = "2026-10-18.r43";
+const PAGE_BUILD = "2026-10-18.r44";
 chrome.runtime.sendMessage({ type: "t2-version" }).then(r => { const ok = r && r.build === PAGE_BUILD; $("ver").textContent = "HAULS " + chrome.runtime.getManifest().version + (ok ? " · up to date" : "") + " · built by Vishwajeet · hauls.in"; $("stale").hidden = !!ok; }).catch(() => { $("stale").hidden = false; });
 $("reload").onclick = () => chrome.runtime.reload();
 
@@ -58,8 +58,8 @@ $("probe").onclick = async () => {
   } catch (e) { $("pmsg").textContent = "Couldn't read the tab: " + String(e && e.message).slice(0, 100); }
 };
 // What HAULS has stored about your Amazon products (keys, counts and times only: no titles, links or prices of your account), to see whether a chart or range was kept.
-$("sumcopy").onclick = async () => { const { items, chartHealth } = await chrome.storage.local.get(["items", "chartHealth"]), rows = Object.entries(items || {}).filter(([k]) => /^amazon\.in:/.test(k)).map(([k, i]) => ({ key: k, points: (i.hist || []).length, first: i.hist && i.hist[0] ? new Date(i.hist[0][0]).toISOString() : null, ref: i.ref ? { days: i.ref.days, low: i.ref.low, high: i.ref.high, at: new Date(i.ref.at).toISOString() } : null, ahist: i.ahist ? { at: new Date(i.ahist.at || 0).toISOString(), ranges: Object.fromEntries(Object.entries(i.ahist.ranges || {}).map(([r, v]) => [r, { points: v.points.length, days: v.days }])) } : null, urg: i.urg ? i.urg.v.length : 0 }));
-  lastProbe = JSON.stringify({ kind: "storage-summary", build: PAGE_BUILD, version: chrome.runtime.getManifest().version, chartHealth: chartHealth || null, amazonItems: rows.slice(0, 40) }, null, 2); $("preport").textContent = lastProbe; $("preport").hidden = false; $("pcopy").hidden = false;
+$("sumcopy").onclick = async () => { const { items, chartHealth, ahDiag } = await chrome.storage.local.get(["items", "chartHealth", "ahDiag"]), rows = Object.entries(items || {}).filter(([k]) => /^amazon\.in:/.test(k)).map(([k, i]) => ({ key: k, points: (i.hist || []).length, first: i.hist && i.hist[0] ? new Date(i.hist[0][0]).toISOString() : null, ref: i.ref ? { days: i.ref.days, low: i.ref.low, high: i.ref.high, at: new Date(i.ref.at).toISOString() } : null, ahist: i.ahist ? { at: new Date(i.ahist.at || 0).toISOString(), ranges: Object.fromEntries(Object.entries(i.ahist.ranges || {}).map(([r, v]) => [r, { points: v.points.length, days: v.days }])) } : null, urg: i.urg ? i.urg.v.length : 0 }));
+  lastProbe = JSON.stringify({ kind: "storage-summary", build: PAGE_BUILD, version: chrome.runtime.getManifest().version, chartHealth: chartHealth || null, lastFailedRead: ahDiag || null, amazonItems: rows.slice(0, 40) }, null, 2); $("preport").textContent = lastProbe; $("preport").hidden = false; $("pcopy").hidden = false;
   try { await navigator.clipboard.writeText(lastProbe); $("pmsg").textContent = `Copied a summary of ${rows.length} Amazon product${rows.length === 1 ? "" : "s"}. Paste it in the chat.`; } catch { $("pmsg").textContent = "Select the text below and copy it."; } };
 $("pcopy").onclick = async () => { try { await navigator.clipboard.writeText(lastProbe); $("pmsg").textContent = "Copied."; } catch { $("pmsg").textContent = "Select the text and copy it."; } };
 
