@@ -14,7 +14,7 @@ grant usage on schema public, auth to anon, authenticated, service_role;
 grant all on all tables in schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated;`);
-for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series','0011_ext_obs_src_bg','0012_ext_feedback','0013_ext_watchlist_deletion','0014_ext_price_alert_email','0015_ext_hardening','0016_ext_profile_input_checks','0017_ext_security_hardening','0018_ext_security_followup']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
+for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series','0011_ext_obs_src_bg','0012_ext_feedback','0013_ext_watchlist_deletion','0014_ext_price_alert_email','0015_ext_hardening','0016_ext_profile_input_checks','0017_ext_security_hardening','0018_ext_security_followup','0019_ext_waitlist_confirmed_email']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
 let ok=true; const T=(n,c,d)=>{console.log(c?'PASS':'FAIL',n,c||!d?'':'-> '+d); if(!c) ok=false;};
 const as=async(uid,fn)=>{await db.exec(`set role authenticated; select set_config('request.jwt.claims', '{"sub":"${uid}","role":"authenticated"}', false)`); try{return await fn()} finally{await db.exec(`reset role`)}};
 const fails=async p=>{try{await p;return false}catch(e){return true}};
@@ -742,4 +742,16 @@ T('others untouched', (await db.query(`select count(*)::int c from ext_price_obs
     T('0018: old observation / chart keys with a unicode space are removed, a tag character in a site is cleared, tag-character alert-log key removed', (await q(`select string_agg(product_key||':'||coalesce(site,'null'),',' order by product_key) s from ext_price_observations`))[0].s==='obs:1:null,obs:2:Fine,obs:3:null' && (await q(`select count(*)::int c from ext_chart_series where product_key <> 'chart:1'`))[0].c===0 && (await q(`select count(*)::int c from ext_alert_log where product_key <> 'alert:1'`))[0].c===0);
     T('0018: old feedback, profile name and saved places are cleaned', (await q(`select message from ext_feedback where message like 'fe%'`))[0].message==='feed' && (await q(`select name from ext_profiles where id='${U}'`))[0].name==='Name' && !('places' in (await q(`select doc from ext_user_settings`))[0].doc)); }
   await d2.close?.(); }
+// ===== 0019: waitlist functions need a CONFIRMED email =====
+{ await db.exec(fs.readFileSync(M+'0019_ext_waitlist_confirmed_email.sql','utf8')); // earlier re-run tests put 0017's functions back over 0019's
+  const W=(await db.query(`insert into auth.users(email,email_confirmed_at) values('w1@x.t',null) returning id`)).rows[0].id, V=(await db.query(`insert into auth.users(email,email_confirmed_at) values('w2@x.t',now()) returning id`)).rows[0].id;
+  await as(W,()=>db.query(`select ext_ensure_profile()`)); await as(V,()=>db.query(`select ext_ensure_profile()`));
+  T('0019: an UNCONFIRMED email cannot join the waitlist', (await as(W,()=>db.query(`select ext_join_waitlist('extension-android') j`))).rows[0].j===false && (await db.query(`select count(*) n from waitlist where email='w1@x.t'`)).rows[0].n==0);
+  T('0019: a confirmed email joins once, then false', (await as(V,()=>db.query(`select ext_join_waitlist('extension-android') j`))).rows[0].j===true && (await as(V,()=>db.query(`select ext_join_waitlist('extension-android') j`))).rows[0].j===false);
+  await db.query(`insert into waitlist(email,source) values('w1@x.t','extension-android')`);
+  await as(W,()=>db.query(`select ext_delete_my_data()`));
+  T('0019: erase by an unconfirmed account does NOT delete a waitlist row for that address', (await db.query(`select count(*) n from waitlist where email='w1@x.t'`)).rows[0].n==1);
+  await as(V,()=>db.query(`select ext_delete_my_data()`));
+  T('0019: erase by a confirmed account removes its own extension waitlist row', (await db.query(`select count(*) n from waitlist where email='w2@x.t'`)).rows[0].n==0);
+  await db.exec(fs.readFileSync(M+'0019_ext_waitlist_confirmed_email.sql','utf8')); T('0019: runs twice without error', true); }
 process.exit(ok?0:1);
