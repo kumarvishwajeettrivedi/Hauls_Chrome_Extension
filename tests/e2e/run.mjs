@@ -664,6 +664,35 @@ test("77", "Amazon reader: when Amazon already opens on the year, no tab is touc
   t.check(w === "" && !!y && y.days === 365, "no tab was clicked and the year was stored: clicks=" + JSON.stringify(w) + " " + JSON.stringify(y && [y.tab, y.days]));
 }));
 
+test("78", "Amazon reader: the panel is ALREADY open (Amazon restored it) and the button would toggle it shut: the reader leaves the button alone, switches to the year and stores it", t => withExt({}, async ({ ctx, sw }) => {
+  await seed(sw, { ahAuto: true }); const id = "B0OPENATLD", k = key(id);
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, toggle: true, openAtLoad: true }); await sleep(900); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the panel was read and closed");
+  const w = await r.p.evaluate(() => ({ ing: window.__ing, clicks: window.__clicks.join() })), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
+  t.check(w.ing === 0, "the Price history button was NOT clicked (it would have closed the open panel): " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
+}));
+
+test("80b", "Amazon products without the year show 'Read the full year from Amazon'; one press reads it (switch off) and the button goes away", t => withExt({}, async ({ ctx, sw }) => {
+  const now = Date.now(), id = "B0YEARBTN1", k = key(id);
+  await seed(sw, { items: { [k]: { site: "Amazon", title: "Test", url: `https://www.amazon.in/dp/${id}`, hist: [[now - 20 * D, 4999], [now - D, 4499]] } } }); // ahAuto is OFF
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await sleep(800);
+  t.check(await r.panel.has("main > .link-btn") && /Read the full year from Amazon/.test(await r.panel.text("main > .link-btn")), "the button is offered when only a month is known");
+  await amzFake(r.p, { yearMs: 500, otherMs: 300 }); await r.panel.click("main > .link-btn");
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the press ran the reader (switch off) and it closed again");
+  await sleep(1500); const y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"]; t.check(!!y && y.days === 365, "the year was stored");
+  t.check(!(await r.panel.has("main > .link-btn")), "the button is gone once the year is there");
+}));
+
+test("81", "Compare card: the reason on a closest-but-different row (different product / model / generation...) stays fully inside the card, on desktop and on a phone, and the card look is otherwise unchanged", t => withExt({ viewport: { width: 1280, height: 900 } }, async ({ ctx, sw }) => {
+  await sw.evaluate(() => { globalThis.cmpFind = async () => ({ results: [], failed: [], near: [{ store: "Flipkart", price: 283, why: "different product", title: "Some other listing", url: "https://www.flipkart.com/x/p/itm1" }, { store: "Reliance Digital", price: 2490, why: "different generation (storage 256 GB, colour)", title: "Another listing", url: "https://www.reliancedigital.in/product/x/" }] }); });
+  const { panel } = await product(ctx, { id: "B0NEARROW1", price: 299, mrp: 499 }); await panel.open(); await sleep(600);
+  await panel.click(".cmp .btn"); await poll(async () => (await panel.count(".cmp-r.near")) >= 2, 8000, 300);
+  const chk = () => panel.ev(function () { const card = this.querySelector(".cmp").getBoundingClientRect(); return [...this.querySelectorAll(".cmp-r.near")].map(r => { const rr = r.getBoundingClientRect(), tg = r.querySelector(".tag").getBoundingClientRect(); return { txt: r.querySelector(".tag").textContent, inside: tg.left >= rr.left && tg.right <= rr.right && rr.right <= card.right + 1, h: Math.round(tg.height), own: tg.top > r.querySelector("b").getBoundingClientRect().bottom - 2 }; }); });
+  let rows = await chk(); t.check(rows.length === 2 && rows.every(x => x.inside && x.own), "desktop: every reason is inside its row and on its own line: " + JSON.stringify(rows));
+  t.check(/No confident match at other stores/.test(await panel.text(".cmp")), "the card still says 'No confident match at other stores.'");
+  t.check(await panel.ev(function () { return [...this.querySelectorAll(".cmp-r.near .tag")].every(g => { const c = getComputedStyle(g); return c.position === "static" && c.transform === "none"; }); }), "the reason is a plain capsule (not the rotated absolute price sticker)");
+}));
+
 test("37", "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in", t => withExt({}, async ({ ctx, sw, extId }) => {
   const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8"), id = "B0AMZBGRD1", now = Date.now();
   await ctx.addInitScript(h => { if (!/B0AMZBGRD1/.test(location.pathname)) return; document.addEventListener("DOMContentLoaded", () => { const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; document.body.append(d);
@@ -1219,13 +1248,15 @@ test("22", "platforms: Ajio dropped; six new shops declared; JSON-LD extraction 
 // Fake of Amazon's Price-history panel (the real one needs a signed-in page): ingress button -> docked panel with 1M/3M/1Y tabs. yearMs / otherMs = how long a tab takes to draw its chart (null = the click does nothing); noPanel = the button opens nothing.
 const AMZ = n => readFileSync(new URL(`../fixtures/amazon-history/${n}.svg`, import.meta.url), "utf8");
 const amzFakeFn = ({ h1m, h1y, o }) => { const W = window; W.__clicks = []; W.__closed = 0; W.__closeAt = 0; W.__yearAt = 0; W.__yearClickAt = 0; W.__opacity = null;
-  const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; document.body.append(d);
-  d.querySelector(".a-declarative").addEventListener("click", () => { if (o.noPanel) return; setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; document.body.classList.add("rufus-docked-left");
-    f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><div role="tablist">' + ["1M", "3M", "1Y"].map(l => `<span role="tab" aria-selected="${l === "1M"}">${l}</span>`).join("") + '</div><span class="rufus-pricing-chart-container">' + (o.startYear ? h1y : h1m) + '</span></div>';
+  const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; if (o.openAtLoad) setTimeout(() => document.body.append(d), 1500); else document.body.append(d);
+  W.__ing = 0; const openPanel = () => { setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; document.body.classList.add("rufus-docked-left");
+    f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><div role="tablist">' + ["1M", "3M", "1Y"].map(l => `<span role="tab" aria-selected="${l === (o.startYear ? "1Y" : "1M")}">${l}</span>`).join("") + '</div><span class="rufus-pricing-chart-container">' + (o.startYear ? h1y : h1m) + '</span></div>';
     document.body.append(f); const box = f.querySelector(".rufus-pricing-chart-container"), tabs = [...f.querySelectorAll("[role=tab]")];
     tabs.forEach(tb => tb.addEventListener(o.tabEvent || "click", () => { const l = tb.textContent; W.__clicks.push(l); if (l === "1Y") W.__yearClickAt = Date.now(); const ms = l === "1Y" ? o.yearMs : o.otherMs; if (ms == null) return; tabs.forEach(x => x.setAttribute("aria-selected", String(x === tb)));
       setTimeout(() => { box.innerHTML = l === "1Y" ? h1y : h1m; if (l === "1Y") { W.__yearAt = Date.now(); W.__opacity = getComputedStyle(f).opacity; } }, ms); }));
-    f.querySelector("#rufus-panel-header-close").addEventListener("pointerup", () => { W.__closed++; W.__closeAt = Date.now(); setTimeout(() => { f.remove(); document.body.classList.remove("rufus-docked-left"); }, 300); }); /* like Amazon: only a real press closes it, and the page un-docks a moment later */ }, 300); }); };
+    f.querySelector("#rufus-panel-header-close").addEventListener("pointerup", () => { W.__closed++; W.__closeAt = Date.now(); setTimeout(() => { f.remove(); document.body.classList.remove("rufus-docked-left"); }, 300); }); /* like Amazon: only a real press closes it, and the page un-docks a moment later */ }, 300); };
+  d.querySelector(".a-declarative").addEventListener("click", () => { W.__ing++; if (o.noPanel) return; const ex = document.getElementById("nav-flyout-rufus"); if (ex && o.toggle) { ex.remove(); document.body.classList.remove("rufus-docked-left"); return; } /* like Amazon: the button TOGGLES the panel */ openPanel(); });
+  if (o.openAtLoad) openPanel(); };
 const amzFake = (p, o) => p.evaluate(amzFakeFn, { h1m: AMZ("chart-1m"), h1y: AMZ("chart-1y"), o });
 
 test("57", "Amazon reader waits for a slow year: 1Y draws 2.5 s after its tab is clicked; the reader stores it (tab 1Y, 365 days), keeps the panel open (visible) 1.2 s more, and only then closes", t => withExt({}, async ({ ctx, sw }) => {

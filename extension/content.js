@@ -300,6 +300,7 @@
     };
     RANGES.forEach(([k, dd]) => { const b = el("button", "", k); b.dataset.r = k; b.dataset.d = dd || 99999; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
     main.append(seg, c3, cb); paintRange();
+    if (dom === "amazon.in" && !(ahState === "reading" && Date.now() - ahReadAt < 25000) && !(it.ahist && Object.values(it.ahist.ranges || {}).some(x => x && (x.tab === "1Y" || x.days > 300)))) { const yb = el("button", "link-btn", "Read the full year from Amazon"); yb.onclick = () => { yb.disabled = true; ahAutoRead(true).catch(() => {}); }; main.append(yb); } // the automatic read can miss (Amazon draws its panel only sometimes): one press gets the year
     // "Should you buy this now?": horizon tabs + half-ring score + recommendation (+ alert price)
     const sc = dealScan(H, p.price, p.mrp, Date.now(), it.ref);
     // "Should you buy this now?": the horizon tabs refresh THIS card only (short skeleton, then the new verdict); nothing else in the panel redraws.
@@ -742,19 +743,20 @@
   async function ahAutoRead(force = false) { // force = the person pressed "Read Amazon's chart now": ignores the Settings switch and the retry wait
     if (ahBusy || !cur || !cur.p || dom !== "amazon.in") return; const dis = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features || []; if (dis.includes("chart-auto") || dis.includes("chart-read")) return; const { ahAuto } = await chrome.storage.local.get("ahAuto"); if (ahAuto !== true && !force) return;
     const ah0 = cur.it && cur.it.ahist, has1Y = !!(ah0 && ah0.ranges && Object.values(ah0.ranges).some(x => x && x.tab === "1Y")), last = ah0 && Math.max(ah0.at || 0, ah0.tried || 0); if (!force && last && Date.now() - last < (has1Y ? 12 * 3600e3 : 20 * 60e3)) return; // a product that only has its month is tried again after 20 min, a product with its year after 12 h
+    if (document.hidden && !force) { document.addEventListener("visibilitychange", () => { ahAutoRead().catch(() => {}); }, { once: true }); return; } // opened in a background tab: Amazon does not draw its panel there; start when the tab is shown
     const wait = (f, ms) => new Promise(res => { const t0 = Date.now(), iv = setInterval(() => { let v; try { v = f(); } catch { v = null; } if (v || Date.now() - t0 > ms) { clearInterval(iv); res(v || null); } }, 150); });
-    ahBusy = true; if (force) { ahState = "reading"; ahReadAt = Date.now(); idleRedraw(); } let trig; try { trig = await wait(() => document.querySelector('#rufus-price-ingress-bb [data-action="show-rufus-price-ingress"], .rufus-ph-ingress-pill [data-action="show-rufus-price-ingress"]'), 10000); } finally { if (!trig) ahBusy = false; } if (!trig) { if (force) { ahState = "noingress"; idleRedraw(); } return; } // Amazon draws the button after the page loads (and only for some products / signed-in shoppers)
+    ahBusy = true; if (force) { ahState = "reading"; ahReadAt = Date.now(); idleRedraw(); } let trig; try { trig = await wait(() => document.querySelector('#rufus-price-ingress-bb [data-action="show-rufus-price-ingress"], .rufus-ph-ingress-pill [data-action="show-rufus-price-ingress"]'), 10000); } finally { if (!trig) ahBusy = false; } if (!trig) { if (force) { ahState = "noingress"; idleRedraw(); } return; } if (document.hidden && !force) { ahBusy = false; document.addEventListener("visibilitychange", () => { ahAutoRead().catch(() => {}); }, { once: true }); return; } // Amazon draws the button after the page loads (and only for some products / signed-in shoppers)
     const key = cur.p.key, chart = () => document.querySelector('#rufus-react-renderer svg[aria-label*="price history" i]'); let tried = false, any = false;
     ahState = "reading"; ahReadAt = Date.now(); idleRedraw(); setTimeout(() => { if (ahState === "reading") idleRedraw(); }, 25500); // the chart box shows a skeleton meanwhile (25 s at most)
     // resolves with what the observer recorded once THE chart on screen has been read and answered (and, when the markup tells, the wanted tab is the selected one)
     const hl = (event, reason) => send({ type: "ahist-health", event, reason }).catch(() => {}), stored = (n0, label, ms = 10000) => wait(() => { const c = chart(), sel = amzSel(); return c && ahLast.n > n0 && (ahLast.node === c || ahLast.html === c.outerHTML) && (!label || !sel || (sel === label && ahLast.tab === label)) && ahLast; }, ms);
     try {
       await send({ type: "ahist-tried", key }).catch(() => {}); tried = true;
-      const n0 = ahLast.n; (trig.querySelector("button, .a-button-text, a") || trig).click();
+      const n0 = ahLast.n; if (!chart() && !document.body.classList.contains("rufus-docked-left")) (trig.querySelector("button, .a-button-text, a") || trig).click(); // a panel that is already open is left alone: the button toggles it
       if (!(await wait(chart, 8000))) return;
-      let r = await stored(n0); any = !!(r && r.ok);
+      let r = chart() && ahLast.n > 0 && (ahLast.node === chart() || ahLast.html === chart().outerHTML) ? ahLast : await stored(n0); any = !!(r && r.ok);
       // The month is on screen; now switch to the YEAR (it covers everything the 3-month view would add). Success = the observer read the new chart; no dependence on Amazon's tab markup. Click first (what worked before), then the full press, then the keyboard.
-      if ((!r || r.ok) && !(ahLast.days > 120)) { const tb = amzTabs().find(e => e.textContent.trim() === "1Y");
+      if ((!r || r.ok) && !(ahLast.days > 120 || ahLast.tab === "1Y" || amzSel() === "1Y")) { const tb = amzTabs().find(e => e.textContent.trim() === "1Y");
         if (!tb) hl("paused", "y-no-tab");
         else { const n1 = ahLast.n; let r2 = null;
           for (const how of ["click", "press", "key"]) { if (how === "click") tb.click(); else if (how === "press") amzPress(tb); else { tb.focus(); for (const ty of ["keydown", "keyup"]) tb.dispatchEvent(new KeyboardEvent(ty, { key: "Enter", code: "Enter", bubbles: true })); } r2 = await stored(n1, null, 6000); if (r2) break; }
