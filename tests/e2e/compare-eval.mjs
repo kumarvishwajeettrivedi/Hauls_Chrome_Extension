@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url), here = path.dirname(fileURLToPat
 const dir = path.resolve(args.find(a => !a.startsWith("-")) || path.join(here, "../../extension"));
 const M = require(path.join(dir, "match.js")); for (const k of ["mtQuery", "mtChecks", "mtFacts", "mtCompare"]) globalThis[k] = M[k]; globalThis.mtAlnum = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 const C = require(path.join(dir, "compare.js")), pool = JSON.parse(readFileSync(path.join(here, "../fixtures/compare/eval-pool.json"), "utf8"));
-const FLOOR = { precision: 0.9, recall: 0.9 }; // regression floor for the CURRENT code (2026-10-18: precision 92.6%, recall 96.2%; the code before the audit fixes scored 90.5% / 73.1% on the same candidates)
+const FLOOR = { precision: 0.9, recall: 0.93 }; // regression floor for the CURRENT code (2026-10-18, after the identity fix: precision 92.6%, recall 96.2% = 25 of 26 gold cells, unchanged by it; the code before the audit fixes scored 90.5% / 73.1% on the same candidates)
 let tp = 0, fp = 0, amb = 0, gold = 0, exactFp = 0, near = 0, skipped = 0, rows = 0, cells = 0; const lines = [];
 for (const r of pool.runs) {
   const id = C.cmpIdentity(r.title, r.brand, r.mpn);

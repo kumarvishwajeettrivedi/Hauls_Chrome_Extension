@@ -43,6 +43,13 @@ ok(C.CMP_STORES.Myntra.applies("Levi's Men's 511 Slim Fit Jeans") && !C.CMP_STOR
   const myOos = C.cmpParseMyntra(fx("myntra").replace('"price": 1268,', '"price": 1268, "inventoryInfo": [{"label": "32", "inventory": 0, "available": false}],')); ok(myOos.length === 5 && !myOos.some(r => r.price === 1268), "Myntra row with every size sold out is dropped [synthetic]");
   const azOos = C.cmpParseAmazon(fx("amazon").replace("<h2", "<span>Currently unavailable</span><h2")); ok(azOos.length === 2 && azOos[0].url !== "https://www.amazon.in/dp/B0F8BVSK21", "Amazon 'Currently unavailable' row is dropped [synthetic]"); }
 
+// ---- owner bug 1.21.0: a different wattage is a different product; a price far off caps the label at Likely (titles: the two wrong ones are REAL, the rest synthetic) ----
+{ const idw = C.cmpIdentity("Apple 20W USB-C Power Adapter (for iPhone, iPad & AirPods), White", "Apple");
+  ok(!C.cmpPick(idw, [{ title: "Apple MD836HN/A 12W USB Power Adapter (White)", price: 1349, url: "https://a" }, { title: "Apple 30 W USB-C Power Adapter", price: 3590, url: "https://b" }], 1499), "owner bug: neither wrong adapter is picked");
+  { const r = C.cmpPick(idw, [{ title: "Apple 20W USB-C Power Adapter (White)", price: 3590, url: "https://c" }], 1499); ok(r && r.confidence === "Likely", "right product at 2.4x the price is Likely, never Exact"); }
+  { const r = C.cmpPick(idw, [{ title: "Apple 20W USB-C Power Adapter (White)", price: 1349, url: "https://d" }], 1499); ok(r && r.confidence === "Exact", "right product at a normal price stays Exact"); }
+  const csrc = require("fs").readFileSync(require("path").join(__dirname, "../../extension/content.js"), "utf8");
+  ok(csrc.includes('"Same product" : "Likely the same"') && csrc.includes('x.confidence === "Exact"'), "card strings and the Exact-only summary are untouched"); }
 // ---- query: ordered, de-junked, and the quick links use the very same builder ----
 { const q = (t, b, m) => C.cmpQuery(t, b, m), Q = {
     "Apple iPhone 16 128 GB: 5G Mobile Phone with Camera Control": ["Apple", "apple iphone 16 128gb"], "Samsung Galaxy M35 5G (Moonlight Blue, 8GB RAM, 128GB Storage) | Corning Gorilla Glass Victus+ | 6000 mAh Battery": ["Samsung", "samsung galaxy m35 128gb"],
@@ -50,6 +57,8 @@ ok(C.CMP_STORES.Myntra.applies("Levi's Men's 511 Slim Fit Jeans") && !C.CMP_STOR
     "LG 108 cm (43 inches) 4K Ultra HD Smart LED TV 43UR7500PSC (Black)": ["LG", "lg 43ur7500psc"], "Philips Air Fryer HD9200/90, uses up to 90% less fat, 1400W, 4.1 Liter, Rapid Air Technology (Black), Large": ["Philips", "philips airfryer hd9200"],
     "Atomic Habits: The life-changing million copy bestseller by James Clear (Paperback)": ["James Clear", "james clear atomic habits"], "Apple iPhone 15 Pro Max (256 GB) - Natural Titanium": ["Apple", "apple iphone 15 pro max 256gb"],
     "HP Laptop 15, 13th Gen Intel Core i5-1335U (16GB DDR4, 512GB SSD) 15.6-inch (39.6 cm), FHD, Anti-Glare, Win 11, MSO 2021, Silver, 1.59 kg, fy5002TU": ["HP", "hp 15 fy5002tu 512gb"] };
+  ok(q("Apple 20W USB-C Power Adapter (for iPhone, iPad & AirPods), White", "Apple") === "apple 20w usb power adapter", "the defining wattage stays in the query (owner bug): " + q("Apple 20W USB-C Power Adapter (for iPhone, iPad & AirPods), White", "Apple"));
+  ok(/\b33w\b/.test(q("Mi 33W SonicCharge 3.0 Fast Charger", "Xiaomi")), "charger wattage is searched: " + q("Mi 33W SonicCharge 3.0 Fast Charger", "Xiaomi"));
   for (const [t, [b, want]] of Object.entries(Q)) ok(q(t, b) === want, `query "${want}" <- got "${q(t, b)}"`);
   ok(q("Sony Bravia KD-55X75L 55 inch 4K TV", "Sony") === "sony bravia kd 55x75l" && !/000ml/.test(q("Sony Bravia KD-55X75L 55 inch 4K TV", "Sony")), "a model code ending in L is not turned into millilitres");
   ok(q("Fire-Boltt Ninja Call Pro Plus 1.83 Smart Watch", "Fire-Boltt") === "fire boltt ninja call pro plus", "brand is not repeated: " + q("Fire-Boltt Ninja Call Pro Plus 1.83 Smart Watch", "Fire-Boltt")); }

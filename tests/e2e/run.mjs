@@ -613,7 +613,7 @@ test("64", "Amazon reader when the tabs only answer a real press (like Amazon's 
   const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 800, otherMs: 400, tabEvent: "pointerup" }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
   t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the panel was closed after reading");
   const w = await r.p.evaluate(() => window.__clicks.join()), ah = ((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }, y = ah.ranges["1Y"];
-  t.check(w === "3M,1Y", "both tabs were pressed (year last): " + w);
+  t.check(w === "1Y", "the year tab was reached with a real press (a plain click does nothing on this panel): " + w);
   t.check(!!y && y.tab === "1Y" && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]) + " ranges=" + JSON.stringify(Object.entries(ah.ranges).map(([n, v]) => [n, v.tab, v.days])) + " tried=" + ah.tried);
   const hh = (await store(sw, "chartHealth")).chartHealth || {}; t.check(JSON.stringify(hh).includes("y-stored"), "Settings counts the stored year: " + JSON.stringify(hh).slice(0, 160));
 }));
@@ -654,6 +654,14 @@ test("68", "Grocery tab carries a small 'Beta' capsule, readable in both tab sta
   const info = () => panel.ev(function () { const b = this.querySelectorAll(".tabs button")[1], be = b.querySelector(".beta"), tl = this.querySelector(".tabs"), r = be.getBoundingClientRect(), br = b.getBoundingClientRect(); return { txt: b.textContent.replace(/\s+/g, " ").trim(), bg: getComputedStyle(be).backgroundColor, inside: r.left >= br.left && r.right <= br.right, overflow: tl.scrollWidth > tl.clientWidth + 1, others: [...this.querySelectorAll(".tabs button")].filter((x, i) => i !== 1).every(x => !x.querySelector(".beta")) }; });
   let i = await info(); t.check(i.txt === "Grocery Beta" && i.inside && !i.overflow && i.others, "Beta sits inside the Grocery tab only: " + JSON.stringify(i)); t.check(i.bg === "rgb(255, 217, 61)", "yellow capsule, same in every state: " + i.bg);
   await panel.tab(1); await sleep(500); i = await info(); t.check(i.inside && !i.overflow, "still inside and not overflowing when the Grocery tab is selected: " + JSON.stringify(i));
+}));
+
+test("77", "Amazon reader: when Amazon already opens on the year, no tab is touched and the year is stored", t => withExt({}, async ({ ctx, sw }) => {
+  await seed(sw, { ahAuto: true }); const id = "B0STARTYR1", k = key(id);
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, startYear: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the panel was read and closed");
+  const w = await r.p.evaluate(() => window.__clicks.join()), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
+  t.check(w === "" && !!y && y.days === 365, "no tab was clicked and the year was stored: clicks=" + JSON.stringify(w) + " " + JSON.stringify(y && [y.tab, y.days]));
 }));
 
 test("37", "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in", t => withExt({}, async ({ ctx, sw, extId }) => {
@@ -1213,7 +1221,7 @@ const AMZ = n => readFileSync(new URL(`../fixtures/amazon-history/${n}.svg`, imp
 const amzFakeFn = ({ h1m, h1y, o }) => { const W = window; W.__clicks = []; W.__closed = 0; W.__closeAt = 0; W.__yearAt = 0; W.__yearClickAt = 0; W.__opacity = null;
   const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; document.body.append(d);
   d.querySelector(".a-declarative").addEventListener("click", () => { if (o.noPanel) return; setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; document.body.classList.add("rufus-docked-left");
-    f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><div role="tablist">' + ["1M", "3M", "1Y"].map(l => `<span role="tab" aria-selected="${l === "1M"}">${l}</span>`).join("") + '</div><span class="rufus-pricing-chart-container">' + h1m + '</span></div>';
+    f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><div role="tablist">' + ["1M", "3M", "1Y"].map(l => `<span role="tab" aria-selected="${l === "1M"}">${l}</span>`).join("") + '</div><span class="rufus-pricing-chart-container">' + (o.startYear ? h1y : h1m) + '</span></div>';
     document.body.append(f); const box = f.querySelector(".rufus-pricing-chart-container"), tabs = [...f.querySelectorAll("[role=tab]")];
     tabs.forEach(tb => tb.addEventListener(o.tabEvent || "click", () => { const l = tb.textContent; W.__clicks.push(l); if (l === "1Y") W.__yearClickAt = Date.now(); const ms = l === "1Y" ? o.yearMs : o.otherMs; if (ms == null) return; tabs.forEach(x => x.setAttribute("aria-selected", String(x === tb)));
       setTimeout(() => { box.innerHTML = l === "1Y" ? h1y : h1m; if (l === "1Y") { W.__yearAt = Date.now(); W.__opacity = getComputedStyle(f).opacity; } }, ms); }));
@@ -1227,12 +1235,12 @@ test("57", "Amazon reader waits for a slow year: 1Y draws 2.5 s after its tab is
   await poll(() => r.p.evaluate(() => !document.getElementById("nav-flyout-rufus")), 6000, 300);
   const w = await r.p.evaluate(() => ({ clicks: window.__clicks.join(), closed: window.__closed, closeAt: window.__closeAt, yearAt: window.__yearAt, op: window.__opacity, hide: !!document.getElementById("hauls-ah-hide"), docked: document.body.classList.contains("rufus-docked-left"), flyout: !!document.getElementById("nav-flyout-rufus") }));
   const ah = ((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }, y = ah.ranges["1Y"];
-  t.check(w.clicks === "3M,1Y" && w.closed === 1, "3M then 1Y (the year last), closed once: " + JSON.stringify(w));
+  t.check(w.clicks === "1Y" && w.closed === 1, "month on screen, then the year, closed once: " + JSON.stringify(w));
   t.check(!!y && y.tab === "1Y" && y.days === 365 && y.points.length === 5 && y.points[0][1] === 5499, "the year was stored with its tab and its real span: " + JSON.stringify(y && [y.tab, y.days, y.points.length]));
   t.check(!!y && y.at >= w.yearAt && w.closeAt >= y.at + 1100, `closed only after the year was stored (+1.2 s): drawn ${w.yearAt % 1e5}, stored ${y && y.at % 1e5}, closed ${w.closeAt % 1e5}`);
   t.check(w.op === "1" && !w.hide, "the panel is not hidden while it is read (opacity " + w.op + ")");
   t.check(!w.docked && !w.flyout, "the page is not left shifted: " + JSON.stringify([w.docked, w.flyout]));
-  t.check(!!ah.ranges["1M"] && ah.ranges["1M"].tab === "3M", "3M was read too");
+  t.check(!!ah.ranges["1M"], "the month that was on screen first was stored too");
   await r.panel.click(".seg:not(.hz) button[data-r='1Y']"); await sleep(400); const lbl = await r.panel.text(".chartbox .lbl"); t.check(/^1Y history$/.test(lbl.trim()), "HAULS 1Y now has a year of data and says nothing short: " + lbl);
 }));
 
@@ -1242,7 +1250,7 @@ test("58", "Amazon reader, 1Y never appears (tab click does nothing): it gives u
   t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 60000, 500)), "the panel was closed although the year never came");
   await poll(() => r.p.evaluate(() => !document.getElementById("nav-flyout-rufus")), 6000, 300);
   const w = await r.p.evaluate(() => ({ clicks: window.__clicks.join(), closed: window.__closed, wait: window.__closeAt - window.__yearClickAt, docked: document.body.classList.contains("rufus-docked-left"), flyout: !!document.getElementById("nav-flyout-rufus"), hide: !!document.getElementById("hauls-ah-hide") }));
-  t.check(w.clicks === "3M,1Y" && w.closed === 1 && w.wait >= 9500 && w.wait < 25000, "it waited about 10 s for the year, then closed once: " + JSON.stringify(w));
+  t.check(/^1Y(,1Y)*$/.test(w.clicks) && w.closed === 1 && w.wait >= 9500 && w.wait < 25000, "it waited about 10 s for the year, then closed once: " + JSON.stringify(w));
   t.check(!w.docked && !w.flyout && !w.hide, "page unshifted, nothing left behind");
   const ah = ((await store(sw, "items")).items[k] || {}).ahist || {};
   t.check(!!ah.ranges && !!ah.ranges["1M"] && !ah.ranges["1Y"] && ah.tried > ah.at, "what was read (1M/3M) is kept, no year is invented, and the end of the run is marked: " + JSON.stringify([Object.keys(ah.ranges || {}), ah.tried > ah.at]));

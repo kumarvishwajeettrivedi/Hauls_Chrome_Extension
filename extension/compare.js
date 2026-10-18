@@ -68,6 +68,7 @@ function cmpPick(id, cands, refPrice) {
   for (const c of cands) {
     if (refPrice && (c.price < refPrice * 0.3 || c.price > refPrice * 4)) continue;
     const m = cmpMatch(id, c); if (!m) continue; if (c.fashion && m.label === "Exact") { m.label = "Likely"; m.score = 1; } // apparel has no style code on the page: same line and cut, never "confirmed"
+    if (refPrice && m.label === "Exact" && (c.price > refPrice * 2 || c.price < refPrice / 2)) { m.label = "Likely"; m.score = 1; } // a price this far off cannot prove a wrong product, but it is too odd for "Same product" / Lowest
     const better = !best || CMP_RANK[m.label] > CMP_RANK[best.confidence] || (CMP_RANK[m.label] === CMP_RANK[best.confidence] && (m.score > best.score + 0.15 || (Math.abs(m.score - best.score) <= 0.15 && c.price < best.price)));
     if (better) best = { ...c, confidence: m.label, score: m.score };
   }

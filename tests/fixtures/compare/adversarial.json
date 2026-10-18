@@ -1,0 +1,1028 @@
+[
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple 20W USB-C Power Adapter (for iPhone, iPad & AirPods), White",
+  "cand": "Apple MD836HN/A 12W USB Power Adapter (White)",
+  "expect": "none",
+  "note": "12W model",
+  "origin": "real"
+ },
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple 20W USB-C Power Adapter (for iPhone, iPad & AirPods), White",
+  "cand": "Apple 30 W USB-C Power Adapter",
+  "expect": "none",
+  "note": "30W",
+  "origin": "real"
+ },
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple 20W USB-C Power Adapter (for iPhone, iPad & AirPods), White",
+  "cand": "Apple 20W USB-C Power Adapter (White)",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple 20W USB-C Power Adapter (for iPhone, iPad & AirPods), White",
+  "cand": "Apple 35W Dual USB-C Port Compact Power Adapter",
+  "expect": "none",
+  "note": "35W dual",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple 20W USB-C Power Adapter (for iPhone, iPad & AirPods), White",
+  "cand": "Apple 140W USB-C Power Adapter",
+  "expect": "none",
+  "note": "140W",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple 20W USB-C Power Adapter",
+  "cand": "Apple MHJE3HN/A 20W USB-C Power Adapter (White)",
+  "expect": "match",
+  "note": "same with MPN code",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Samsung",
+  "src": "Samsung 25W USB-C Super Fast Charging Wall Charger, Black",
+  "cand": "Samsung 45W USB-C Travel Adapter (Black)",
+  "expect": "none",
+  "note": "25 vs 45W",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Samsung",
+  "src": "Samsung 25W USB-C Super Fast Charging Wall Charger, Black",
+  "cand": "SAMSUNG 25W Fast Charger with USB-C Cable (Black)",
+  "expect": "match",
+  "note": "same W; bundled cable ok",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Mi",
+  "src": "Mi 33W SonicCharge 3.0 Charger Combo",
+  "cand": "Mi 67W SonicCharge 3.0 Charger",
+  "expect": "none",
+  "note": "33 vs 67",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Anker",
+  "src": "Anker 20000mAh Power Bank 22.5W PowerCore",
+  "cand": "Anker 10000mAh Power Bank 22.5W PowerCore",
+  "expect": "none",
+  "note": "20000 vs 10000 mAh",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Anker",
+  "src": "Anker 20000mAh Power Bank 22.5W PowerCore",
+  "cand": "Anker PowerCore 20000mAh 22.5W Power Bank (Black)",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Mi",
+  "src": "Mi 10000mAh Power Bank 3i 18W Fast Charging",
+  "cand": "Mi Power Bank 3i 20000mAh 18W",
+  "expect": "none",
+  "note": "10000 vs 20000",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Ambrane",
+  "src": "Ambrane 10000mAh Slim Power Bank 20W",
+  "cand": "Ambrane 20000mAh Slim Power Bank 20W",
+  "expect": "none",
+  "note": "capacity",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Ambrane",
+  "src": "Ambrane 10000mAh Slim Power Bank 20W",
+  "cand": "Ambrane Power Bank 10000mAh 20W Slim",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Samsung",
+  "src": "Samsung T7 Portable SSD 1TB USB 3.2",
+  "cand": "Samsung T7 Portable SSD 2TB USB 3.2",
+  "expect": "none",
+  "note": "1TB vs 2TB",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Samsung",
+  "src": "Samsung T7 Portable SSD 1TB USB 3.2",
+  "cand": "Samsung T7 Shield 1TB Portable SSD",
+  "expect": "none",
+  "note": "Shield variant",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "SanDisk",
+  "src": "SanDisk Ultra 128GB USB 3.0 Pen Drive",
+  "cand": "SanDisk Ultra 64GB USB 3.0 Pen Drive",
+  "expect": "none",
+  "note": "128 vs 64",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "SanDisk",
+  "src": "SanDisk Ultra 128GB USB 3.0 Pen Drive",
+  "cand": "SanDisk Ultra 128GB USB 3.0 Flash Drive",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "SanDisk",
+  "src": "SanDisk Extreme 256GB microSDXC Memory Card",
+  "cand": "SanDisk Extreme 128GB microSDXC Memory Card",
+  "expect": "none",
+  "note": "256 vs 128",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Redmi",
+  "src": "Redmi 13C 5G (Starlight Black, 6GB RAM, 128GB)",
+  "cand": "Redmi 13C 5G (Starlight Black, 4GB RAM, 128GB)",
+  "expect": "none",
+  "note": "RAM",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Redmi",
+  "src": "Redmi 13C 5G (Starlight Black, 6GB RAM, 128GB)",
+  "cand": "Redmi 13C 5G (Startrail Silver, 6GB RAM, 128GB)",
+  "expect": "match",
+  "note": "colour only",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Redmi",
+  "src": "Redmi 13C 5G (Starlight Black, 6GB RAM, 128GB)",
+  "cand": "Redmi 13 5G (Hawaiian Blue, 6GB RAM, 128GB)",
+  "expect": "none",
+  "note": "13C vs 13",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Sony",
+  "src": "Sony Bravia 55 inch 4K Ultra HD Smart LED Google TV KD-55X75L",
+  "cand": "Sony Bravia 43 inch 4K Ultra HD Smart LED Google TV KD-43X75L",
+  "expect": "none",
+  "note": "TV size",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "LG",
+  "src": "LG 43 inch 4K UHD Smart LED TV",
+  "cand": "LG 55 inch 4K UHD Smart LED TV",
+  "expect": "none",
+  "note": "TV size no model",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "LG",
+  "src": "LG 43 inch 4K UHD Smart LED TV",
+  "cand": "LG 43 inch Full HD Smart LED TV",
+  "expect": "none",
+  "note": "FHD vs 4K",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "LG",
+  "src": "LG 43 inch 4K UHD Smart LED TV",
+  "cand": "LG 43 Inch 4K Ultra HD Smart LED TV",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Samsung",
+  "src": "Samsung 32 inch HD Ready Smart LED TV",
+  "cand": "Samsung 40 inch Full HD Smart LED TV",
+  "expect": "none",
+  "note": "TV",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "boAt",
+  "src": "boAt Type C A400 Cable 1.5 m",
+  "cand": "boAt Type C A400 Cable 1 m",
+  "expect": "none",
+  "note": "cable length",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "boAt",
+  "src": "boAt Micro USB Cable 1.5 m",
+  "cand": "boAt Micro USB Cable 2 m",
+  "expect": "none",
+  "note": "cable length",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Amazon Basics",
+  "src": "Amazon Basics USB-C to Lightning Cable 1.8 m",
+  "cand": "Amazon Basics USB-C to Lightning Cable 0.9 m",
+  "expect": "none",
+  "note": "length",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Philips",
+  "src": "Philips 9W LED Bulb Cool Day Light B22",
+  "cand": "Philips 12W LED Bulb Cool Day Light B22",
+  "expect": "none",
+  "note": "bulb W",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Philips",
+  "src": "Philips 9W LED Bulb Cool Day Light B22",
+  "cand": "Philips 9W LED Bulb Warm White B22",
+  "expect": "none",
+  "note": "colour temp",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Philips",
+  "src": "Philips 9W LED Bulb Cool Day Light B22",
+  "cand": "Philips 9W LED Bulb Cool Day Light B22 Pack of 4",
+  "expect": "none",
+  "note": "pack",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Havells",
+  "src": "Havells 9W LED Bulb Cool Daylight",
+  "cand": "Havells 9W LED Bulb Cool Daylight",
+  "expect": "match",
+  "note": "identical",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Havells",
+  "src": "Havells Stealth 1200 mm Ceiling Fan Brown",
+  "cand": "Havells Stealth 1400 mm Ceiling Fan Brown",
+  "expect": "none",
+  "note": "sweep",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Havells",
+  "src": "Havells Stealth 1200 mm Ceiling Fan Brown",
+  "cand": "Havells Stealth 1200 mm Ceiling Fan White",
+  "expect": "match",
+  "note": "colour",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Orient",
+  "src": "Orient Electric 1200mm Ceiling Fan Aeroquiet",
+  "cand": "Orient Electric 1400mm Ceiling Fan Aeroquiet",
+  "expect": "none",
+  "note": "sweep",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Usha",
+  "src": "Usha Mixer Grinder 500W 3 Jars",
+  "cand": "Usha Mixer Grinder 750W 3 Jars",
+  "expect": "none",
+  "note": "mixer W",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Bajaj",
+  "src": "Bajaj Rex 500 Watt Mixer Grinder 3 Jars",
+  "cand": "Bajaj Rex 750 Watt Mixer Grinder 3 Jars",
+  "expect": "none",
+  "note": "mixer W",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Bajaj",
+  "src": "Bajaj Rex 500 Watt Mixer Grinder 3 Jars",
+  "cand": "Bajaj Rex 500W Mixer Grinder with 3 Jars",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Havells",
+  "src": "Havells Room Heater 2000W Oil Filled Radiator",
+  "cand": "Havells Room Heater 1500W Oil Filled Radiator",
+  "expect": "none",
+  "note": "heater W",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Bajaj",
+  "src": "Bajaj Majesty 1000 Watt Room Heater",
+  "cand": "Bajaj Majesty 2000 Watt Room Heater",
+  "expect": "none",
+  "note": "heater W",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Philips",
+  "src": "Philips Hair Dryer 1200W",
+  "cand": "Philips Hair Dryer 2100W",
+  "expect": "none",
+  "note": "dryer W",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Philips",
+  "src": "Philips Air Fryer 4.1 L",
+  "cand": "Philips Air Fryer 6.2 L",
+  "expect": "none",
+  "note": "fryer litres",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "JBL",
+  "src": "JBL Go 3 Portable Speaker 4.2W",
+  "cand": "JBL Go 2 Portable Speaker 3W",
+  "expect": "none",
+  "note": "go3 vs go2",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Dell",
+  "src": "Dell Inspiron 15 3520 Laptop Intel Core i5 16GB 512GB",
+  "cand": "Dell Inspiron 15 3520 Laptop Intel Core i3 8GB 256GB",
+  "expect": "none",
+  "note": "cpu/ram",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple iPhone 15 (128 GB) - Black",
+  "cand": "Apple iPhone 15 Pro (128 GB) - Black Titanium",
+  "expect": "none",
+  "note": "pro",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple iPhone 15 (128 GB) - Black",
+  "cand": "Apple iPhone 15 (128 GB) - Blue",
+  "expect": "match",
+  "note": "colour",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple AirPods Pro (2nd Generation) with MagSafe Case USB-C",
+  "cand": "Apple AirPods (3rd Generation) with Lightning Charging Case",
+  "expect": "none",
+  "note": "airpods pro vs 3",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Apple",
+  "src": "Apple Watch Series 9 GPS 45mm",
+  "cand": "Apple Watch Series 9 GPS 41mm",
+  "expect": "none",
+  "note": "case size",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Logitech",
+  "src": "Logitech MX Master 3S Wireless Mouse",
+  "cand": "Logitech MX Master 3 Wireless Mouse",
+  "expect": "none",
+  "note": "3S vs 3",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Logitech",
+  "src": "Logitech M331 Silent Plus Wireless Mouse",
+  "cand": "Logitech M331 Silent Plus Wireless Mouse (Black)",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "HP",
+  "src": "HP 15s Laptop 12th Gen Intel Core i5 16GB 512GB",
+  "cand": "HP 15s Laptop 12th Gen Intel Core i5 8GB 512GB",
+  "expect": "none",
+  "note": "ram",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "tech",
+  "brand": "Prestige",
+  "src": "Prestige Iris 750 Watt Mixer Grinder with 3 Jars",
+  "cand": "Prestige Iris Plus 750 Watt Mixer Grinder",
+  "expect": "none",
+  "note": "iris plus",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Nike",
+  "src": "Nike Men's Revolution 7 Running Shoes",
+  "cand": "Nike Men's Revolution 6 Running Shoes",
+  "expect": "none",
+  "note": "model number",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Nike",
+  "src": "Nike Men's Revolution 7 Running Shoes",
+  "cand": "Nike Men's Revolution 7 Running Shoes Black",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Nike",
+  "src": "Nike Men's Revolution 7 Running Shoes",
+  "cand": "Nike Women's Revolution 7 Running Shoes",
+  "expect": "none",
+  "note": "gender",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Nike",
+  "src": "Nike Men's Air Max 270 Sneakers",
+  "cand": "Nike Men's Air Force 1 Sneakers",
+  "expect": "none",
+  "note": "different model",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Nike",
+  "src": "Nike Men's Air Max 270 Sneakers",
+  "cand": "Nike Air Max 270 Kids Shoes",
+  "expect": "none",
+  "note": "kids vs men",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Adidas",
+  "src": "Adidas Men's Ultraboost Light Running Shoes",
+  "cand": "Adidas Men's Ultraboost 22 Running Shoes",
+  "expect": "none",
+  "note": "different version",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Adidas",
+  "src": "Adidas Men's Samba OG Sneakers",
+  "cand": "Adidas Men's Gazelle Sneakers",
+  "expect": "none",
+  "note": "samba vs gazelle",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Adidas",
+  "src": "Adidas Men's Samba OG Sneakers",
+  "cand": "Adidas Men's Samba OG Sneakers White",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Puma",
+  "src": "Puma Men's Softride Enzo Running Shoes",
+  "cand": "Puma Men's Softride Pro Running Shoes",
+  "expect": "none",
+  "note": "enzo vs pro",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Puma",
+  "src": "Puma Men's Smashic Sneakers",
+  "cand": "Puma Men's Smashic Sneakers Black",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Puma",
+  "src": "Puma Men's Smashic Sneakers",
+  "cand": "Puma Men's Caven 2.0 Sneakers",
+  "expect": "none",
+  "note": "model",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Skechers",
+  "src": "Skechers Men's Go Walk Arch Fit Sneakers",
+  "cand": "Skechers Men's Go Run Consistent Running Shoes",
+  "expect": "none",
+  "note": "walk vs run",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Skechers",
+  "src": "Skechers Men's Go Walk Arch Fit Sneakers",
+  "cand": "Skechers Men's Go Walk Arch Fit Sneakers Navy",
+  "expect": "match",
+  "note": "colour",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Bata",
+  "src": "Bata Men's Formal Lace-Up Shoes",
+  "cand": "Bata Men's Casual Sandals",
+  "expect": "none",
+  "note": "type",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Campus",
+  "src": "Campus Men's North Plus Running Shoes",
+  "cand": "Campus Men's North Running Shoes",
+  "expect": "none",
+  "note": "plus",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Campus",
+  "src": "Campus Men's Oxyfit Running Shoes",
+  "cand": "Campus Men's Oxyfit Running Shoes Grey",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Reebok",
+  "src": "Reebok Men's Zig Dynamica Running Shoes",
+  "cand": "Reebok Men's Energen Lite Running Shoes",
+  "expect": "none",
+  "note": "model",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "New Balance",
+  "src": "New Balance Men's 574 Sneakers",
+  "cand": "New Balance Men's 530 Sneakers",
+  "expect": "none",
+  "note": "574 vs 530",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Crocs",
+  "src": "Crocs Unisex Classic Clog Black",
+  "cand": "Crocs Unisex Classic Clog Navy",
+  "expect": "match",
+  "note": "colour",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Crocs",
+  "src": "Crocs Unisex Classic Clog Black",
+  "cand": "Crocs Kids Classic Clog Black",
+  "expect": "none",
+  "note": "kids",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Asics",
+  "src": "Asics Men's Gel-Contend 8 Running Shoes",
+  "cand": "Asics Men's Gel-Contend 7 Running Shoes",
+  "expect": "none",
+  "note": "8 vs 7",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Liberty",
+  "src": "Liberty Men's Sports Shoes Running",
+  "cand": "Liberty Boys Sports Shoes Running",
+  "expect": "none",
+  "note": "men vs boys",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Woodland",
+  "src": "Woodland Men's Leather Casual Shoes Camel",
+  "cand": "Woodland Men's Leather Boots Camel",
+  "expect": "none",
+  "note": "type",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "shoes",
+  "brand": "Nike",
+  "src": "Nike Women's Court Vision Low Sneakers",
+  "cand": "Nike Men's Court Vision Low Sneakers",
+  "expect": "none",
+  "note": "gender",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Levi's",
+  "src": "Levi's Men's 511 Slim Fit Jeans Blue",
+  "cand": "Levi's Men's 511 Slim Fit Jeans Black",
+  "expect": "match",
+  "note": "colour differs but cannot decide",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Levi's",
+  "src": "Levi's Men's 511 Slim Fit Jeans Blue",
+  "cand": "Levi's Men's 501 Original Fit Jeans Blue",
+  "expect": "none",
+  "note": "501 vs 511",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Levi's",
+  "src": "Levi's Men's 511 Slim Fit Jeans Blue",
+  "cand": "Levi's Women's 511 Slim Fit Jeans Blue",
+  "expect": "none",
+  "note": "gender",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Levi's",
+  "src": "Levi's Men's 511 Slim Fit Jeans Blue",
+  "cand": "Levi's Men's 511 Slim Fit Jeans Blue",
+  "expect": "match",
+  "note": "identical",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Allen Solly",
+  "src": "Allen Solly Men's Regular Fit Shirt",
+  "cand": "Allen Solly Men's Slim Fit Shirt",
+  "expect": "none",
+  "note": "fit",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Allen Solly",
+  "src": "Allen Solly Men's Regular Fit Shirt",
+  "cand": "Allen Solly Women's Regular Fit Shirt",
+  "expect": "none",
+  "note": "gender",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Allen Solly",
+  "src": "Allen Solly Men's Regular Fit Shirt",
+  "cand": "Allen Solly Men's Regular Fit Polo T-Shirt",
+  "expect": "none",
+  "note": "shirt vs polo",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Jockey",
+  "src": "Jockey Men's Cotton Vest Pack of 2",
+  "cand": "Jockey Men's Cotton Vest Pack of 3",
+  "expect": "none",
+  "note": "pack",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Jockey",
+  "src": "Jockey Men's Cotton Vest Pack of 2",
+  "cand": "Jockey Men's Cotton Brief Pack of 2",
+  "expect": "none",
+  "note": "vest vs brief",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Jockey",
+  "src": "Jockey Men's Cotton Vest Pack of 2",
+  "cand": "Jockey Men's Cotton Vest Pack of 2",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "U.S. Polo Assn.",
+  "src": "U.S. Polo Assn. Men's Slim Fit T-Shirt Navy",
+  "cand": "U.S. Polo Assn. Men's Regular Fit T-Shirt Navy",
+  "expect": "none",
+  "note": "fit",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Van Heusen",
+  "src": "Van Heusen Men's Slim Fit Formal Shirt Size 40",
+  "cand": "Van Heusen Men's Slim Fit Formal Shirt Size 42",
+  "expect": "none",
+  "note": "size",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Adidas",
+  "src": "Adidas Men's Regular Fit T-Shirt Size M",
+  "cand": "Adidas Men's Regular Fit T-Shirt Size XL",
+  "expect": "none",
+  "note": "size",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "H&M",
+  "src": "H&M Women's Oversized Hoodie Grey",
+  "cand": "H&M Women's Slim Hoodie Grey",
+  "expect": "none",
+  "note": "fit",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Puma",
+  "src": "Puma Men's Regular Fit Polo",
+  "cand": "Puma Boys Regular Fit Polo",
+  "expect": "none",
+  "note": "kids",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Biba",
+  "src": "Biba Women's Cotton Straight Kurta",
+  "cand": "Biba Women's Cotton Anarkali Kurta",
+  "expect": "none",
+  "note": "cut",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Peter England",
+  "src": "Peter England Men's Slim Fit Trousers Black",
+  "cand": "Peter England Men's Slim Fit Trousers Navy",
+  "expect": "match",
+  "note": "colour",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "clothes",
+  "brand": "Zara",
+  "src": "Zara Women's Cotton Midi Dress",
+  "cand": "Zara Girls Cotton Midi Dress",
+  "expect": "none",
+  "note": "girls",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple iPhone 15 (128 GB) - Black",
+  "cand": "Apple iPhone 15 Silicone Case with MagSafe - Black",
+  "expect": "none",
+  "note": "case",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple iPhone 15 (128 GB) - Black",
+  "cand": "Apple iPhone 15 Clear Case",
+  "expect": "none",
+  "note": "case",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple iPhone 15 (128 GB) - Black",
+  "cand": "Apple iPhone 15 Screen Protector Tempered Glass",
+  "expect": "none",
+  "note": "protector",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple Watch Series 9 GPS 45mm",
+  "cand": "Apple Watch Series 9 Sport Band 45mm",
+  "expect": "none",
+  "note": "strap",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple Watch Series 9 GPS 45mm",
+  "cand": "Apple Watch Series 9 GPS Case with Sport Loop strap",
+  "expect": "none",
+  "note": "strap",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple 20W USB-C Power Adapter",
+  "cand": "Apple 20W USB-C Power Adapter for iPhone 15",
+  "expect": "match",
+  "note": "same adapter titled for iPhone",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Samsung",
+  "src": "Samsung Galaxy S24 5G (8GB, 256GB) Onyx Black",
+  "cand": "Samsung Galaxy S24 5G Back Cover Case",
+  "expect": "none",
+  "note": "cover",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Samsung",
+  "src": "Samsung Galaxy S24 5G (8GB, 256GB) Onyx Black",
+  "cand": "Samsung Galaxy S24 Charger Cable for S24",
+  "expect": "none",
+  "note": "charger for phone",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Samsung",
+  "src": "Samsung Galaxy S24 5G (8GB, 256GB) Onyx Black",
+  "cand": "Samsung Galaxy S24 Ultra 5G (12GB, 256GB)",
+  "expect": "none",
+  "note": "ultra",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Sony",
+  "src": "Sony PlayStation 5 Console Slim Digital Edition",
+  "cand": "Sony PlayStation 5 DualSense Wireless Controller",
+  "expect": "none",
+  "note": "controller",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Sony",
+  "src": "Sony PlayStation 5 Console Slim Digital Edition",
+  "cand": "Sony PlayStation 5 Console Slim Disc Edition",
+  "expect": "none",
+  "note": "digital vs disc",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple AirPods Pro (2nd Generation)",
+  "cand": "Apple AirPods Pro 2 Ear Tips",
+  "expect": "none",
+  "note": "tips",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple AirPods Pro (2nd Generation)",
+  "cand": "Apple AirPods Pro 2 Silicone Case Cover",
+  "expect": "none",
+  "note": "case",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Canon",
+  "src": "Canon EOS 1500D DSLR Camera with 18-55mm Lens",
+  "cand": "Canon EOS 1500D Camera Bag",
+  "expect": "none",
+  "note": "bag",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Amazon",
+  "src": "Amazon Fire TV Stick 4K",
+  "cand": "Amazon Fire TV Stick 4K Remote Replacement",
+  "expect": "none",
+  "note": "remote",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple iPad 10th Generation 64GB WiFi",
+  "cand": "Apple iPad 10th Generation Smart Folio Case",
+  "expect": "none",
+  "note": "folio",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Apple",
+  "src": "Apple MacBook Air M2 13.6 inch 8GB 256GB",
+  "cand": "Apple MacBook Air M2 Sleeve Bag 13 inch",
+  "expect": "none",
+  "note": "sleeve",
+  "origin": "synthetic"
+ },
+ {
+  "kind": "accessory",
+  "brand": "Dell",
+  "src": "Dell Wireless Mouse WM126",
+  "cand": "Dell Wireless Mouse WM126 Black",
+  "expect": "match",
+  "note": "same",
+  "origin": "synthetic"
+ }
+]

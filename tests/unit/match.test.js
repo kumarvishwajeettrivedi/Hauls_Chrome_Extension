@@ -3,6 +3,52 @@
 const assert = require("assert"), M = require("../../extension/match.js");
 let n = 0, wrongExact = 0;
 const T = (src, brand, cand, want, why, cb) => { const got = M.mtCompare(M.mtFacts(src, brand), { title: cand, brand: cb }); if (got.verdict !== want) { console.log(`MISMATCH want=${want} got=${got.verdict} [${got.conflicts}] ${why}\n   SRC ${src.slice(0, 70)}\n   CND ${cand.slice(0, 70)}`); wrongExact++; } else n++; };
+// owner bug, 1.21.0: the three Apple titles are REAL (Amazon.in source, Flipkart and Reliance Digital candidates); the other candidates are synthetic
+const OWN = "Apple 20W USB-C Power Adapter (for iPhone, iPad & AirPods), White";
+T(OWN, "Apple", "Apple MD836HN/A 12W USB Power Adapter (White)", null, "owner: 12W part number is not the 20W");
+T(OWN, "Apple", "Apple 30 W USB-C Power Adapter", null, "owner: 30W (space before W)");
+T(OWN, "Apple", "Apple 35W Dual USB-C Port Compact Power Adapter", null, "35W dual port");
+T(OWN, "Apple", "Apple 20W USB-C Power Adapter (White)", "exact", "the real one; exact only because watts AND the product words agree");
+T(OWN, "Apple", "Apple USB-C Power Adapter", "likely", "watts not stated by the listing: never Exact (Task 4)");
+T(OWN, "Apple", "Apple 20W USB-C Power Adapter for iPhone 15", "likely", "same adapter, titled for a phone (adversarial row: must stay found)");
+// a model code on only one side, or a number only one side states, is never Exact [synthetic]
+T("Adidas Men's Ultraboost Light Running Shoes", "Adidas", "Adidas Men's Ultraboost 22 Running Shoes", "likely", "candidate carries a model code the page lacks: never Exact (still shown as Likely)");
+T("Apple 20W USB-C Power Adapter", "Apple", "Apple MHJE3HN/A 20W USB-C Power Adapter", "likely", "extra part number on the listing: Likely, not lost");
+T("Prestige Svachh Deluxe Alpha Stainless Steel Pressure Cooker, 5 Litre, Silver", "Prestige", "Prestige Svachh Deluxe Alpha 5 L Outer Lid Induction Bottom Pressure Cooker Stainless Steel", "likely", "existing gold must keep passing");
+T("Apple USB-C Power Adapter", "Apple", "Apple USB-C Power Adapter 12W", null, "only category words in common (Task 8 after Task 4: never Exact)");
+T("Amazon Basics USB-C Charging Cable 1 m", "Amazon", "Amazon Basics USB-C Charging Cable", "likely", "length not stated by the listing: never Exact");
+// accessory versus main product [synthetic]
+T("Apple Watch Series 9 GPS 45mm", "Apple", "Apple Watch Series 9 Sport Band 45mm", null, "strap");
+T("Apple Watch Series 9 GPS 45mm", "Apple", "Apple Watch Series 9 GPS Case with Sport Loop strap", null, "strap/case");
+T("Apple AirPods Pro (2nd Generation)", "Apple", "Apple AirPods Pro 2 Ear Tips", null, "ear tips");
+T("Apple MacBook Air M2 13.6 inch 8GB 256GB", "Apple", "Apple MacBook Air M2 Sleeve Bag 13 inch", null, "sleeve");
+T("Samsung Galaxy S24 5G (8GB, 256GB) Onyx Black", "Samsung", "Samsung Galaxy S24 Charger Cable for S24", null, "title ENDS with 'for S24'");
+T("Mi Smart Band 8 Active", "Xiaomi", "Xiaomi Smart Band 8 Active Black", "exact", "band is NOT a reject word on its own");
+T("Wildcraft 45L Backpack Navy", "Wildcraft", "Wildcraft 45L Backpack Navy Blue", "exact", "bag/backpack must stay matchable");
+T("Levi's Men's Slim Fit Jeans 511", "Levi's", "Levi's Men's Slim Fit Jeans 511", "exact", "'Fit' + model at the END of the title is not 'fits <phone>'");
+// variant and product-type words [synthetic]
+T("Samsung T7 Portable SSD 1TB", "Samsung", "Samsung T7 Shield Portable SSD 1TB", null, "Shield is a different product");
+T("LG 43 Inch 4K Ultra HD Smart LED TV 43UQ7500", "LG", "LG 43 inch (108 cm) 4K Ultra HD Smart LED TV 43UQ7500", "exact", "'Ultra HD' is not the Ultra variant");
+T("Havells LED Bulb 9W Cool Day Light", "Havells", "Havells LED Bulb 9W Warm White", null, "colour temperature");
+T("Allen Solly Men's Regular Fit Shirt", "Allen Solly", "Allen Solly Men's Regular Fit Polo T-Shirt", null, "shirt vs polo");
+T("Jockey Men's Cotton Vest Pack of 2", "Jockey", "Jockey Men's Cotton Brief Pack of 2", null, "vest vs brief");
+T("Bata Men's Formal Lace-Up Shoes", "Bata", "Bata Men's Casual Sandals", null, "shoe vs sandal");
+T("Nike Men's Air Max 270 Sneakers", "Nike", "Nike Men's Air Max 270 Running Shoes", "exact", "sneaker and shoe are one class (model 270 is the identity)");
+// apparel and shoes: style code identity, colour caps at Likely [synthetic]
+T("Nike Dunk Low Retro Men's Shoes DD1391-100", "Nike", "Nike Dunk Low Retro Men's Shoes DD1391-103", null, "same base, other colourway code");
+T("Nike Dunk Low Retro Men's Shoes DD1391-100", "Nike", "NIKE Dunk Low Retro Mens Shoes DD1391100", "exact", "hyphen is optional in a style code");
+T("Levi's Men's 511 Slim Fit Jeans 04511-1234", "Levi's", "Levi's Men's 511 Slim Fit Jeans 045111234", "exact", "5+4 style code, hyphen optional");
+T("Levi's Men's 511 Slim Fit Jeans Blue", "Levi's", "Levi's Men's 501 Original Fit Jeans Blue", null, "501 vs 511");
+T("Levi's Men's 511 Slim Fit Jeans Blue", "Levi's", "Levi's Men's 511 Slim Fit Jeans Black", "likely", "other colour: never Exact");
+T("Levi's Men's 511 Slim Fit Jeans Blue", "Levi's", "Levi's Men's 511 Slim Fit Jeans Blue", "exact", "identical");
+T("Nike Men's Running Shoes", "Nike", "Nike Men's Running Shoes Black", null, "only generic words in common (Task 8: category nouns alone never confirm)");
+// unit numbers must agree (power, length, bulbs) [synthetic]
+T("Usha Mixer Grinder 500W 3 Jars", "Usha", "Usha Mixer Grinder 750W 3 Jars", null, "wattage 500 vs 750");
+T("Mi 33W SonicCharge 3.0 Fast Charger", "Xiaomi", "Xiaomi 67W SonicCharge 3.0 Charger", null, "33W vs 67W");
+T("Samsung 25W Super Fast Charger", "Samsung", "Samsung 45W Super Fast Charger", null, "25 vs 45");
+T("Amazon Basics USB-C Cable 1 m", "Amazon", "Amazon Basics USB-C Cable 2 m", null, "1 m vs 2 m");
+T("Havells LED Bulb 9W Cool Day Light", "Havells", "Havells LED Bulb 12W Cool Day Light", null, "bulb watts");
+assert.equal(M.mtFacts("55 inch (138cm) Crystal UHD 4K Vision AI 2026 Smart TV | 30W Speakers", "Samsung").extra.w.size, 0, "watts in the marketing tail are not read (head only)"); n++;
 // phones
 T("iPhone 16 128 GB: 5G Mobile Phone with Camera Control, A18 Chip", "Apple", "Apple iPhone 16 128 GB, Ultramarine", "exact", "same phone");
 T("iPhone 16 128 GB: 5G Mobile Phone with Camera Control, A18 Chip", "Apple", "Apple iPhone 16e (Black, 128 GB)", null, "16e is a different model");
@@ -144,4 +190,20 @@ T("Wakefit Eco TV Unit | Engineered Wood TV Stand for Living Room, Walnut Finish
 assert.equal(M.mtFacts("Atomic Habits (Paperback)", "").authors.length, 0, "a book without an author cannot be matched"); n++;
 assert.equal(M.mtCompare(M.mtFacts("Atomic Habits (Paperback)", ""), { title: "Atomic Habits (English, Paperback, Clear James)" }).verdict, null, "title alone is not enough"); n++;
 assert.equal(wrongExact, 0, `${wrongExact} gold pair(s) wrong`);
+// 1.21.1, real live-run failures (compare-live.mjs on real Amazon.in pages, 2026-10-18; titles REAL, trimmed):
+// (a) Amazon's "Item model number" for the boAt Airdopes 141 Gen 2 is just the product-line name: it must NOT act as a model-code proof ("mpnHit") and force Exact on the ANC model.
+const T2 = (src, brand, mpn, cand, want, why) => { const got = M.mtCompare(M.mtFacts(src, brand, mpn), { title: cand }); if (got.verdict !== want) { console.log(`MISMATCH want=${want} got=${got.verdict} [${got.conflicts}] ${why}\n   SRC ${src}\n   CND ${cand}`); if (want === null) wrongExact++; process.exitCode = 1; } n++; };
+const BOAT = "boAt Airdopes 141 Gen 2, 4 Mics ENx Tech, 48 Hrs Playback, Fast Charge, Low Latency, IPX4, v5.4 Bluetooth Earbuds";
+T2(BOAT, "boAt", "Airdopes 141", "boAt Airdopes 141 ANC TWS in Ear Earbuds with 32 dB ANC, 42 Hrs Playback, 50 ms Low Latency Beast Mode", null, "live: 141 ANC is not the 141 Gen 2 (a product-line name is not a model code)");
+T2(BOAT, "boAt", "Airdopes141", "boAt Airdopes 141 ANC TWS in Ear Earbuds with 32 dB ANC", null, "same, mpn written without a space");
+T2(BOAT, "boAt", "Airdopes 141", "boAt Airdopes 141 Gen 2, 4 Mics ENx Tech,48H Battery,ASAP Charge,Low Latency,BT v5.4 Bluetooth Orange", "exact", "live: the real Gen 2 on Flipkart stays Exact");
+T2("LG 126 cms (50 inches) NU87 AI Series Nano 4K Ultra HD Smart webOS LED TV 50NU870BPLA 2026", "LG", "50NU870BPLA", "LG 126 cm (50 inch) Ultra HD (4K) LED Smart WebOS TV 2026 Edition with NANO Detail Enhancer, HDR10 Pro 50NU870BPLA", "exact", "a real model code still works (the reason the shortcut exists)");
+// (b) a cable that is "compatible with" the adapter is not the adapter (live: Reliance row shown as Likely for the Apple 20W adapter)
+T(OWN, "Apple", "Apple USB-C To Lightning Cable, 100 cm (1 m) length, Compatible with upto 96 W USB-C Power Adapter, White", null, "live: a cable is not the adapter");
+T("Apple USB-C To Lightning Cable (1 m)", "Apple", "Apple USB-C To Lightning Cable, 100 cm (1 m) length, White", "likely", "a cable still matches a cable (not lost)");
+// (c) live run 2026-10-18: "4 Jar" is a quantity, not a model number; the listing's "Vire" is not the source's "Rex"
+const BAJ = "Bajaj Military Series Rex 750W 4 Jar Mixer Grinder | DuraCut Blades | 2-In-1 Function Blade In Dry Jar | 2 Yrs Warranty 【Red/Black】";
+T(BAJ, "Bajaj", "BAJAJ Military Series 750 W Mixer Grinder Nija Series Vire 4 Jars Mixer Grinder 2000 MOTOR | 4 Jars | Black", null, "live: a different series name (Vire) must not be Exact because both say '4 jars'");
+T(BAJ, "Bajaj", "BAJAJ Military Series Rex 750 W Mixer Grinder 4 Jars Black", "exact", "live: the real Rex keeps matching (name, 750 W and 4 jars all agree)");
+T("Prestige Iris 3 Burner Gas Stove Black", "Prestige", "Prestige Iris 4 Burner Gas Stove Black", null, "3 burners is not 4 burners");
 console.log(`match: ${n} passed, 0 failed`);

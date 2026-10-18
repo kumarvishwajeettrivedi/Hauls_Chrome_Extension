@@ -719,12 +719,12 @@
       for (const m of muts) for (const n of m.addedNodes) { const root = n.nodeType === 1 ? n : null; if (!root) continue;
         const svgs = root.matches && root.matches("svg") ? [root] : [...(root.querySelectorAll ? root.querySelectorAll("svg[aria-label]") : [])];
         for (const sv of svgs) { if (!/price history/i.test(sv.getAttribute("aria-label") || "") || (sv.closest && sv.closest(HISTORY_UNTRUSTED))) continue;
-          const html = sv.outerHTML, sel = amzSel(), mark = ok => { ahLast = { n: ahLast.n + 1, node: sv, html, tab: sel, ok }; }; // the reader below waits for this: "that chart was read and answered"
+          const html = sv.outerHTML, sel = amzSel(), mark = (ok, days) => { ahLast = { n: ahLast.n + 1, node: sv, html, tab: sel, ok, days }; }; // the reader below waits for this: "that chart was read and answered"
           const ch = ahParseChart(html, Date.now()); if (!ch) { health("refused", "unreadable"); mark(false); continue; } if (!ch.current || Math.abs(ch.current - cur.p.price) > 1) { health("refused", "other-product"); mark(false); continue; } // must announce today's price on THIS product
           health("read");
           const r = await send({ type: "ahist", key: cur.p.key, range: ch.range, days: ch.days, points: ch.points, current: ch.current, offer: ch.offer, highest: ch.highest, ...(sel ? { tab: sel } : {}) }).catch(() => null); // tab = the tab Amazon had selected (the span alone cannot tell a 1Y tab with a short history from the 1M tab)
           if (r && r.ok) { cur.it = r.it; if (!ahBusy) ahState = null; idleRedraw(); health("stored"); } else health("refused", "price-mismatch");
-          mark(!!(r && r.ok));
+          mark(!!(r && r.ok), ch.days);
           if (r && r.ok && !ahBusy && (sel ? sel !== "1Y" : ch.range !== "1Y") && Date.now() - yearAt > 8000) { yearAt = Date.now(); amzPickYear(); } } } // Amazon opens on 1M: ask for the full year so 30D / 90D / 1Y all have real data
       let found = null;
       for (const m of muts) for (const n of m.addedNodes) { const el1 = n.nodeType === 1 ? n : n.parentElement, t = n.nodeType === 1 ? n.textContent : n.nodeType === 3 ? n.nodeValue : "";
@@ -753,9 +753,12 @@
       const n0 = ahLast.n; (trig.querySelector("button, .a-button-text, a") || trig).click();
       if (!(await wait(chart, 8000))) return;
       let r = await stored(n0); any = !!(r && r.ok);
-      if (!r || r.ok) for (const label of ["3M", "1Y"]) { const tb = amzTabs().find(e => e.textContent.trim() === label); if (!tb) { if (label === "1Y") hl("paused", "y-no-tab"); continue; } const n1 = ahLast.n; let r2 = null;
-        for (const how of ["press", "key"]) { if (how === "press") amzPress(tb); else { tb.focus(); for (const ty of ["keydown", "keyup"]) tb.dispatchEvent(new KeyboardEvent(ty, { key: "Enter", code: "Enter", bubbles: true })); } r2 = await stored(n1, label, 5000); if (r2) break; } // the press first (it includes the click; what Amazon's own controls answer to), then the keyboard
-        if (r2 && r2.ok) { any = true; if (label === "1Y") hl("stored", "y-stored"); } else if (r2) break; else if (label === "1Y") hl("paused", amzSel() === label ? "y-no-chart" : "y-not-selected"); } // a refused chart = doubt: stop; no answer: the reason is counted in Settings
+      // The month is on screen; now switch to the YEAR (it covers everything the 3-month view would add). Success = the observer read the new chart; no dependence on Amazon's tab markup. Click first (what worked before), then the full press, then the keyboard.
+      if ((!r || r.ok) && !(ahLast.days > 120)) { const tb = amzTabs().find(e => e.textContent.trim() === "1Y");
+        if (!tb) hl("paused", "y-no-tab");
+        else { const n1 = ahLast.n; let r2 = null;
+          for (const how of ["click", "press", "key"]) { if (how === "click") tb.click(); else if (how === "press") amzPress(tb); else { tb.focus(); for (const ty of ["keydown", "keyup"]) tb.dispatchEvent(new KeyboardEvent(ty, { key: "Enter", code: "Enter", bubbles: true })); } r2 = await stored(n1, null, 6000); if (r2) break; }
+          if (r2 && r2.ok) { any = true; hl("stored", "y-stored"); } else hl("paused", r2 ? "y-refused" : amzSel() === "1Y" ? "y-no-chart" : "y-not-selected"); } }
       if (any) await new Promise(r2 => setTimeout(r2, 1200)); // let the shopper see the year before it closes
       // Amazon's close button ignores a plain scripted click() (checked on the live page): it needs the whole press: pointer down, up, then click
       const press = amzPress; // (Amazon's close button needs the whole press too, see v1.17.2)
