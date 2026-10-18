@@ -300,7 +300,7 @@
     };
     RANGES.forEach(([k, dd]) => { const b = el("button", "", k); b.dataset.r = k; b.dataset.d = dd || 99999; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
     main.append(seg, c3, cb); paintRange();
-    if (dom === "amazon.in" && !(ahState === "reading" && Date.now() - ahReadAt < 25000) && !(it.ahist && Object.values(it.ahist.ranges || {}).some(x => x && (x.tab === "1Y" || x.days > 300)))) { const yb = el("button", "link-btn", "Read the full year from Amazon"); yb.onclick = () => { yb.disabled = true; ahAutoRead(true).catch(() => {}); }; main.append(yb); } // the automatic read can miss (Amazon draws its panel only sometimes): one press gets the year
+    if (dom === "amazon.in" && !(ahState === "reading" && Date.now() - ahReadAt < 25000) && !(it.ahist && Object.values(it.ahist.ranges || {}).some(x => x && (x.tab === "1Y" || x.days > 300)))) { const yb = el("button", "link-btn", "Read Amazon's chart now"); yb.onclick = () => { yb.disabled = true; ahAutoRead(true).catch(() => {}); }; main.append(yb); } // the automatic read can miss (Amazon draws its panel only sometimes): one press gets the year
     // "Should you buy this now?": horizon tabs + half-ring score + recommendation (+ alert price)
     const sc = dealScan(H, p.price, p.mrp, Date.now(), it.ref);
     // "Should you buy this now?": the horizon tabs refresh THIS card only (short skeleton, then the new verdict); nothing else in the panel redraws.
@@ -752,11 +752,12 @@
     const hl = (event, reason) => send({ type: "ahist-health", event, reason }).catch(() => {}), stored = (n0, label, ms = 10000) => wait(() => { const c = chart(), sel = amzSel(); return c && ahLast.n > n0 && (ahLast.node === c || ahLast.html === c.outerHTML) && (!label || !sel || (sel === label && ahLast.tab === label)) && ahLast; }, ms);
     try {
       await send({ type: "ahist-tried", key }).catch(() => {}); tried = true;
-      const n0 = ahLast.n; if (!chart() && !document.body.classList.contains("rufus-docked-left")) (trig.querySelector("button, .a-button-text, a") || trig).click(); // a panel that is already open is left alone: the button toggles it
-      if (!(await wait(chart, 8000))) return;
+      const n0 = ahLast.n, press1 = () => (trig.querySelector("button, .a-button-text, a") || trig).click();
+      // Open Amazon's panel. A chart already on screen needs no click. Otherwise press the button; the button TOGGLES, so if no chart came (a panel that was already open got closed) press it once more. (The page's "docked" marker proves nothing: it can be there with no panel.)
+      if (!chart()) { press1(); if (!(await wait(chart, 8000))) { press1(); if (!(await wait(chart, 8000))) { hl("paused", "no-panel"); return; } } }
       let r = chart() && ahLast.n > 0 && (ahLast.node === chart() || ahLast.html === chart().outerHTML) ? ahLast : await stored(n0); any = !!(r && r.ok);
       // The month is on screen; now switch to the YEAR (it covers everything the 3-month view would add). Success = the observer read the new chart; no dependence on Amazon's tab markup. Click first (what worked before), then the full press, then the keyboard.
-      if ((!r || r.ok) && !(ahLast.days > 120 || ahLast.tab === "1Y" || amzSel() === "1Y")) { const tb = amzTabs().find(e => e.textContent.trim() === "1Y");
+      if ((!r || r.ok) && !(ahLast.days > 120 || ahLast.tab === "1Y")) { const tb = amzTabs().find(e => e.textContent.trim() === "1Y");
         if (!tb) hl("paused", "y-no-tab");
         else { const n1 = ahLast.n; let r2 = null;
           for (const how of ["click", "press", "key"]) { if (how === "click") tb.click(); else if (how === "press") amzPress(tb); else { tb.focus(); for (const ty of ["keydown", "keyup"]) tb.dispatchEvent(new KeyboardEvent(ty, { key: "Enter", code: "Enter", bubbles: true })); } r2 = await stored(n1, null, 6000); if (r2) break; }

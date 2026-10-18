@@ -672,11 +672,11 @@ test("78", "Amazon reader: the panel is ALREADY open (Amazon restored it) and th
   t.check(w.ing === 0, "the Price history button was NOT clicked (it would have closed the open panel): " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
 }));
 
-test("80b", "Amazon products without the year show 'Read the full year from Amazon'; one press reads it (switch off) and the button goes away", t => withExt({}, async ({ ctx, sw }) => {
+test("80b", "Amazon products without the year show 'Read Amazon's chart now'; one press reads it (switch off) and the button goes away", t => withExt({}, async ({ ctx, sw }) => {
   const now = Date.now(), id = "B0YEARBTN1", k = key(id);
   await seed(sw, { items: { [k]: { site: "Amazon", title: "Test", url: `https://www.amazon.in/dp/${id}`, hist: [[now - 20 * D, 4999], [now - D, 4499]] } } }); // ahAuto is OFF
   const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await sleep(800);
-  t.check(await r.panel.has("main > .link-btn") && /Read the full year from Amazon/.test(await r.panel.text("main > .link-btn")), "the button is offered when only a month is known");
+  t.check(await r.panel.has("main > .link-btn") && /Read Amazon's chart now/.test(await r.panel.text("main > .link-btn")), "the button is offered when only a month is known");
   await amzFake(r.p, { yearMs: 500, otherMs: 300 }); await r.panel.click("main > .link-btn");
   t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the press ran the reader (switch off) and it closed again");
   await sleep(1500); const y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"]; t.check(!!y && y.days === 365, "the year was stored");
@@ -691,6 +691,24 @@ test("81", "Compare card: the reason on a closest-but-different row (different p
   let rows = await chk(); t.check(rows.length === 2 && rows.every(x => x.inside && x.own), "desktop: every reason is inside its row and on its own line: " + JSON.stringify(rows));
   t.check(/No confident match at other stores/.test(await panel.text(".cmp")), "the card still says 'No confident match at other stores.'");
   t.check(await panel.ev(function () { return [...this.querySelectorAll(".cmp-r.near .tag")].every(g => { const c = getComputedStyle(g); return c.position === "static" && c.transform === "none"; }); }), "the reason is a plain capsule (not the rotated absolute price sticker)");
+}));
+
+test("82", "Amazon reader REGRESSION (1.21.2): the page carries the 'docked' marker but NO panel is open: the reader must still press Price history, then 1Y, and 'Read Amazon's chart now' must work too", t => withExt({}, async ({ ctx, sw }) => {
+  await seed(sw, { ahAuto: true }); const id = "B0DOCKONLY", k = key(id);
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, dockedOnly: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the reader opened Amazon's panel (marker or not) and closed it again");
+  const w = await r.p.evaluate(() => ({ ing: window.__ing, clicks: window.__clicks.join() })), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
+  t.check(w.ing >= 1 && w.clicks === "1Y", "the button was pressed and the year tab reached: " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
+}));
+
+test("83", "Amazon reader: a panel left open with NO chart in it (the button would close it): the second press re-opens it and the year is read; 'Read now' behaves the same", t => withExt({}, async ({ ctx, sw }) => {
+  const now = Date.now(), id = "B0OPENEMPT", k = key(id);
+  await seed(sw, { items: { [k]: { site: "Amazon", title: "Test", url: `https://www.amazon.in/dp/${id}`, hist: [[now - 20 * D, 4999], [now - D, 4499]] } } }); // switch OFF: only the manual button
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await sleep(800);
+  await amzFake(r.p, { yearMs: 500, otherMs: 300, toggle: true, openEmpty: true }); await r.panel.click(".readctl button.btn, main > .link-btn");
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 60000, 400)), "Read now opened the panel (second press) and closed it again");
+  const w = await r.p.evaluate(() => window.__ing), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
+  t.check(w === 2 && !!y && y.days === 365, "two presses (the first closed the empty panel) and the year was stored: ing=" + w + " " + JSON.stringify(y && [y.tab, y.days]));
 }));
 
 test("37", "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in", t => withExt({}, async ({ ctx, sw, extId }) => {
@@ -1256,6 +1274,8 @@ const amzFakeFn = ({ h1m, h1y, o }) => { const W = window; W.__clicks = []; W.__
       setTimeout(() => { box.innerHTML = l === "1Y" ? h1y : h1m; if (l === "1Y") { W.__yearAt = Date.now(); W.__opacity = getComputedStyle(f).opacity; } }, ms); }));
     f.querySelector("#rufus-panel-header-close").addEventListener("pointerup", () => { W.__closed++; W.__closeAt = Date.now(); setTimeout(() => { f.remove(); document.body.classList.remove("rufus-docked-left"); }, 300); }); /* like Amazon: only a real press closes it, and the page un-docks a moment later */ }, 300); };
   d.querySelector(".a-declarative").addEventListener("click", () => { W.__ing++; if (o.noPanel) return; const ex = document.getElementById("nav-flyout-rufus"); if (ex && o.toggle) { ex.remove(); document.body.classList.remove("rufus-docked-left"); return; } /* like Amazon: the button TOGGLES the panel */ openPanel(); });
+  if (o.dockedOnly) document.body.classList.add("rufus-docked-left"); /* the page marker without any panel (Amazon restores it) */
+  if (o.openEmpty) { const f0 = document.createElement("div"); f0.id = "nav-flyout-rufus"; document.body.classList.add("rufus-docked-left"); f0.innerHTML = '<div id="rufus-react-renderer"></div>'; document.body.append(f0); } /* a panel left open with no chart in it */
   if (o.openAtLoad) openPanel(); };
 const amzFake = (p, o) => p.evaluate(amzFakeFn, { h1m: AMZ("chart-1m"), h1y: AMZ("chart-1y"), o });
 
