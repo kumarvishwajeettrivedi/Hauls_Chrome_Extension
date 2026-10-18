@@ -45,7 +45,7 @@ const TT = {
   .tabs{position:relative;display:grid;grid-template-columns:repeat(3,1fr);margin-top:14px;background:var(--wash-2);border-radius:99px;padding:4px}
   .tabs i{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);background:var(--ink);border-radius:99px;transform:translateX(calc(var(--i,0)*100%));transition:transform .3s var(--pop)}
   .tabs button{all:unset;position:relative;cursor:pointer;text-align:center;min-height:36px;line-height:36px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;border-radius:99px;transition:color .2s}
-  .tabs button[aria-selected=true]{color:var(--on-ink)}
+  .tabs button[aria-selected=true]{color:var(--on-ink)}.tabs .beta{display:inline-block;margin-left:4px;padding:0 6px;line-height:15px;font-size:8px;font-weight:800;letter-spacing:.08em;background:var(--yellow);color:#131316;border:1.5px solid #131316;border-radius:99px;vertical-align:middle;text-transform:uppercase}
   main{flex:1;overflow:auto;padding:16px 18px 24px;display:grid;gap:18px;align-content:start;grid-template-columns:minmax(0,1fr);scrollbar-width:thin}
   main>*{animation:up .3s var(--ease) both;animation-delay:calc(var(--n,0)*35ms)}
   @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}

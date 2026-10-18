@@ -428,7 +428,7 @@ test("26", "Amazon history: the range Amazon shows in the page is remembered and
   await poll(async () => /Amazon's 30-day low/.test(await panel.text(".scan")), 6000, 300);
   const sc = await panel.text(".scan"); t.check(/At Amazon's 30-day low/.test(sc) && /Real Deal|Fair Deal/.test(sc) && /price range this page showed/.test(sc), "scanner uses Amazon's range: " + sc.slice(0, 200));
   await poll(async () => await panel.has(".bandc"), 6000, 300);
-  const rb = await panel.text(".chartbox"); t.check(/₹499/.test(rb) && /₹579/.test(rb) && /last 30 days/.test(rb) && await panel.has(".bandc svg circle"), "history card draws Amazon's range as a graph frame with today's price: " + rb.slice(0, 120));
+  const rb = await panel.text(".chartbox"); t.check(/₹499/.test(rb) && /₹579/.test(rb) && /30-day range/.test(rb) && await panel.has(".bandc svg circle"), "history card draws Amazon's range as a graph frame with today's price: " + rb.slice(0, 120));
   for (const tab of ["30D", "90D", "All"]) { await panel.click(`.seg:not(.hz) button[data-r="${tab}"]`); const c3 = await panel.text(".chips3"); t.check(/Low\s*₹499/.test(c3) && /High\s*₹579/.test(c3) && /Avg\s*~₹539/.test(c3) && /High₹579₹80 below/.test(c3) && /Avg~₹539₹40 below/.test(c3) && /Low₹499at the low/.test(c3), `${tab}: chips show Amazon's range with an estimated average and the distance from now, not one price three times: ` + c3); }
   await p.evaluate(() => { const r = document.createElement("div"); r.id = "reviewsMedley"; r.textContent = "Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹10 to ₹20. The current price is ₹499."; const wrap = document.createElement("section"); const inner = document.createElement("div"); inner.id = "reviewsMedley"; inner.textContent = "x"; wrap.append(inner); wrap.append(document.createTextNode("Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹11 to ₹22. The current price is ₹499.")); document.body.append(wrap); document.body.append(r); const q = document.createElement("div"); q.textContent = "Over the past 30 days, the price of some other gadget has ranged from ₹30 to ₹40. The current price is ₹499."; document.body.append(q); const d = document.createElement("div"); d.textContent = "The price of Y has ranged from ₹900 to ₹100 over time"; document.body.append(d); }); await sleep(1500);
   t.check((await store(sw, "items")) && Object.values((await store(sw, "items")).items).every(i => !i.ref || i.ref.low === 499), "spoofed text (review area, wrapper around review area, other product, nonsense) is ignored");
@@ -590,6 +590,54 @@ test("63", "low / avg / high chips: switching ranges never turns a chip into a g
     t.check(c.length === 3 && c.every(x => x.br === "14px"), `${r}: all three chips keep the card shape (${c.map(x => x.br).join(",")})`);
     t.check(c[0].bg === "rgb(255, 255, 255)" && c[1].bg === "rgb(255, 255, 255)", `${r}: Low and Avg stay white, no mint fill (${c[0].bg} / ${c[1].bg})`); t.check(!c.some(x => /\bchg\b/.test(x.cls)), `${r}: the flash class does not collide with the pill style`); }
   const c = await read(); t.check(/at the low/.test(c[0].txt) && /below/.test(c[1].txt) && /below/.test(c[2].txt) && !/now/i.test(c.map(x => x.txt).join(" ")), "plain words: " + c.map(x => x.txt).join(" | "));
+}));
+
+test("64", "Amazon reader when the tabs only answer a real press (like Amazon's own controls): the year is still reached and stored with tab 1Y", t => withExt({}, async ({ ctx, sw }) => {
+  await seed(sw, { ahAuto: true }); const id = "B0PRESSONL", k = key(id);
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 800, otherMs: 400, tabEvent: "pointerup" }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the panel was closed after reading");
+  const w = await r.p.evaluate(() => window.__clicks.join()), ah = ((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }, y = ah.ranges["1Y"];
+  t.check(w === "3M,1Y", "both tabs were pressed (year last): " + w);
+  t.check(!!y && y.tab === "1Y" && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]) + " ranges=" + JSON.stringify(Object.entries(ah.ranges).map(([n, v]) => [n, v.tab, v.days])) + " tried=" + ah.tried);
+  const hh = (await store(sw, "chartHealth")).chartHealth || {}; t.check(JSON.stringify(hh).includes("y-stored"), "Settings counts the stored year: " + JSON.stringify(hh).slice(0, 160));
+}));
+
+test("65", "Amazon reader retry rule: a product that only has its month is read again after 20 minutes; a product that already has its year is left alone for 12 hours", t => withExt({}, async ({ ctx, sw }) => {
+  await seed(sw, { ahAuto: true }); const now = Date.now(), mk = (id, tab, ago) => ({ [key(id)]: { site: "Amazon", title: "Test", url: `https://www.amazon.in/dp/${id}`, hist: [[now - 3 * D, 4499]], ahist: { at: now - ago, tried: now - ago, ranges: { [tab === "1Y" ? "1Y" : "1M"]: { range: tab === "1Y" ? "1Y" : "1M", days: tab === "1Y" ? 365 : 30, points: [[now - 29 * D, 5499], [now - D, 4499], [now, 4499]], current: 4499, at: now - ago, tab } } } } });
+  await seed(sw, { items: { ...mk("B0ONLYMNTH", "1M", 3600e3), ...mk("B0HASYEAR1", "1Y", 3600e3) } });
+  let r = await product(ctx, { id: "B0ONLYMNTH", price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 600, otherMs: 300 }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "month-only product, read 1 h ago: the reader ran again (it used to wait 12 h)");
+  const y = (((await store(sw, "items")).items[key("B0ONLYMNTH")] || {}).ahist || { ranges: {} }).ranges["1Y"]; t.check(!!y && y.tab === "1Y", "and it got the year this time");
+  await r.p.close();
+  r = await product(ctx, { id: "B0HASYEAR1", price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 600, otherMs: 300 }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); }); await sleep(6000);
+  t.check((await r.p.evaluate(() => window.__closed)) === 0 && (await r.p.evaluate(() => window.__clicks.length)) === 0, "product that already has its year, read 1 h ago: left alone");
+}));
+
+test("66", "range-only chart (Amazon's sentence but no day-by-day line yet): a 'Read Amazon's chart now' button reads it even with the automatic switch OFF, and the real line replaces the band", t => withExt({}, async ({ ctx, sw }) => {
+  const now = Date.now(), id = "B0BANDONLY", k = key(id);
+  await seed(sw, { items: { [k]: { site: "Amazon", title: "Test", url: `https://www.amazon.in/dp/${id}`, hist: [], ref: { days: 30, low: 3999, high: 4999, at: now } } } }); // ahAuto is NOT set: the switch is off
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await sleep(800);
+  t.check(await r.panel.has(".cw.bandc"), "the band is drawn when only the range is known"); const txt = await r.panel.text(".chartbox");
+  t.check(/Only Amazon's 30-day range so far/.test(txt) && /Read Amazon's chart now/.test(txt) && /Turn on automatic reading/.test(txt), "it says what it has and offers the button and the switch: " + txt.replace(/\s+/g, " ").slice(0, 200));
+  await amzFake(r.p, { yearMs: 500, otherMs: 300 }); await r.panel.click(".chartbox .readctl button.btn");
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the button ran the reader (the panel opened and closed again) with the switch off");
+  await sleep(1200); t.check((await r.panel.has(".cw svg")) && !(await r.panel.has(".cw.bandc")), "the day-by-day line replaced the band");
+}));
+
+test("67", "range-only chart when Amazon is not offering its price history (no button on the page): pressing 'Read Amazon's chart now' says so plainly instead of doing nothing", t => withExt({}, async ({ ctx, sw }) => {
+  const now = Date.now(), id = "B0NOBUTTON", k = key(id);
+  await seed(sw, { items: { [k]: { site: "Amazon", title: "Test", url: `https://www.amazon.in/dp/${id}`, hist: [], ref: { days: 30, low: 3999, high: 4999, at: now } } } });
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await sleep(800);
+  await r.panel.click(".chartbox .readctl button.btn");
+  t.check(!!(await poll(async () => /Amazon isn't showing its price history/.test(await r.panel.text(".chartbox")), 20000, 500)), "after ~10 s it says Amazon isn't offering the history and to sign in: " + (await r.panel.text(".chartbox")).replace(/\s+/g, " ").slice(0, 160));
+  t.check(await r.panel.has(".chartbox .readctl button.btn"), "and the button is available again");
+}));
+
+test("68", "Grocery tab carries a small 'Beta' capsule, readable in both tab states, and the tab row does not overflow", t => withExt({}, async ({ ctx }) => {
+  const { panel } = await product(ctx, { id: "B0BETATEST", price: 830, mrp: 1299 }); await panel.open(); await sleep(500);
+  const info = () => panel.ev(function () { const b = this.querySelectorAll(".tabs button")[1], be = b.querySelector(".beta"), tl = this.querySelector(".tabs"), r = be.getBoundingClientRect(), br = b.getBoundingClientRect(); return { txt: b.textContent.replace(/\s+/g, " ").trim(), bg: getComputedStyle(be).backgroundColor, inside: r.left >= br.left && r.right <= br.right, overflow: tl.scrollWidth > tl.clientWidth + 1, others: [...this.querySelectorAll(".tabs button")].filter((x, i) => i !== 1).every(x => !x.querySelector(".beta")) }; });
+  let i = await info(); t.check(i.txt === "Grocery Beta" && i.inside && !i.overflow && i.others, "Beta sits inside the Grocery tab only: " + JSON.stringify(i)); t.check(i.bg === "rgb(255, 217, 61)", "yellow capsule, same in every state: " + i.bg);
+  await panel.tab(1); await sleep(500); i = await info(); t.check(i.inside && !i.overflow, "still inside and not overflowing when the Grocery tab is selected: " + JSON.stringify(i));
 }));
 
 test("37", "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in", t => withExt({}, async ({ ctx, sw, extId }) => {
@@ -1087,7 +1135,7 @@ const amzFakeFn = ({ h1m, h1y, o }) => { const W = window; W.__clicks = []; W.__
   d.querySelector(".a-declarative").addEventListener("click", () => { if (o.noPanel) return; setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; document.body.classList.add("rufus-docked-left");
     f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><div role="tablist">' + ["1M", "3M", "1Y"].map(l => `<span role="tab" aria-selected="${l === "1M"}">${l}</span>`).join("") + '</div><span class="rufus-pricing-chart-container">' + h1m + '</span></div>';
     document.body.append(f); const box = f.querySelector(".rufus-pricing-chart-container"), tabs = [...f.querySelectorAll("[role=tab]")];
-    tabs.forEach(tb => tb.addEventListener("click", () => { const l = tb.textContent; W.__clicks.push(l); if (l === "1Y") W.__yearClickAt = Date.now(); const ms = l === "1Y" ? o.yearMs : o.otherMs; if (ms == null) return; tabs.forEach(x => x.setAttribute("aria-selected", String(x === tb)));
+    tabs.forEach(tb => tb.addEventListener(o.tabEvent || "click", () => { const l = tb.textContent; W.__clicks.push(l); if (l === "1Y") W.__yearClickAt = Date.now(); const ms = l === "1Y" ? o.yearMs : o.otherMs; if (ms == null) return; tabs.forEach(x => x.setAttribute("aria-selected", String(x === tb)));
       setTimeout(() => { box.innerHTML = l === "1Y" ? h1y : h1m; if (l === "1Y") { W.__yearAt = Date.now(); W.__opacity = getComputedStyle(f).opacity; } }, ms); }));
     f.querySelector("#rufus-panel-header-close").addEventListener("pointerup", () => { W.__closed++; W.__closeAt = Date.now(); setTimeout(() => { f.remove(); document.body.classList.remove("rufus-docked-left"); }, 300); }); /* like Amazon: only a real press closes it, and the page un-docks a moment later */ }, 300); }); };
 const amzFake = (p, o) => p.evaluate(amzFakeFn, { h1m: AMZ("chart-1m"), h1y: AMZ("chart-1y"), o });
@@ -1130,7 +1178,7 @@ test("59", "chart box is never an empty box: one plain line when there is too li
   const line = "Not enough history yet. It builds as you visit this product.";
   let r = await product(ctx, { id: "B0EMPTYST1", price: 830, mrp: 1299 }); await r.panel.open(); await sleep(400);
   let box = await r.panel.text(".chartbox"); t.check(box.includes(line) && !/First seen|Revisit/.test(box), "reader off: the plain line is shown: " + box.slice(0, 160));
-  t.check((await r.panel.count(".chartbox > *")) >= 2 && /Turn on Amazon history in Settings/.test(await r.panel.text(".chartbox .link-btn")), "and the switch is offered");
+  t.check((await r.panel.count(".chartbox > *")) >= 2 && /Turn on automatic reading/.test(await r.panel.text(".chartbox .link-btn")), "and the switch is offered");
   const [pg] = await Promise.all([ctx.waitForEvent("page", { timeout: 8000 }), r.panel.click(".chartbox .link-btn")]); t.check(!!(await poll(() => /options\.html/.test(pg.url()), 6000, 200)), "the switch opens Settings: " + pg.url()); await pg.close().catch(() => {});
   await r.p.close(); await seed(sw, { ahAuto: true });
   r = await product(ctx, { id: "B0EMPTYST2", price: 830, mrp: 1299 }); await r.panel.open(); await sleep(400);
