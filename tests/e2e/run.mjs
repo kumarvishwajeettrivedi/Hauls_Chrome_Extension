@@ -429,7 +429,7 @@ test("26", "Amazon history: the range Amazon shows in the page is remembered and
   const sc = await panel.text(".scan"); t.check(/At Amazon's 30-day low/.test(sc) && /Real Deal|Fair Deal/.test(sc) && /price range this page showed/.test(sc), "scanner uses Amazon's range: " + sc.slice(0, 200));
   await poll(async () => await panel.has(".bandc"), 6000, 300);
   const rb = await panel.text(".chartbox"); t.check(/₹499/.test(rb) && /₹579/.test(rb) && /last 30 days/.test(rb) && await panel.has(".bandc svg circle"), "history card draws Amazon's range as a graph frame with today's price: " + rb.slice(0, 120));
-  for (const tab of ["30D", "90D", "All"]) { await panel.click(`.seg:not(.hz) button[data-r="${tab}"]`); const c3 = await panel.text(".chips3"); t.check(/Low\s*₹499/.test(c3) && /High\s*₹579/.test(c3) && /Avg\s*~₹539/.test(c3) && /High₹579now −₹80/.test(c3), `${tab}: chips show Amazon's range with an estimated average and the distance from now, not one price three times: ` + c3); }
+  for (const tab of ["30D", "90D", "All"]) { await panel.click(`.seg:not(.hz) button[data-r="${tab}"]`); const c3 = await panel.text(".chips3"); t.check(/Low\s*₹499/.test(c3) && /High\s*₹579/.test(c3) && /Avg\s*~₹539/.test(c3) && /High₹579₹80 below/.test(c3) && /Avg~₹539₹40 below/.test(c3) && /Low₹499at the low/.test(c3), `${tab}: chips show Amazon's range with an estimated average and the distance from now, not one price three times: ` + c3); }
   await p.evaluate(() => { const r = document.createElement("div"); r.id = "reviewsMedley"; r.textContent = "Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹10 to ₹20. The current price is ₹499."; const wrap = document.createElement("section"); const inner = document.createElement("div"); inner.id = "reviewsMedley"; inner.textContent = "x"; wrap.append(inner); wrap.append(document.createTextNode("Over the past 30 days, the price of boAt Airdopes 141 Bluetooth Earbuds has ranged from ₹11 to ₹22. The current price is ₹499.")); document.body.append(wrap); document.body.append(r); const q = document.createElement("div"); q.textContent = "Over the past 30 days, the price of some other gadget has ranged from ₹30 to ₹40. The current price is ₹499."; document.body.append(q); const d = document.createElement("div"); d.textContent = "The price of Y has ranged from ₹900 to ₹100 over time"; document.body.append(d); }); await sleep(1500);
   t.check((await store(sw, "items")) && Object.values((await store(sw, "items")).items).every(i => !i.ref || i.ref.low === 499), "spoofed text (review area, wrapper around review area, other product, nonsense) is ignored");
 }));
@@ -579,6 +579,17 @@ test("56", "Amazon history opened by YOU on 1M: HAULS switches Amazon's own pane
   t.check((await r.p.evaluate(() => window.__year)) === 1, "and not again (no loop): " + await r.p.evaluate(() => window.__year));
   const got = Object.values((await store(sw, "items")).items || {}).find(i => i.ahist && i.ahist.ranges && i.ahist.ranges["1M"]);
   t.check(!!got, "the 1M chart was still stored");
+}));
+
+test("63", "low / avg / high chips: switching ranges never turns a chip into a green oval, and the line under each chip says how today's price compares in words", t => withExt({}, async ({ ctx, sw }) => {
+  const now = Date.now(), id = "B0CHIPS001";
+  await seed(sw, { items: seedItem(id, [[now - 354 * D, 5599], [now - 250 * D, 5188], [now - 200 * D, 4999], [now - 100 * D, 5299], [now - 5 * D, 4777]]) });
+  const { panel } = await product(ctx, { id, price: 4777, mrp: 9999 }); await panel.open();
+  const read = () => panel.ev(function () { return [...this.querySelectorAll(".chip3")].map(c => ({ br: getComputedStyle(c).borderRadius, bg: getComputedStyle(c).backgroundColor, cls: c.className, txt: c.textContent.replace(/\s+/g, " ").trim() })); });
+  for (const r of ["1Y", "30D", "90D", "1Y"]) { await panel.click(`.seg:not(.hz) button[data-r='${r}']`); await sleep(1200); const c = await read();
+    t.check(c.length === 3 && c.every(x => x.br === "14px"), `${r}: all three chips keep the card shape (${c.map(x => x.br).join(",")})`);
+    t.check(c[0].bg === "rgb(255, 255, 255)" && c[1].bg === "rgb(255, 255, 255)", `${r}: Low and Avg stay white, no mint fill (${c[0].bg} / ${c[1].bg})`); t.check(!c.some(x => /\bchg\b/.test(x.cls)), `${r}: the flash class does not collide with the pill style`); }
+  const c = await read(); t.check(/at the low/.test(c[0].txt) && /below/.test(c[1].txt) && /below/.test(c[2].txt) && !/now/i.test(c.map(x => x.txt).join(" ")), "plain words: " + c.map(x => x.txt).join(" | "));
 }));
 
 test("37", "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in", t => withExt({}, async ({ ctx, sw, extId }) => {
@@ -1136,12 +1147,14 @@ test("60", "a read in flight shows a skeleton in the chart box (not a blank), an
 
 test("61", "chart honesty: a range wider than the data says how much data there is, never a full year from a month; the chips match the window the line draws", t => withExt({}, async ({ ctx, sw }) => {
   const now = Date.now(), pick = async (panel, r) => { await panel.click(`.seg:not(.hz) button[data-r='${r}']`); await sleep(300); return panel.ev(function () { return { lbl: this.querySelector(".chartbox .lbl").textContent.trim(), yt: (this.querySelector(".yl.t") || {}).textContent, chips: [...this.querySelectorAll(".chip3 b")].map(b => b.textContent) }; }); };
-  await seed(sw, { items: { ...seedItem("B0HONEST01", [[now - 29 * D, 1000], [now - 10 * D, 900], [now - 36e5, 830]]), ...seedItem("B0HONEST02", [[now - 380 * D, 1500], [now - 45 * D, 1100], [now - 20 * D, 900], [now - 36e5, 830]]) } });
+  await seed(sw, { items: { ...seedItem("B0HONEST01", [[now - 29 * D, 1000], [now - 10 * D, 900], [now - 36e5, 830]]), ...seedItem("B0HONEST03", [[now - 354 * D, 1500], [now - 120 * D, 1100], [now - 20 * D, 900], [now - 36e5, 830]]), ...seedItem("B0HONEST02", [[now - 380 * D, 1500], [now - 45 * D, 1100], [now - 20 * D, 900], [now - 36e5, 830]]) } });
   const a = await product(ctx, { id: "B0HONEST01", price: 830 }); await a.panel.open();
   let s = await pick(a.panel, "1Y"); t.check(s.lbl === "1Y history · 29 days of data so far", "1Y with 29 days of data says so: " + s.lbl);
   s = await pick(a.panel, "90D"); t.check(s.lbl === "90D history · 29 days of data so far", "90D too: " + s.lbl);
   s = await pick(a.panel, "30D"); t.check(s.lbl === "30D history", "30D is covered (29 days is a month): " + s.lbl);
   s = await pick(a.panel, "All"); t.check(s.lbl === "All history", "All never claims more than it has: " + s.lbl);
+  const c = await product(ctx, { id: "B0HONEST03", price: 830 }); await c.panel.open();
+  s = await pick(c.panel, "1Y"); t.check(s.lbl === "1Y history", "354 of 365 days is a year, not 'so far': " + s.lbl);
   const b = await product(ctx, { id: "B0HONEST02", price: 830 }); await b.panel.open();
   s = await pick(b.panel, "1Y"); t.check(s.lbl === "1Y history", "a year of data: no note: " + s.lbl);
   // 30D window starts inside the 1,100 period: the line starts at 1,100, so the High chip must too (it used to say 900, the highest price seen INSIDE the window)
