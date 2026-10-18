@@ -1,6 +1,6 @@
 // Browser-first sync: chrome.storage.local is the source of truth for the UI; Supabase is the backup/sharing layer.⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌​‌‌‌​‌‌​​‌​‌​​‌‌​​​​​​‌‌​​‌‌​‌‌​​​​‌​​‌‌‌​​​​‌‌​​‌​‌​​‌‌​‌​​⁡
 // Local changes go to an outbox and are flushed when signed in. Pure helpers below are unit-tested.
-const OUTBOX_MAX = 500, DAY_MS = 864e5, COMM_TTL = 6 * 3600e3, MAX_TRIES = 10;
+const OUTBOX_MAX = 500, DAY_MS = 864e5, COMM_TTL = 6 * 3600e3, MAX_TRIES = 10, DROP_TTL = 7 * 864e5;
 // Serialises every read-modify-write of chrome.storage state so concurrent messages/alarms can't overwrite each other.
 let _lockChain = Promise.resolve();
 const withLock = fn => { const run = _lockChain.then(fn, fn); _lockChain = run.then(() => {}, () => {}); return run; };
@@ -56,18 +56,21 @@ function flush() {
   if (_flushing) { _flushAgain = true; return _flushing; }
   return _flushing = (async () => { try { let r; do { _flushAgain = false; r = await flush0(); } while (_flushAgain && r.ok); return r; } finally { _flushing = null; } })();
 }
+// Watchlist changes the server refused for good (or kept failing for MAX_TRIES flushes) are dropped from the outbox: remember how many, so Settings and the account sheet can say so. Ages out after 7 days; a clean "Sync now" clears it. (Dropped price points/charts are not the person's changes: not counted.)
+const droppedCount = v => v && Number.isInteger(v.n) && v.n > 0 && Date.now() - v.at < DROP_TTL ? Math.min(v.n, 9999) : 0;
+const clearDropped = since => withLock(async () => { const v = await storeGet("syncDropped"); if (v && !(v.at >= since)) await chrome.storage.local.remove("syncDropped"); }); // only what was dropped before this sync started
 async function flush0() {
   const s = await getSession(); if (!s) return { ok: false, reason: "signed-out" };
   const uid = s.user.id, call = (p, o = {}) => api(p, { ...o, uid }); // every request is pinned to the account this flush started under
   const snap = await withLock(async () => (await ownerOk(uid)) ? { ob: safeOutbox(await storeGet("outbox")), profile: (await storeGet("profile")) || {} } : null); // owner check and outbox read are one step (and let any enqueue already waiting land first)
   if (!snap) return { ok: false, reason: "owner-mismatch" };
-  const snapshot = snap.ob, profile = snap.profile, done = new Set(), failed = new Set(); let sent = 0, dropped = 0, failure = null;
+  const snapshot = snap.ob, profile = snap.profile, done = new Set(), failed = new Set(); let sent = 0, dropped = 0, lost = 0, failure = null;
   const fail = (e, ids) => { failure = e; if (e && e.status) ids.forEach(i => failed.add(i)); };
   const sendWatch = async list => call("/ext_watchlist?on_conflict=user_id,product_key", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: list.map(o => toWatchRow(uid, o)) });
   const watch = snapshot.filter(o => o.t === "watch");
   if (watch.length) {
     try { await sendWatch(watch); watch.forEach(o => done.add(o.id)); sent += watch.length; }
-    catch (e) { if (isClientErr(e)) { for (const o of watch) { try { await sendWatch([o]); done.add(o.id); sent++; } catch (e2) { if (isClientErr(e2)) { done.add(o.id); dropped++; } else { fail(e2, [o.id]); break; } } } } else fail(e, watch.map(o => o.id)); }
+    catch (e) { if (isClientErr(e)) { for (const o of watch) { try { await sendWatch([o]); done.add(o.id); sent++; } catch (e2) { if (isClientErr(e2)) { done.add(o.id); dropped++; lost++; } else { fail(e2, [o.id]); break; } } } } else fail(e, watch.map(o => o.id)); }
   }
   const obs = failure ? [] : snapshot.filter(o => o.t === "obs");
   for (let i = 0; i < obs.length && !failure; i += 50) {
@@ -81,8 +84,8 @@ async function flush0() {
     catch (e) { if (isClientErr(e)) { done.add(o.id); dropped++; } else { fail(e, [o.id]); break; } }
   }
   await withLock(async () => {
-    if (await ownerOk(uid)) { const cur = safeOutbox(await storeGet("outbox")).filter(o => !done.has(o.id)).map(o => failed.has(o.id) ? { ...o, n: (o.n || 0) + 1 } : o).filter(o => (o.n || 0) < MAX_TRIES || (dropped++, false));
-      await chrome.storage.local.set({ outbox: cur, ...(failure ? {} : { lastSync: Date.now() }) }); }
+    if (await ownerOk(uid)) { const cur = safeOutbox(await storeGet("outbox")).filter(o => !done.has(o.id)).map(o => failed.has(o.id) ? { ...o, n: (o.n || 0) + 1 } : o).filter(o => (o.n || 0) < MAX_TRIES || (dropped++, lost += o.t === "watch" ? 1 : 0, false));
+      await chrome.storage.local.set({ outbox: cur, ...(failure ? {} : { lastSync: Date.now() }), ...(lost ? { syncDropped: { n: droppedCount(await storeGet("syncDropped")) + lost, at: Date.now() } } : {}) }); }
     else if (done.size) { const vk = vaultKey(uid), v = await storeGet(vk); if (v && v.data && v.data.outbox) { v.data.outbox = v.data.outbox.filter(o => !done.has(o.id)); await chrome.storage.local.set({ [vk]: v }); } } // sign-out gave up waiting: what did get delivered must not be sent again from the vault
   });
   return failure ? { ok: false, reason: String(failure.message || failure).slice(0, 120), sent, dropped } : { ok: true, sent, dropped };
@@ -90,7 +93,7 @@ async function flush0() {
 
 // ---- S2 account-switch protection: local data is tagged with the user id that owns it ----
 // What belongs to the previous ACCOUNT on this device: content + personal settings (saved places, pincode, coordinates). Every SYNCED_SETTINGS key must be here (a unit test enforces it). Pure UI prefs (notch position) are not.
-const CONTENT_KEYS = ["items", "outbox", "histCache", "chartCache", "lastPull", "usage", "setStamps", "places", "pin", "range", "loc", "lastPin"];
+const CONTENT_KEYS = ["items", "outbox", "syncDropped", "histCache", "chartCache", "lastPull", "usage", "setStamps", "places", "pin", "range", "loc", "lastPin"];
 // The device shows ONE account's data at a time. Whatever belongs to another account waits in a per-account vault and is never merged, shown or uploaded to a different account.
 const VAULT_MAX = 3, VAULT_TTL = 30 * 864e5, VAULT_RECENT = 30, vaultKey = id => "vault:" + id;
 const trimContent = ({ histCache, chartCache, ...d }) => { const items = d.items || {}, keep = {}, rest = Object.keys(items).filter(k => !(items[k] && (items[k].wish || items[k].target))).sort((a, b) => ((items[b].seenAt || 0) - (items[a].seenAt || 0))).slice(0, VAULT_RECENT); for (const k of Object.keys(items)) if (items[k] && (items[k].wish || items[k].target)) keep[k] = items[k]; for (const k of rest) keep[k] = items[k]; return { ...d, items: keep }; }; // a vault keeps watched products and the 30 most recent others, so storage stays small
@@ -200,4 +203,4 @@ async function fetchChart(key) {
     cache[key] = { t: Date.now(), rows }; const keys = Object.keys(cache); if (keys.length > 60) delete cache[keys.sort((a2, b2) => cache[a2].t - cache[b2].t)[0]]; await chrome.storage.local.set({ chartCache: cache }); return rows;
   } catch { return (c && c.rows) || []; }
 }
-if (typeof module !== "undefined") module.exports = { toChartArgs, SYNCED_SETTINGS, settingsToPush, settingsFromServer, syncSettings, stampSettings, claimOwner, claimLegacyOwner, mergeAnon, releaseOwner, clearVaults, flush, isClientErr, VAULT_MAX, CONTENT_KEYS, coalesce, toWatchRow, toObsRow, mergeWatchRow };
+if (typeof module !== "undefined") module.exports = { droppedCount, clearDropped, toChartArgs, SYNCED_SETTINGS, settingsToPush, settingsFromServer, syncSettings, stampSettings, claimOwner, claimLegacyOwner, mergeAnon, releaseOwner, clearVaults, flush, isClientErr, VAULT_MAX, CONTENT_KEYS, coalesce, toWatchRow, toObsRow, mergeWatchRow };

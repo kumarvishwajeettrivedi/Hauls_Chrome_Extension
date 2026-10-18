@@ -46,7 +46,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px
 .tour-dim{position:fixed;inset:0;z-index:50}.tour-spot{position:fixed;z-index:51;border-radius:18px;box-shadow:0 0 0 9999px rgba(19,19,22,.55);border:3px solid var(--yellow);pointer-events:none;transition:left .8s cubic-bezier(.4,0,.2,1),top .8s cubic-bezier(.4,0,.2,1),width .8s cubic-bezier(.4,0,.2,1),height .8s cubic-bezier(.4,0,.2,1);animation:fadein .9s ease both}@keyframes fadein{from{opacity:0}to{opacity:1}}
 .tour-tip{position:fixed;z-index:52;width:min(330px,calc(100vw - 24px));background:#fff;border:2px solid var(--ink);border-radius:16px;box-shadow:4px 4px 0 var(--ink);padding:14px;transition:opacity .5s ease,transform .5s ease,top .8s cubic-bezier(.4,0,.2,1),left .8s cubic-bezier(.4,0,.2,1)}.tour-tip.hide{opacity:0;transform:translateY(8px)}.tour-tip h3{margin:0 0 4px;font-size:16px}.tour-tip p{margin:0 0 12px;color:var(--mute)}
 .tour-tip .dots{display:flex;gap:6px;margin-bottom:10px}.tour-tip .dots i{width:9px;height:9px;border-radius:50%;border:2px solid var(--ink);background:#fff}.tour-tip .dots i.on{background:var(--ink)}
-.tour-tip .acts{display:flex;gap:8px;justify-content:flex-end;align-items:center}.tour-tip .skip{margin-right:auto;color:var(--mute);font-size:12px;text-transform:none;letter-spacing:0;background:none;box-shadow:none;min-height:30px;padding:0}
+.tour-tip .acts{display:flex;gap:8px;justify-content:flex-end;align-items:center}.tour-tip .acts button{white-space:nowrap}.tour-tip .skip{margin-right:auto;color:var(--mute);font-size:12px;text-transform:none;letter-spacing:0;background:none;box-shadow:none;min-height:30px;padding:0}
 .tour-hand{position:fixed;z-index:53;font-size:30px;pointer-events:none;transition:left .8s cubic-bezier(.4,0,.2,1),top .8s cubic-bezier(.4,0,.2,1),opacity .5s;animation:bounce 2s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -101,9 +101,10 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px
 
   <section class="card">
     <h2>Your data</h2>
-    <p>Stays in this browser. If you sign in, your watchlist syncs to your account. Export or delete it from the account button in the HAULS panel.</p>
+    <p>Stays in this browser. If you sign in, your watchlist syncs to your account. Delete it from the account button in the HAULS panel.</p>
+    <div id="dropbox" hidden><p class="meta" id="dropmsg" role="status" style="font-weight:800;color:var(--ink)"></p><div class="row"><button id="droptry" class="ghost">Try again</button></div></div>
+    <div class="row"><button id="export" class="ghost" hidden>Export my data</button></div><p id="exmsg" role="status" class="meta"></p>
     <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:800">Advanced</summary>
-      <p>For support. Open Amazon's own "Price history" on a product tab, then press a button and paste the result in the chat.</p>
       <p id="pmsg" role="status" class="meta"></p>
       <pre id="preport" hidden></pre>
       <div class="row"><button id="cc" class="ghost">Reset saved lookups</button><button id="probe" class="ghost">Copy page report</button><button id="pcopy" class="ghost" hidden>Copy again</button><button id="sumcopy" class="ghost">Copy storage summary</button></div>

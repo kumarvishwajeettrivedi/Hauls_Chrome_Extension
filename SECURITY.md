@@ -52,7 +52,7 @@ Out of scope:
 | Email alerts, only if you turn them on | The alert is sent to your account email through Resend. |
 | Never | HAULS does not sell data, show ads, run trackers, read your passwords or payment details, or load remote code. |
 
-You can export or erase your cloud data from the account menu. Erasing the Supabase login record itself is still a manual request (see `docs/security.md`, "OPEN" row).
+You can export or erase your cloud data from the account menu, which opens Settings where you confirm it. Erasing the Supabase login record itself is still a manual request (see `docs/security.md`, "OPEN" row).
 
 ## How keys and secrets are handled
 

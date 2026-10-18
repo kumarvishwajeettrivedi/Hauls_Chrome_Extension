@@ -101,6 +101,8 @@
   const urgSent = {}, tickSent = {}, IMP_ZONES = { "amazon.in": { stock: ["#availability"], deal: ["#dealBadge_feature_div", "#apex_desktop", "#corePrice_feature_div"], bought: ["#socialProofingAsinFaceout_feature_div"] } };
   const visText = e => { const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT), out = []; for (let n = w.nextNode(); n; n = w.nextNode()) { const pe = n.parentElement; if (pe && !pe.closest("style,script,noscript,.aok-hidden,[hidden]")) out.push(n.nodeValue); } return out.join(" "); }; // what the shopper can read: no hidden template labels
   const impCollect = () => { const z = IMP_ZONES[dom]; if (!z) return impCollectNear(document); const parts = []; for (const [zone, sels] of Object.entries(z)) for (const q2 of sels) { const e = document.querySelector(q2); if (e && !(e.closest && e.closest(HISTORY_UNTRUSTED))) parts.push({ zone, text: visText(e).slice(0, 600) }); } return parts; };
+  // low / avg (time-weighted) / high of the rows the chart draws: a price holds until the next row, the last one until now.
+  const windowSpan = (h, now) => { if (!h.length) return null; let sum = 0, span = 0; h.forEach((x, i) => { const w = Math.max((i + 1 < h.length ? h[i + 1][0] : now) - x[0], 1); sum += x[1] * w; span += w; }); const ps = h.map(x => x[1]); return { avg: sum / span, min: Math.min(...ps), max: Math.max(...ps) }; };
   // Same frame as the step chart for when only a range is known (no series yet): the band between Amazon's low and high, and today's price on it. Nothing in between is drawn because nothing in between is known.
   const bandChart = (ref, price) => {
     const lo = Math.min(ref.low, price), hi = Math.max(ref.high, price), W = 300, L = 6, R = 294, T = 14, B = 76, Y = v => hi === lo ? (T + B) / 2 : B - (v - lo) / (hi - lo) * (B - T), cw = el("div", "cw bandc");
@@ -109,10 +111,16 @@
     cw.append(el("span", "yl t num", fmt(ref.high)), el("span", "yl b num", fmt(ref.low)));
     const out = el("div"), xl = el("div", "xl"); xl.append(el("span", "", `${ref.days} days ago`), el("span", "", "Today")); out.append(cw, xl, el("p", "meta", `Range shown on this page for the last ${ref.days} days. The day-by-day line appears once Amazon's chart has been read.`)); return out;
   };
+  // Never an empty box: a skeleton while Amazon's chart is being read (25 s at most), else one plain line (+ the Settings switch when it is off on an Amazon product).
+  const emptyState = () => { const o = el("div", "quiet-chart");
+    if (ahState === "reading" && Date.now() - ahReadAt < 25000) { const k = el("div", "sk"); k.style.setProperty("--h", "90px"); o.append(k, el("p", "meta", "Reading Amazon's history…")); return o; }
+    o.append(el("p", "meta", ahState === "failed" ? "Couldn't read Amazon's history this time. It builds as you visit this product." : "Not enough history yet. It builds as you visit this product."));
+    if (dom === "amazon.in" && !ahAutoOn) { const b = el("button", "link-btn", "Turn on Amazon history in Settings"); b.onclick = () => { send({ type: "open-options" }).catch(() => {}); }; o.append(b); }
+    return o; };
   // Step chart: a price holds until the next observation, and the last price is extended to today.
-  const chart = (h, now = Date.now(), win = "") => {
-    if (h.length === 1 && win) return el("p", "meta num", `No price change recorded in the last ${win}: ${fmt(h[0][1])}.`);
-    if (h.length < 2) return el("p", "meta", h.length ? `First seen ${dshort(h[0][0])}. Revisit to build the trend.` : "No history in this range yet.");
+  const chart = (h, now = Date.now(), win = "", covered = true) => { // covered = the data reaches back over the whole window; otherwise "no change in 90D" would claim more than was seen
+    if (h.length === 1 && win && covered) return el("p", "meta num", `No price change recorded in the last ${win}: ${fmt(h[0][1])}.`);
+    if (h.length < 2) return emptyState();
     const t0 = h[0][0], t1 = Math.max(now, h[h.length - 1][0]), span = (t1 - t0) || 1, ps = h.map(x => x[1]), lo = Math.min(...ps), hi = Math.max(...ps), W = 300, L = 6, R = 294, T = 14, B = 76;
     const X = t => L + (t - t0) / span * (R - L), Y = p => hi === lo ? (T + B) / 2 : B - (p - lo) / (hi - lo) * (B - T), f = n => n.toFixed(1);
     let d = `M${f(X(h[0][0]))},${f(Y(h[0][1]))}`; for (let i = 1; i < h.length; i++) d += ` L${f(X(h[i][0]))},${f(Y(h[i - 1][1]))} L${f(X(h[i][0]))},${f(Y(h[i][1]))}`; d += ` L${R},${f(Y(h[h.length - 1][1]))}`;
@@ -147,6 +155,8 @@
   let range = "90D"; chrome.storage.local.get("range").then(s => { if (s.range) range = s.range; });
   const RANGES = [["30D", 30], ["90D", 90], ["1Y", 365], ["All", 0]];
   let cur = null, loading = !!(S || SHOP), tab = S || SHOP ? "product" : "grocery";
+  // Amazon reader state (drawn in the chart box): ahBusy = a read is running; ahState "reading" | "failed" | null; ahLast = what the observer last read/stored (the reader waits on it); ahAutoOn = Settings switch.
+  let ahBusy = false, ahState = null, ahReadAt = 0, ahAutoOn = false, ahLast = { n: 0 };
   const TABS = ["product", "grocery", "traps"];
   let sheetOpener = null;
   const closeSheet = () => { wrap.classList.remove("sheetopen"); sheet.setAttribute("aria-hidden", "true"); if (sheetOpener && sheetOpener.isConnected) sheetOpener.focus({ preventScroll: true }); sheetOpener = null; };
@@ -236,7 +246,7 @@
     if (!cur && unreadable) { const n = el("div", "quiet"); n.append(el("b", "", "Couldn't read this page's price"), "HAULS found the product but not its price. The page layout may be new. Try reloading; if it keeps happening, the Grocery and Watchlist tabs still work."); const rb = el("button", "btn ghost", "Try again"); rb.onclick = () => { tries = 0; unreadable = false; loading = true; draw(); run(); }; return main.append(n, rb); }
     if (!cur) return main.append(el("p", "empty", T.emptyProduct));
     if (cur.limited) { main.append(el("div", "vcard wait", ""), quotaRow()); const nx = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1); main.firstChild.append(el("span", "vl", `You've used all ${cur.limit} free lookups this month. They reset on ${dshort(nx)}. Saved items still update.`)); return; }
-    cur.it = withStoredFlags(cur.it, safeItems((await chrome.storage.local.get("items")).items), cur.p.key);
+    cur.it = withStoredFlags(cur.it, safeItems((await chrome.storage.local.get("items")).items), cur.p.key); ahAutoOn = (await chrome.storage.local.get("ahAuto")).ahAuto === true;
     const { p, it } = cur, ahp = ahPoints(it.ahist), cch = sharedChart(cur.chart, p.price), H = ahMerge(ahMerge(cur.comm && cur.comm.length ? mergeHistory(it.hist, cur.comm) : it.hist, ahp), cch.points), s = stats(H), horizon = (await chrome.storage.local.get("horizon")).horizon || "1w", bw = buyWait(H, p.price, p.mrp, Date.now(), it.ref, horizon), d = bw.deal;
     // hero: price sticker + lowest tag + heart
     const hero = el("div", "hero"), sw = el("div", "st-wrap"), price = el("span", "price num"); sw.append(price);
@@ -259,14 +269,15 @@
     // low / avg / high + history chart, both following the selected range
     const c3 = el("div", "chips3"), cb = el("div", "chartbox"), seg = el("div", "seg"), now = Date.now();
     const paintRange = () => {
-      const days = (RANGES.find(r => r[0] === range) || RANGES[1])[1]; let ws = windowStats(H, now, days || 99999) || { min: s.min, avg: s.avg, max: s.max }, sl = downsample(sliceHistory(H, days, now), 200);
+      const days = (RANGES.find(r => r[0] === range) || RANGES[1])[1], slAll = sliceHistory(H, days, now), have = H.length ? Math.max(1, Math.round((now - H[0][0]) / 864e5)) : 0; // chips use the SAME rows as the line (incl. the price in force at the window start)
+      let ws = windowSpan(slAll, now) || windowStats(H, now, days || 99999) || { min: s.min, avg: s.avg, max: s.max }, sl = downsample(slAll, 200);
       const useRef = sl.length < 2 && refUsable(it.ref, p.price, now); // too little own history in this tab: the numbers are Amazon's range for the days it covers, not one price repeated three times
       if (useRef) ws = { min: Math.min(it.ref.low, p.price), avg: (Math.min(it.ref.low, p.price) + Math.max(it.ref.high, p.price)) / 2, max: Math.max(it.ref.high, p.price), est: true }; // only a range is known: the midpoint stands in for the average and says so
       const prevV = c3.dataset.v ? JSON.parse(c3.dataset.v) : {}, nowV = { Low: ws.min, Avg: ws.avg, High: ws.max }; c3.dataset.v = JSON.stringify(nowV);
       c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3" + (n === "High" ? " hi" : "") + (prevV[n] != null && Math.round(prevV[n]) !== Math.round(v) ? " chg" : "")), sm = el("small"), dv = Math.round(p.price - v); sm.append(ico(i), n);
         x.append(sm, el("b", "num", (ws.est && n === "Avg" ? "~" : "") + fmt(v)), el("em", "dlt num" + (dv < 0 ? " good" : dv > 0 ? " bad" : ""), dv === 0 ? "now" : `now ${dv > 0 ? "+" : "−"}${fmt(Math.abs(dv))}`)); if (ws.est && n === "Avg") x.title = "Estimated from Amazon's range"; c3.append(x); });
       [...seg.children].forEach(b => b.classList.toggle("beyond", useRef && +b.dataset.d > it.ref.days));
-      cb.replaceChildren(el("p", "lbl", useRef && (!days || days > it.ref.days) ? `Last ${it.ref.days} days · all HAULS has for now` : `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), !useRef ? chart(sl, now, days ? range : "") : bandChart(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : cch.points.length ? [el("p", "meta", `Includes shared history from ${cch.n} HAULS reader${cch.n === 1 ? "" : "s"}, updated ${cch.age ? cch.age + " days ago" : "today"}.`)] : []));
+      cb.replaceChildren(el("p", "lbl", useRef && (!days || days > it.ref.days) ? `Last ${it.ref.days} days · all HAULS has for now` : `${range} history${days && have + 2 < days ? ` · ${have} day${have === 1 ? "" : "s"} of data so far` : ""}${cur.comm && cur.comm.length ? " · community + yours" : ""}`), !useRef ? chart(sl, now, days ? range : "", !(days && have + 2 < days)) : bandChart(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : cch.points.length ? [el("p", "meta", `Includes shared history from ${cch.n} HAULS reader${cch.n === 1 ? "" : "s"}, updated ${cch.age ? cch.age + " days ago" : "today"}.`)] : []));
       [...seg.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.r === range)));
     };
     RANGES.forEach(([k, dd]) => { const b = el("button", "", k); b.dataset.r = k; b.dataset.d = dd || 99999; b.setAttribute("aria-pressed", "false"); b.onclick = () => { range = k; chrome.storage.local.set({ range: k }); paintRange(); }; seg.append(b); });
@@ -482,6 +493,7 @@
     const waiting = a.queued ? `${a.queued} change${a.queued === 1 ? "" : "s"} not uploaded yet` : "", st = el("p", "meta", [a.lastSync ? `Last synced ${new Date(a.lastSync).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}` : "Not synced yet", waiting].filter(Boolean).join(" · ")), sy = el("button", "btn ghost"); sy.append(ico("sync"), "Sync now");
     sy.onclick = async () => { sy.textContent = "Syncing…"; const r = await chrome.runtime.sendMessage({ type: "sync" }).catch(() => null), why = r && ((r.flush && r.flush.reason) || (r.pull && r.pull.reason)); st.textContent = r && r.ok ? "Synced just now." : offline(why) || !r ? "You're offline. HAULS will retry when you're back." : "Couldn't sync. Try again in a minute."; sy.replaceChildren(ico("sync"), "Sync now"); draw(); };
     nodes.push(st, sy);
+    if (a.dropped > 0) { const dm = el("p", "meta bad", `${a.dropped} change${a.dropped === 1 ? "" : "s"} could not be saved to your account.`), ta = el("button", "link-btn", "Try again"); dm.setAttribute("role", "status"); ta.onclick = async () => { await sy.onclick(); refresh(); }; nodes.push(dm, ta); } // the server refused them for good: said plainly, cleared by a clean sync
     // Indian mobile only: "+91" is fixed, the box takes 10 digits (6-9 first), pasted "+91 98765 43210" is cleaned. The same rule is enforced again in guard.js, background.js and the database.
     const ph = el("div", "field"), pw = el("label", "pi"), phi = el("input"), sv = el("button", "btn sm", "Save"), phm = el("p", "meta"), pre = el("b", "", "+91"); phm.setAttribute("role", "status");
     const clean = s0 => { let d = String(s0).replace(/\D/g, ""); if (d.length > 10 && d.startsWith("91")) d = d.slice(2); if (d.length > 10 && d.startsWith("0")) d = d.slice(1); return d.slice(0, 10); }, okNum = d => d === "" || /^[6-9][0-9]{9}$/.test(d);
@@ -491,7 +503,7 @@
     phi.onkeydown = e => { if (e.key === "Enter" && !sv.disabled) sv.click(); };
     sv.onclick = async () => { const d = phi.value; if (!okNum(d)) return; sv.disabled = true; phm.textContent = "Saving…"; const r = await send({ type: "profile-update", phone: d ? "+91" + d : "", gesture: gesture() }); if (r && r.ok) { savedNum = d; phm.textContent = "Saved"; clearTimeout(clr); clr = setTimeout(() => { phm.textContent = ""; }, 2500); } else { phm.textContent = "Couldn't save. Try again."; sv.disabled = false; } };
     nodes.push(ph, phm, el("p", "meta", "Optional. Only you can see it. Google doesn't share it."));
-    const ex = el("button", "btn ghost"); ex.append(ico("download"), "Export my data"); ex.onclick = async () => { const r = await send({ type: "export-data", gesture: gesture() }); if (!r || !r.ok) return void (ex.textContent = "Couldn't export"); const u = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), account: r.data, localWatchlist: r.local }, null, 2)], { type: "application/json" })), l = document.createElement("a"); l.href = u; l.download = "hauls-my-data.json"; l.click(); setTimeout(() => URL.revokeObjectURL(u), 2000); };
+    const ex = el("button", "btn ghost"); ex.append(ico("download"), "Export my data"); ex.onclick = () => { send({ type: "open-options", at: "export" }); closeSheet(); }; // the file is made on the settings page (guard.js refuses export-data from a content script)
     nodes.push(ex);
     const gs = el("button", "btn ghost"); gs.append(ico("gear"), "Settings"); gs.onclick = () => { chrome.runtime.sendMessage({ type: "open-options" }).catch(() => {}); }; nodes.push(gs);
     const out = el("button", "btn ghost", "Sign out"); out.onclick = async () => { await chrome.runtime.sendMessage({ type: "signout", gesture: gesture() }); closeSheet(); draw(); };
@@ -656,6 +668,9 @@
   // SPA navigation (Flipkart/Myntra/Ajio): re-run when the URL changes.
   let href = location.href;
   // Amazon's own price-history answer appears inside the page when the user opens it. We read its text, nothing else, and remember the range for this product.
+  // Amazon's range tabs (1M / 3M / 1Y) in its Price history panel, and the selected one right now (null when the markup does not say).
+  const amzTabs = () => [...document.querySelectorAll("#rufus-react-renderer [role=tab], #rufus-react-renderer button, #rufus-react-renderer span")].filter(e => e.children.length === 0 && /^(1M|3M|1Y)$/.test(e.textContent.trim()));
+  const amzSel = () => { const on = x => x && (["aria-selected", "aria-current", "aria-pressed"].some(a => x.getAttribute(a) === "true") || (/(^|[\s_-])(selected|active)([\s_-]|$)/i.test(String(x.className)) && !/(not|un)-?selected/i.test(String(x.className)))), t = amzTabs().find(e => on(e) || on(e.closest("[role=tab], button"))); return t ? t.textContent.trim() : null; };
   if (S && dom === "amazon.in") {
     const featOff = async n => { try { const d = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features; return Array.isArray(d) && d.includes(n); } catch { return false; } }, health = (event, reason) => send({ type: "ahist-health", event, reason }).catch(() => {}); // counters for Settings
     let yearAt = 0; const amzPickYear = () => { try { const tab = [...document.querySelectorAll("#rufus-react-renderer [role=tab], #rufus-react-renderer button, #rufus-react-renderer span")].find(e => e.children.length === 0 && e.textContent.trim() === "1Y"); if (tab && tab.getAttribute("aria-selected") !== "true") tab.click(); } catch {} };
@@ -665,11 +680,13 @@
       for (const m of muts) for (const n of m.addedNodes) { const root = n.nodeType === 1 ? n : null; if (!root) continue;
         const svgs = root.matches && root.matches("svg") ? [root] : [...(root.querySelectorAll ? root.querySelectorAll("svg[aria-label]") : [])];
         for (const sv of svgs) { if (!/price history/i.test(sv.getAttribute("aria-label") || "") || (sv.closest && sv.closest(HISTORY_UNTRUSTED))) continue;
-          const ch = ahParseChart(sv.outerHTML, Date.now()); if (!ch) { health("refused", "unreadable"); continue; } if (!ch.current || Math.abs(ch.current - cur.p.price) > 1) { health("refused", "other-product"); continue; } // must announce today's price on THIS product
+          const html = sv.outerHTML, sel = amzSel(), mark = ok => { ahLast = { n: ahLast.n + 1, node: sv, html, tab: sel, ok }; }; // the reader below waits for this: "that chart was read and answered"
+          const ch = ahParseChart(html, Date.now()); if (!ch) { health("refused", "unreadable"); mark(false); continue; } if (!ch.current || Math.abs(ch.current - cur.p.price) > 1) { health("refused", "other-product"); mark(false); continue; } // must announce today's price on THIS product
           health("read");
-          const r = await send({ type: "ahist", key: cur.p.key, range: ch.range, days: ch.days, points: ch.points, current: ch.current, offer: ch.offer, highest: ch.highest }).catch(() => null);
-          if (r && r.ok) { cur.it = r.it; idleRedraw(); health("stored"); } else health("refused", "price-mismatch");
-          if (r && r.ok && !ahBusy && ch.range !== "1Y" && Date.now() - yearAt > 8000) { yearAt = Date.now(); amzPickYear(); } } } // Amazon opens on 1M: ask for the full year so 30D / 90D / 1Y all have real data
+          const r = await send({ type: "ahist", key: cur.p.key, range: ch.range, days: ch.days, points: ch.points, current: ch.current, offer: ch.offer, highest: ch.highest, ...(sel ? { tab: sel } : {}) }).catch(() => null); // tab = the tab Amazon had selected (the span alone cannot tell a 1Y tab with a short history from the 1M tab)
+          if (r && r.ok) { cur.it = r.it; if (!ahBusy) ahState = null; idleRedraw(); health("stored"); } else health("refused", "price-mismatch");
+          mark(!!(r && r.ok));
+          if (r && r.ok && !ahBusy && (sel ? sel !== "1Y" : ch.range !== "1Y") && Date.now() - yearAt > 8000) { yearAt = Date.now(); amzPickYear(); } } } // Amazon opens on 1M: ask for the full year so 30D / 90D / 1Y all have real data
       let found = null;
       for (const m of muts) for (const n of m.addedNodes) { const el1 = n.nodeType === 1 ? n : n.parentElement, t = n.nodeType === 1 ? n.textContent : n.nodeType === 3 ? n.nodeValue : "";
         if (!t || t.length >= 4000 || !/ranged from/i.test(t) || !el1 || (el1.closest && el1.closest(HISTORY_UNTRUSTED)) || (n.nodeType === 1 && n.querySelector && n.querySelector(HISTORY_UNTRUSTED))) continue;
@@ -680,25 +697,29 @@
       if (r && r.ok) { cur.it = r.it; idleRedraw(); }
     }, 700); }).observe(document.body, { childList: true, subtree: true, characterData: true });
   }
-  // Experimental, opt-in (Settings): open Amazon's own "Price history" answer out of sight, let the observer above read its chart, then close it. No endpoint is called.
-  // Fail-safes: only with an ingress button present, once per product per 12 h, panel hidden by CSS while it runs, every step has a timeout, on any doubt it stops and stays quiet.
-  let ahBusy = false;
+  // Opt-in (Settings): open Amazon's own "Price history" answer in the tab you are on, read 1M, 3M and 1Y (1Y last, so Amazon is left on the year), then close it. No endpoint is called.
+  // Each tab is waited for by condition: that tab is selected AND the chart re-rendered AND the observer above stored that very chart (10 s cap per tab); the panel then stays open 1.2 s more. The panel is NOT hidden: you see it open.
+  // Fail-safes: only with an ingress button present, once per product per 12 h, every step has a timeout, a refused chart stops the tabs, the panel is always closed the way v1.17.2 does (full press, wait for the page to un-dock).
   async function ahAutoRead() {
     if (ahBusy || !cur || !cur.p || dom !== "amazon.in") return; const dis = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features || []; if (dis.includes("chart-auto") || dis.includes("chart-read")) return; const { ahAuto } = await chrome.storage.local.get("ahAuto"); if (ahAuto !== true) return;
     const last = cur.it && cur.it.ahist && Math.max(cur.it.ahist.at || 0, cur.it.ahist.tried || 0); if (last && Date.now() - last < 12 * 3600e3) return;
     const wait = (f, ms) => new Promise(res => { const t0 = Date.now(), iv = setInterval(() => { let v; try { v = f(); } catch { v = null; } if (v || Date.now() - t0 > ms) { clearInterval(iv); res(v || null); } }, 150); });
     ahBusy = true; let trig; try { trig = await wait(() => document.querySelector('#rufus-price-ingress-bb [data-action="show-rufus-price-ingress"], .rufus-ph-ingress-pill [data-action="show-rufus-price-ingress"]'), 10000); } finally { if (!trig) ahBusy = false; } if (!trig) return; // Amazon draws the button after the page loads
-    const key = cur.p.key, hide = document.createElement("style"); hide.id = "hauls-ah-hide"; hide.textContent = "#nav-flyout-rufus,.rufus-panel-container,#rufus-conversation-papyrus-container{opacity:0!important;pointer-events:none!important;transition:none!important}"; document.documentElement.append(hide);
-    const chart = () => document.querySelector('#rufus-react-renderer svg[aria-label*="price history" i]');
+    const key = cur.p.key, chart = () => document.querySelector('#rufus-react-renderer svg[aria-label*="price history" i]'); let tried = false, any = false;
+    ahState = "reading"; ahReadAt = Date.now(); idleRedraw(); setTimeout(() => { if (ahState === "reading") idleRedraw(); }, 25500); // the chart box shows a skeleton meanwhile (25 s at most)
+    // resolves with what the observer recorded once THE chart on screen has been read and answered (and, when the markup tells, the wanted tab is the selected one)
+    const stored = (n0, label) => wait(() => { const c = chart(), sel = amzSel(); return c && ahLast.n > n0 && (ahLast.node === c || ahLast.html === c.outerHTML) && (!label || !sel || (sel === label && ahLast.tab === label)) && ahLast; }, 10000);
     try {
-      await send({ type: "ahist-tried", key }).catch(() => {});
-      (trig.querySelector("button, .a-button-text, a") || trig).click();
-      const first = await wait(chart, 8000); if (!first) return;
-      for (const label of ["3M", "1Y"]) { const tab = [...document.querySelectorAll("#rufus-react-renderer [role=tab], #rufus-react-renderer button, #rufus-react-renderer span")].find(e => e.children.length === 0 && e.textContent.trim() === label); if (!tab) continue; const before = chart() && chart().outerHTML; tab.click(); await wait(() => chart() && chart().outerHTML !== before, 4000); }
+      await send({ type: "ahist-tried", key }).catch(() => {}); tried = true;
+      const n0 = ahLast.n; (trig.querySelector("button, .a-button-text, a") || trig).click();
+      if (!(await wait(chart, 8000))) return;
+      let r = await stored(n0); any = !!(r && r.ok);
+      if (any) for (const label of ["3M", "1Y"]) { const tb = amzTabs().find(e => e.textContent.trim() === label); if (!tb) continue; const n1 = ahLast.n; tb.click(); r = await stored(n1, label); if (r && r.ok) any = true; else if (r) break; } // a refused chart = doubt: stop; no answer in 10 s: try the next tab anyway
+      if (any) await new Promise(r2 => setTimeout(r2, 1200)); // let the shopper see the year before it closes
       // Amazon's close button ignores a plain scripted click() (checked on the live page): it needs the whole press: pointer down, up, then click
       const press = el => { const r = el.getBoundingClientRect(), o = { bubbles: true, cancelable: true, composed: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0, pointerId: 1, pointerType: "mouse", isPrimary: true }; el.dispatchEvent(new PointerEvent("pointerdown", { ...o, buttons: 1 })); el.dispatchEvent(new MouseEvent("mousedown", { ...o, buttons: 1 })); el.dispatchEvent(new PointerEvent("pointerup", o)); el.dispatchEvent(new MouseEvent("mouseup", o)); el.dispatchEvent(new MouseEvent("click", o)); };
       for (let k = 0; k < 2; k++) { const close = document.getElementById("rufus-panel-header-close") || document.querySelector('#rufus-panel-header-container [aria-label*="lose" i], #nav-flyout-rufus button[aria-label*="lose" i]'); /* by id first: a tooltip's own close button comes earlier in the page */ if (!close) break; press(close); if (await wait(() => !document.body.classList.contains("rufus-docked-left"), 3500)) break; } // wait for Amazon to finish closing (a second press during the animation would re-open it); try again only if it is still docked after 3.5 s
-    } finally { await new Promise(r => setTimeout(r, 400)); hide.remove(); ahBusy = false; }
+    } finally { ahState = any ? null : "failed"; ahBusy = false; if (tried) await send({ type: "ahist-tried", key }).catch(() => {}); /* a second mark that is newer than the last store = "finished" (the background window waits for it) */ idleRedraw(); }
   }
   setInterval(() => { if (!document.hidden && location.href !== href) { href = location.href; tries = 0; cur = null; loading = !!(S || SHOP); setBadge(); run(); } }, 1000);
 })();

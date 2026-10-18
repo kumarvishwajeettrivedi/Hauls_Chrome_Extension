@@ -21,7 +21,12 @@ function ahParseChart(markup, now = Date.now()) {
   const axisY = Math.max(...yl.map(l => l.y)) + 5, xl = texts.filter(t => t.y > axisY && /^\d{1,2}\s+[A-Za-z]{3,4}\.?$|^[A-Za-z]{3}$/.test(t.t)).sort((a2, b2) => a2.x - b2.x); if (xl.length < 2) return null;
   const first = xl[0], last = xl[xl.length - 1], tEnd = now; let tStart = ahDate(first.t, now), windowMs;
   const fullDates = /^\d/.test(first.t);
-  if (fullDates) { if (tStart === null) return null; windowMs = tEnd - tStart; } else windowMs = 365 * 864e5; // month-only labels (1Y view)
+  if (fullDates) { if (tStart === null) return null; if (tEnd - tStart < 5 * 864e5) { const d0 = new Date(tStart); tStart = Date.UTC(d0.getUTCFullYear() - 1, d0.getUTCMonth(), d0.getUTCDate()); } windowMs = tEnd - tStart; } // a start label that resolves to (nearly) today is last year's: a window is never under 5 days
+  else { // month-only labels (1Y view): the window is the months from the first label to the last (12 when both name the same month), read from the labels and checked against where they are drawn; never assumed
+    const mi = xl.map(l => AH_MONTHS[l.t.toLowerCase()]); if (xl.some(l => !/^[A-Za-z]{3}$/.test(l.t)) || mi.some(m => m === undefined)) return null;
+    const gap = (a, b) => (b - a + 12) % 12 || 12, gs = mi.slice(1).map((m, i) => gap(mi[i], m)), months = gs.reduce((a, b) => a + b, 0); if (months > 12) return null; // a chart labelled with more than a year is not a 1Y chart
+    let acc = 0; for (let i = 1; i < xl.length; i++) { acc += gs[i - 1]; if (Math.abs(xl[i].x - (first.x + (last.x - first.x) * acc / months)) > 0.1 * (last.x - first.x)) return null; } // labels not spread like the months they name
+    windowMs = (months === 12 ? 365 : Math.round(months * 30.4375)) * 864e5; }
   if (!(windowMs > 5 * 864e5 && windowMs < 400 * 864e5)) return null;
   const xStart = first.x, xEnd = last.x, tAt = x => tEnd - (xEnd - x) / (xEnd - xStart) * windowMs;
   // the drawn series: horizontal segments in the chart blue

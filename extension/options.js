@@ -37,7 +37,7 @@ const showPin = pin => { $("pinval").textContent = pin || "not set"; };
 chrome.storage.local.get("pin").then(v => showPin(v.pin)); chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.pin) showPin(ch.pin.newValue); });
 
 // Is the background (service worker) the same build as this page? A stale one rejects the unknown message.
-const PAGE_BUILD = "2026-10-18.r35";
+const PAGE_BUILD = "2026-10-18.r36";
 chrome.runtime.sendMessage({ type: "t2-version" }).then(r => { const ok = r && r.build === PAGE_BUILD; $("ver").textContent = "HAULS " + chrome.runtime.getManifest().version + (ok ? " · up to date" : "") + " · built by Vishwajeet · hauls.in"; $("stale").hidden = !!ok; }).catch(() => { $("stale").hidden = false; });
 $("reload").onclick = () => chrome.runtime.reload();
 
@@ -103,7 +103,7 @@ async function paintStart() {
 $("starthide").onclick = async () => { await chrome.storage.local.set({ startHidden: true }); paintStart(); };
 $("st1go").onclick = () => { $("s-history").scrollIntoView({ behavior: "smooth", block: "center" }); setTimeout(() => $("ahauto").focus(), 300); };
 paintStart(); paintHist();
-chrome.storage.onChanged.addListener((ch, area) => { if (area !== "local") return; if (ch.ahAuto) $("ahauto").checked = ch.ahAuto.newValue === true; if (ch.ahAuto || ch.items || ch.startHidden) paintStart(); if (ch.chartHealth || ch.ahAuto || ch.flags) paintHist(); if (ch.trk || ch.items || ch.profile) paintTrk(); });
+chrome.storage.onChanged.addListener((ch, area) => { if (area !== "local") return; if (ch.ahAuto) $("ahauto").checked = ch.ahAuto.newValue === true; if (ch.ahAuto || ch.items || ch.startHidden) paintStart(); if (ch.chartHealth || ch.ahAuto || ch.flags) paintHist(); if (ch.trk || ch.items || ch.profile) paintTrk(); if (ch.syncDropped || ch.localOwner || ch.profile) paintData(); });
 
 // ---- Guided tour: a spotlight walks through the three sections that matter (starts by itself on a fresh install, or from "Take the tour")
 const TOUR = [
@@ -128,7 +128,7 @@ function startTour(i = 0) {
     const my = ++seq, st = STEPS[i]; $(st.el).scrollIntoView({ block: "center", behavior: "smooth" }); tip.classList.add("hide"); hand.style.opacity = "0";
     const dots = document.createElement("div"), h = document.createElement("h3"), p = document.createElement("p"), acts = document.createElement("div"); dots.className = "dots"; STEPS.forEach((_, k) => { const d = document.createElement("i"); if (k === i) d.className = "on"; dots.append(d); }); h.textContent = `${i + 1}. ${st.title}`; p.textContent = st.text; acts.className = "acts";
     const mk = (label, cls, fn) => { const b = document.createElement("button"); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; acts.append(b); return b; };
-    mk("Skip", "skip", end); if (i > 0) mk("Back", "ghost", () => { i--; show(); });
+    mk("Skip", "skip", end); if (i > 0 && !st.act) mk("Back", "ghost", () => { i--; show(); }); // no Back next to an action button: four buttons in the tip made "Turn it on" wrap onto two lines
     if (st.act) mk(st.act[0], "ghost", async e => { await st.act[1](); e.target.textContent = "Done ✓"; e.target.disabled = true; });
     mk(i === STEPS.length - 1 ? "Done" : "Next", "", () => { if (i === STEPS.length - 1) end(); else { i++; show(); } });
     setTimeout(() => { if (my !== seq) return; tip.replaceChildren(dots, h, p, acts); place(); }, tip.childElementCount ? 380 : 0); // let the old text fade before the new text appears
@@ -138,10 +138,18 @@ function startTour(i = 0) {
 }
 $("tour").onclick = () => startTour();
 if (new URLSearchParams(location.search).get("welcome") === "1") setTimeout(() => startTour(), 700);
+// ---- Your data: the export file is made here (an extension page: guard.js refuses export-data from a shop page), and changes the server refused are said plainly
+const saveFile = r => { const u = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), account: r.data, localWatchlist: r.local }, null, 2)], { type: "application/json" })), l = document.createElement("a"); l.href = u; l.download = "hauls-my-data.json"; l.click(); setTimeout(() => URL.revokeObjectURL(u), 2000); };
+async function paintData() { const w = await send({ type: "whoami" }).catch(() => null), a = w && w.signedIn ? await send({ type: "account" }).catch(() => null) : null, n = (a && a.dropped) || 0;
+  $("export").hidden = !(w && w.signedIn); $("dropbox").hidden = !(n > 0); $("dropmsg").textContent = `${n} change${n === 1 ? "" : "s"} could not be saved to your account.`; }
+$("export").onclick = async () => { $("exmsg").textContent = "Exporting…"; const r = await send({ type: "export-data" }).catch(() => null); if (r && r.ok) { saveFile(r); $("exmsg").textContent = "Downloaded."; } else $("exmsg").textContent = "Couldn't export. Try again."; };
+$("droptry").onclick = async () => { $("droptry").disabled = true; await send({ type: "sync" }).catch(() => null); $("droptry").disabled = false; paintData(); };
+paintData();
 // Erasing actions are confirmed here, on an extension page: the panel on a shop page only opens this tab (options.html#delete or #signout-clear) and guard.js refuses the messages from anywhere else.
 { const CF = { delete: ["Delete your cloud data?", "This erases your account's data from our servers and signs you out here. It can't be undone.", "Delete my data", { type: "delete-data" }, "Deleted. You're signed out."],
+    export: ["Export your data?", "Saves a file with your watchlist and account data to this computer.", "Export", { type: "export-data" }, "Downloaded."],
     "signout-clear": ["Sign out and clear this device?", "Signs you out and removes this account's saved items and settings from this browser. Your cloud data stays.", "Sign out and clear", { type: "signout", clear: true }, "Done. You're signed out and this device is cleared."] }, c = CF[location.hash.slice(1)];
   if (c) { $("confirm").hidden = false; $("cfh").textContent = c[0]; $("cfp").textContent = c[1]; $("cfgo").textContent = c[2];
     $("cfno").onclick = () => { history.replaceState(null, "", location.pathname + location.search); $("confirm").hidden = true; };
     $("cfgo").onclick = async () => { $("cfgo").disabled = $("cfno").disabled = true; $("cfmsg").textContent = "Working…"; const r = await send(c[3]).catch(() => null);
-      if (r && r.ok) { $("cfmsg").textContent = c[4]; $("cfgo").hidden = $("cfno").hidden = true; history.replaceState(null, "", location.pathname + location.search); } else { $("cfmsg").textContent = "Couldn't do that. Try again."; $("cfgo").disabled = $("cfno").disabled = false; } }; } }
+      if (r && r.ok) { if (c[3].type === "export-data") saveFile(r); $("cfmsg").textContent = c[4]; $("cfgo").hidden = $("cfno").hidden = true; history.replaceState(null, "", location.pathname + location.search); } else { $("cfmsg").textContent = "Couldn't do that. Try again."; $("cfgo").disabled = $("cfno").disabled = false; } }; } }

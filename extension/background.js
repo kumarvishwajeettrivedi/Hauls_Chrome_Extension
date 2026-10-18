@@ -19,6 +19,7 @@ async function record(p) {
   // The ONE place page-derived text enters storage and the outbox (guard.js already bounded sizes; this removes control/bidi characters, forces https URLs, and refuses dictionary-poisoning keys).
   if (!p || !okKey(p.key) || !isPrice(p.price)) throw new Error("bad product");
   p = { ...p, site: cleanText(p.site, 60), title: cleanText(p.title, 500), image: cleanUrl(p.image), url: cleanUrl(p.url), mrp: p.mrp === undefined ? undefined : isPrice(p.mrp) ? p.mrp : null, seller: p.seller && cleanText(p.seller.name, 80) ? { name: cleanText(p.seller.name, 80) } : undefined };
+  if (p.url && !keyHostOk(p.key, p.url)) throw new Error("bad product"); // the link must be on the shop the key names (guard.js keyHostOk); no link at all keeps the stored one
   const items = await get(), it = Object.hasOwn(items, p.key) ? items[p.key] : items[p.key] = { hist: [] };
   Object.assign(it, { site: p.site || it.site, title: p.title || it.title, image: p.image || it.image, url: p.url || it.url }); if (p.mrp !== undefined) it.mrp = p.mrp; // undefined = this reader did not look at MRP: keep what we know
   if (p.seller && p.seller.name) { if (it.seller && it.seller !== p.seller.name) it.sellerChange = { from: it.seller, at: Date.now() }; it.seller = p.seller.name; }
@@ -69,9 +70,9 @@ async function noteLocation(loc) { const pin = loc && loc.pin; if (!pin) return;
 const watchOp = (key, it, extra = {}) => ({ t: "watch", key, site: it.site, title: it.title, url: it.url, image: it.image, target: it.target, wish: it.wish, last: it.hist && it.hist.length ? it.hist[it.hist.length - 1][1] : null, u: it.u, ...extra });
 const trackedCount = items => Object.values(items).filter(i => i.target || i.wish).length;
 async function account() {
-  const session = await sessionStore.get(), { profile, lastSync, outbox } = await chrome.storage.local.get(["profile", "lastSync", "outbox"]);
+  const session = await sessionStore.get(), { profile, lastSync, outbox, syncDropped } = await chrome.storage.local.get(["profile", "lastSync", "outbox", "syncDropped"]);
   const { authNotice, notifyBlocked } = await chrome.storage.local.get(["authNotice", "notifyBlocked"]);
-  return { configured: configured(), signedIn: !!session, notice: authNotice || null, notifyBlocked: notifyBlocked === true, user: session && session.user, profile: profile || null, lastSync: lastSync || null, queued: (outbox || []).length };
+  return { configured: configured(), signedIn: !!session, notice: authNotice || null, notifyBlocked: notifyBlocked === true, user: session && session.user, profile: profile || null, lastSync: lastSync || null, queued: (outbox || []).length, dropped: session ? droppedCount(syncDropped) : 0 };
 }
 async function afterSignIn() {
   const session = await sessionStore.get(); if (session && session.user) await claimOwner(session.user.id); // first: tags the live data with this account (another account's data is put away, never merged); sync refuses to run before this
@@ -115,7 +116,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "ahist") { await withLock(async () => { const items = await get(), it = items[m.key]; if (!it || !it.hist.length) return reply({ ok: false });
         const price = it.hist[it.hist.length - 1][1], last = m.points[m.points.length - 1][1];
         if (!(last >= price * 0.6 && last <= price * 1.4)) return reply({ ok: false }); // the chart must agree with the price this product shows today
-        const ah = it.ahist || { ranges: {} }; ah.at = Date.now(); ah.ranges[m.range] = { at: Date.now(), days: m.days, points: m.points }; if (m.offer) ah.offer = m.offer; if (m.highest) ah.highest = m.highest; it.ahist = ah; await put(items);
+        const ah = it.ahist || { ranges: {} }; ah.at = Date.now(); const tab = ["1M", "3M", "1Y"].includes(m.tab) && m.days <= { "1M": 60, "3M": 150, "1Y": 400 }[m.tab] ? m.tab : undefined; /* the tab Amazon had selected, only when the span fits it */ ah.ranges[m.range] = { at: Date.now(), days: m.days, points: m.points, ...(tab ? { tab } : {}) }; if (m.offer) ah.offer = m.offer; if (m.highest) ah.highest = m.highest; it.ahist = ah; await put(items);
         { const { profile } = await chrome.storage.local.get("profile"); if (profile && profile.contribute === true && !featureOff((await chrome.storage.local.get("flags")).flags, "chart-upload") && await sessionStore.get()) quiet(enqueue({ t: "chart", key: m.key, range: m.days, series: m.points, current: m.current || last })); } // opt-in: share the chart Amazon itself showed this reader
         reply({ ok: true, it }); }); }
     else if (m.type === "ahist-health") { await bumpHealth("chartHealth", m.event, m.reason); reply({ ok: true }); }
@@ -145,7 +146,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     else if (m.type === "forget-shared") { try { reply({ ok: true, removed: await api("/rpc/ext_forget_my_observations", { method: "POST", body: {} }) }); } catch (e) { reply({ ok: false, error: String(e.message).slice(0, 120) }); } }
     else if (m.type === "signin") { try { await signInWithGoogle(); reply({ ok: true, account: await afterSignIn() }); } catch (e) { reply({ ok: false, error: String(e.message || e) }); } }
     else if (m.type === "signout") { await signOut({ clear: !!m.clear }); reply({ ok: true, account: await account() }); }
-    else if (m.type === "sync") { const f = await flush(), p = await pull(); reply({ ok: f.ok && p.ok, flush: f, pull: p, account: await account() }); }
+    else if (m.type === "sync") { const t0 = Date.now(), f = await flush(), p = await pull(); if (f.ok && p.ok) await clearDropped(t0); reply({ ok: f.ok && p.ok, flush: f, pull: p, account: await account() }); }
     else if (m.type === "contribute") { try { const s = await getSession(); await api(`/ext_profiles?id=eq.${s.user.id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { contribute: !!m.on } }); const { profile } = await chrome.storage.local.get("profile"); await chrome.storage.local.set({ profile: { ...(profile || {}), contribute: !!m.on } }); reply({ ok: true }); } catch (e) { reply({ ok: false, error: String(e.message) }); } }
     else if (m.type === "waitlist") { try { reply({ ok: true, joined: await api("/rpc/ext_join_waitlist", { method: "POST", body: { p_source: "extension-android" } }) }); } catch (e) { reply({ ok: false, error: String(e.message) }); } }
     else if (m.type === "profile-update") { try { const s = await getSession(), body = {}; if (m.name !== undefined) body.name = sanitizeText(m.name, 80); if (m.phone !== undefined) { if (m.phone && !/^\+91[6-9][0-9]{9}$/.test(m.phone)) return reply({ ok: false }); body.phone = m.phone || null; } if (m.email_alerts !== undefined) body.email_alerts = m.email_alerts === true;

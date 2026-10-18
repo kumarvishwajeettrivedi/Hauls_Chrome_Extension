@@ -14,7 +14,7 @@ grant usage on schema public, auth to anon, authenticated, service_role;
 grant all on all tables in schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated;`);
-for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series','0011_ext_obs_src_bg','0012_ext_feedback','0013_ext_watchlist_deletion','0014_ext_price_alert_email','0015_ext_hardening','0016_ext_profile_input_checks','0017_ext_security_hardening','0018_ext_security_followup','0019_ext_waitlist_confirmed_email']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
+for (const f of ['0001_ext_core','0002_ext_functions','0003_ext_rls','0004_ext_hardening','0005_ext_review_fixes','0006_ext_security_review','0007_ext_user_settings','0008_ext_settings_places','0009_ext_history_privacy','0010_ext_chart_series','0011_ext_obs_src_bg','0012_ext_feedback','0013_ext_watchlist_deletion','0014_ext_price_alert_email','0015_ext_hardening','0016_ext_profile_input_checks','0017_ext_security_hardening','0018_ext_security_followup','0019_ext_waitlist_confirmed_email','0020_ext_observation_retention']) { await db.exec(fs.readFileSync(M+f+'.sql','utf8')); await db.exec(fs.readFileSync(M+f+'.sql','utf8')); } // twice = idempotent
 let ok=true; const T=(n,c,d)=>{console.log(c?'PASS':'FAIL',n,c||!d?'':'-> '+d); if(!c) ok=false;};
 const as=async(uid,fn)=>{await db.exec(`set role authenticated; select set_config('request.jwt.claims', '{"sub":"${uid}","role":"authenticated"}', false)`); try{return await fn()} finally{await db.exec(`reset role`)}};
 const fails=async p=>{try{await p;return false}catch(e){return true}};
@@ -754,4 +754,37 @@ T('others untouched', (await db.query(`select count(*)::int c from ext_price_obs
   await as(V,()=>db.query(`select ext_delete_my_data()`));
   T('0019: erase by a confirmed account removes its own extension waitlist row', (await db.query(`select count(*) n from waitlist where email='w2@x.t'`)).rows[0].n==0);
   await db.exec(fs.readFileSync(M+'0019_ext_waitlist_confirmed_email.sql','utf8')); T('0019: runs twice without error', true); }
+// ===== 0020: retention for old observations and chart series (400 days) =====
+{ await db.exec(fs.readFileSync(M+'0020_ext_observation_retention.sql','utf8')); // earlier re-run tests (0017, 0018) put their purge back over 0020's
+  const dx=async q=>{ await db.exec(`select set_config('request.jwt.claims','',false)`); return db.exec(q) };
+  const asSvc=async fn=>{await db.exec(`set role service_role; select set_config('request.jwt.claims','{"role":"service_role"}',false)`); try{return await fn()} finally{await db.exec('reset role')}};
+  const asAnon=async fn=>{await db.exec(`set role anon; select set_config('request.jwt.claims','{"role":"anon"}',false)`); try{return await fn()} finally{await db.exec('reset role')}};
+  const purge=()=>asSvc(async()=>(await db.query('select ext_purge_old_data() r')).rows[0].r);
+  await dx(`select set_config('request.jwt.claims','',false)`);
+  const R=(await db.query(`insert into auth.users(email) values('r20@x.t') returning id`)).rows[0].id;
+  await dx(`delete from ext_price_observations; delete from ext_chart_series;
+    insert into ext_price_observations(user_id,product_key,price,observed_at) values
+      ('${R}','r20:old',100,(now() at time zone 'UTC')::date::timestamp at time zone 'UTC' - interval '401 days'),
+      ('${R}','r20:edge',100,(now() at time zone 'UTC')::date::timestamp at time zone 'UTC' - interval '400 days'),
+      ('${R}','r20:new',100,now() - interval '30 days'),('${R}','r20:today',100,now());
+    insert into ext_chart_series(product_key,user_id,range_days,series,current_price,captured_at) values
+      ('r20:old','${R}',30,'[[20000,1],[20001,2]]',2,now()-interval '401 days'),
+      ('r20:edge','${R}',30,'[[20000,1],[20001,2]]',2,now()-interval '399 days 23 hours'),
+      ('r20:new','${R}',30,'[[20000,1],[20001,2]]',2,now()-interval '10 days');
+    delete from ext_alert_log; delete from ext_feedback;
+    insert into ext_alert_log(user_id,product_key,sent_at) values('${R}','r20:a',now()-interval '91 days');
+    insert into ext_feedback(rating,created_at) values (3,now()-interval '400 days');
+    insert into ext_watchlist(user_id,product_key,deleted_at) values('${R}','r20:t',now()-interval '2 days')`);
+  const keys=async t=>(await db.query(`select string_agg(product_key,',' order by product_key) k from ${t}`)).rows[0].k;
+  T('0020: signed-in users and anon still cannot run the purge', await as(R,()=>fails(db.query('select ext_purge_old_data()'))) && await asAnon(()=>fails(db.query('select ext_purge_old_data()'))));
+  T('0020: nothing was deleted by the refused calls', await keys('ext_price_observations')==='r20:edge,r20:new,r20:old,r20:today' && await keys('ext_chart_series')==='r20:edge,r20:new,r20:old');
+  const r=await purge();
+  T('0020: observations older than 400 days are deleted, the boundary day (exactly 400) and newer rows stay', r.observations===1 && await keys('ext_price_observations')==='r20:edge,r20:new,r20:today', JSON.stringify(r));
+  T('0020: chart series older than 400 days are deleted, newer ones stay', r.charts===1 && await keys('ext_chart_series')==='r20:edge,r20:new', JSON.stringify(r));
+  T('0020: the older purge duties still run and are counted (alert_log, feedback, tombstones)', r.alert_log===1 && r.feedback===1 && r.tombstones===1, JSON.stringify(r));
+  const r2=await purge(); T('0020: runs twice (second run deletes nothing)', r2.observations===0 && r2.charts===0 && await keys('ext_price_observations')==='r20:edge,r20:new,r20:today');
+  await db.exec(fs.readFileSync(M+'0020_ext_observation_retention.sql','utf8')); T('0020: the file applies twice without error', true);
+  T('0020: still service role only after re-applying', await as(R,()=>fails(db.query('select ext_purge_old_data()'))) && (await purge()).observations===0);
+  const ix=(await db.query(`select indexdef d from pg_indexes where tablename in ('ext_price_observations','ext_chart_series')`)).rows.map(x=>x.d).join(' ');
+  T('0020: indexes on observed_day and captured_at exist', /\(observed_day\)/.test(ix) && /\(captured_at\)/.test(ix)); }
 process.exit(ok?0:1);

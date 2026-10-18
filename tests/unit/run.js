@@ -346,4 +346,29 @@ test("settings from the server: a place list is rebuilt (extra keys and oversize
   const r = e.run(`settingsFromServer({}, { doc: { places: [{ id: "a1", name: "Home\\u202e", pin: "560001", junk: "J".repeat(100000), __proto__x: 1 }] }, stamps: { places: 5 } })`); assert.deepEqual(JSON.parse(JSON.stringify(r.values.places)), [{ id: "a1", name: "Home", pin: "560001" }]); });
 test("planOf lists exactly the tiers of LIMITS; useLookup survives an unknown tier", () => { const A = require("../../extension/analysis.js"), e = makeEnv(); assert.deepEqual(["free", "pro", "max"], Object.keys(A.LIMITS || { free: 1, pro: 1, max: 1 })); for (const p of ["__proto__", "constructor", "", null, 5, "FREE"]) { assert.equal(e.run(`planOf(${JSON.stringify(p)})`), "free"); assert.equal(A.useLookup(null, "k", p).limit, 50); } });
 
+// ---------- G1: dropped sync operations are remembered (and shown), not silent ----------
+test("G1 a poison watch op (4xx) is dropped AND counted in syncDropped; the good op still goes; two drops add up; price points the server refuses are not 'changes'", async () => {
+  const e = makeEnv(); signedIn(e, { outbox: [{ t: "watch", id: "bad", key: "bad", wish: true, u: 1 }, { t: "watch", id: "good", key: "good", wish: true, u: 2 }, { t: "obs", id: "o1", key: "x", price: 5, at: 1 }], profile: { contribute: true } });
+  e.route(/ext_upsert_observations/, () => ({ status: 400, json: { message: "violates check constraint" } })); e.route(/ext_watchlist\?on_conflict/, r => r.body.some(x => x.product_key === "bad") ? { status: 400, json: { message: "violates check constraint" } } : { status: 201, json: {} });
+  const r = await e.run("flush()"); assert.equal(r.ok, true); assert.equal(r.dropped, 2, "flush still reports every drop"); assert.equal(e.store.outbox.length, 0);
+  assert.equal(e.store.syncDropped.n, 1, "only the watchlist change is counted"); assert.equal(e.run("droppedCount(" + JSON.stringify(e.store.syncDropped) + ")"), 1);
+  e.store.outbox = [{ t: "watch", id: "bad2", key: "bad", wish: true, u: 3 }]; await e.run("flush()"); assert.equal(e.store.syncDropped.n, 2, "a second drop adds to the first");
+  e.store.outbox = [{ t: "watch", id: "good2", key: "good", wish: true, u: 4 }]; await e.run("flush()"); assert.equal(e.store.syncDropped.n, 2, "a clean flush does not clear it (only a clean Sync now does) and does not add to it");
+});
+test("G1 an op that kept failing (5xx) for MAX_TRIES flushes is dropped and counted; a transient failure is not", async () => {
+  const e = makeEnv(); signedIn(e, { outbox: [{ t: "watch", id: "w1", key: "a", wish: true, u: 1, n: 8 }] }); e.route(/ext_watchlist/, () => ({ status: 500, json: { m: "boom" } }));
+  await e.run("flush()"); assert.equal(e.store.syncDropped, undefined, "9th failure: kept, nothing lost yet"); assert.equal(e.store.outbox.length, 1);
+  await e.run("flush()"); assert.equal(e.store.outbox.length, 0); assert.equal(e.store.syncDropped.n, 1, "10th failure: dropped and counted");
+});
+test("G1 the counter ages out after 7 days (and then starts again from the next drop); clearDropped only clears what was dropped before the sync began", async () => {
+  const e = makeEnv(); const day = 864e5; assert.equal(e.run(`droppedCount({ n: 3, at: ${Date.now() - 6 * day} })`), 3); assert.equal(e.run(`droppedCount({ n: 3, at: ${Date.now() - 8 * day} })`), 0); for (const bad of [null, {}, { n: -1, at: Date.now() }, { n: "3", at: Date.now() }, { n: 1.5, at: Date.now() }]) assert.equal(e.run(`droppedCount(${JSON.stringify(bad)})`), 0);
+  signedIn(e, { syncDropped: { n: 5, at: Date.now() - 8 * day }, outbox: [{ t: "watch", id: "bad", key: "bad", wish: true, u: 1 }] }); e.route(/ext_watchlist/, () => ({ status: 400, json: { message: "violates check constraint" } }));
+  await e.run("flush()"); assert.equal(e.store.syncDropped.n, 1, "an expired count is not carried over");
+  const t0 = Date.now() + 1000; await e.run(`clearDropped(${t0 + 5000})`); assert.equal(e.store.syncDropped, undefined, "dropped before the sync started: cleared");
+  e.store.syncDropped = { n: 2, at: t0 + 10 }; await e.run(`clearDropped(${t0})`); assert.equal(e.store.syncDropped.n, 2, "dropped DURING the sync: kept");
+});
+test("G1 the counter belongs to the account: sign-out puts it away with the rest, another account never sees it", async () => {
+  const e = makeEnv(); signedIn(e, { syncDropped: { n: 2, at: Date.now() } }); assert.ok(e.run("CONTENT_KEYS").includes("syncDropped"));
+  e.route(/logout|ext_watchlist/, () => ({ status: 204, json: {} })); await e.run("signOut()"); assert.equal(e.store.syncDropped, undefined, "not visible after sign-out"); assert.equal(e.store["vault:u1"].data.syncDropped.n, 2);
+});
 (async () => { for (const [name, fn] of queue) { try { await fn(); passed++; console.log("  ok   " + name); } catch (e) { failed++; console.log("  FAIL " + name + "\n       " + (e && e.message || e).split("\n")[0]); } } console.log(`\nunit: ${passed} passed, ${failed} failed`); process.exit(failed ? 1 : 0); })();

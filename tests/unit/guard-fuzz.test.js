@@ -4,7 +4,7 @@
 const assert = require("assert"), fs = require("fs"), path = require("path");
 const src = fs.readFileSync(path.join(__dirname, "../../extension/guard.js"), "utf8");
 // Load guard.js with its internals exposed (the production file exports only validateMessage + sanitizeText).
-const patched = src.replace("const { validateMessage, sanitizeText } = (() => {", "const G = (() => {").replace("return { validateMessage, sanitizeText };", "return { validateMessage, sanitizeText, S, ADMIN, PRIVILEGED };").replace(/if \(typeof module[^\n]*/, "");
+const patched = src.replace("const { validateMessage, sanitizeText, keyHostOk } = (() => {", "const G = (() => {").replace("return { validateMessage, sanitizeText, keyHostOk };", "return { validateMessage, sanitizeText, S, ADMIN, PRIVILEGED };").replace(/if \(typeof module[^\n]*/, "");
 assert.notStrictEqual(patched, src, "guard.js layout changed: update the fuzz loader");
 const { validateMessage, sanitizeText, S, ADMIN, PRIVILEGED } = require("vm").runInThisContext("(() => {" + patched + "\nreturn G;})()"); // same realm: guard checks Object.getPrototypeOf(m) === Object.prototype
 const ID = "selfid", TYPES = Object.keys(S);
@@ -54,7 +54,7 @@ function check(m, sender, label) {
   assert.ok(Object.getPrototypeOf(m) === Object.prototype, "accepted a non-plain object: " + label);
   const schema = S[m.type];
   for (const k of Reflect.ownKeys(m)) assert.ok(k === "type" || k === "gesture" || (typeof k === "string" && Object.prototype.hasOwnProperty.call(schema, k)), "ACCEPTED UNKNOWN KEY " + String(k) + " for " + label);
-  if (m.type === "delete-data" || (m.type === "signout" && m.clear === true)) assert.ok(sender === SENDERS.ext, "destructive " + m.type + " accepted from a non-extension-page sender (gesture is sender-written): " + label);
+  if (m.type === "delete-data" || m.type === "export-data" || (m.type === "signout" && m.clear === true)) assert.ok(sender === SENDERS.ext, "destructive/export " + m.type + " accepted from a non-extension-page sender (gesture is sender-written): " + label);
   if (ADMIN.has(m.type)) assert.ok(sender === SENDERS.ext, "ADMIN type " + m.type + " accepted from a non-extension-page sender: " + label);
   if (PRIVILEGED.has(m.type) && sender.tab && sender !== SENDERS.ext) assert.strictEqual(m.gesture, true, "PRIVILEGED type " + m.type + " accepted from a tab without a gesture: " + label);
   if (m.type === "t2-capture") assert.ok(sender.tab, "t2-capture accepted without a tab");
@@ -63,7 +63,7 @@ function check(m, sender, label) {
 const run = (m, label, senders = SENDERS) => { for (const [sn, s] of Object.entries(senders)) check(m, s, label + " @" + sn); };
 
 // 0) baselines: each template is accepted from the right sender (so mutations below actually reach the deep validators)
-for (const t of TYPES) { const m = withG({ type: t, ...TPL[t] }), sender = ADMIN.has(t) || t === "delete-data" || t === "signout" ? SENDERS.ext : SENDERS.page; assert.deepStrictEqual(validateMessage(m, sender, ID), { ok: true }, "template for " + t + " should be valid: " + JSON.stringify(validateMessage(m, sender, ID))); stats.n++; }
+for (const t of TYPES) { const m = withG({ type: t, ...TPL[t] }), sender = ADMIN.has(t) || t === "delete-data" || t === "export-data" || t === "signout" ? SENDERS.ext : SENDERS.page; assert.deepStrictEqual(validateMessage(m, sender, ID), { ok: true }, "template for " + t + " should be valid: " + JSON.stringify(validateMessage(m, sender, ID))); stats.n++; }
 
 // 1) every key of every template (top level + one level down) replaced by every hostile value, or deleted, or given a hostile sibling key
 const clone = o => JSON.parse(JSON.stringify(o));

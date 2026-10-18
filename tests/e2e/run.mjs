@@ -566,6 +566,7 @@ test("34", "auto-read (opt-in): clicks Amazon's own Price-history button in the 
   t.check((await r.p.evaluate(() => window.__clicked)) >= 1, "button clicked"); t.check(got.ahist.ranges["1M"].points[0][1] === 5499, "chart read");
   await poll(async () => (await r.p.evaluate(() => window.__closed)) >= 1 && !(await r.p.evaluate(() => document.getElementById("hauls-ah-hide"))), 8000, 300); t.check((await r.p.evaluate(() => window.__closed)) >= 1 && !(await r.p.evaluate(() => document.getElementById("hauls-ah-hide"))), "panel closed and the hiding style removed");
   t.check(!!got.ahist.tried, "attempt recorded (no repeat within 12 h)");
+  t.check((await r.p.evaluate(() => window.__hiddenSeen)) === false, "the panel is not hidden while it is read (you see it open)");
 }));
 
 test("56", "Amazon history opened by YOU on 1M: HAULS switches Amazon's own panel to 1Y once, so 30D / 90D / 1Y all have real data (and never loops)", t => withExt({}, async ({ ctx, sw }) => {
@@ -844,7 +845,7 @@ test("35", "shared history: an opted-in reader's Amazon chart is uploaded (valid
   const d = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10); sb.chartRows = [60, 50, 40, 30, 15, 5].map((n, i) => ({ day: d(n), price: [5200, 5200, 5499, 5499, 4999, 4499][i], reporters: i === 5 ? 4 : 3 }));
   await seed(sw, { profile: { plan: "free", contribute: true } });
   const r3 = await product(ctx, { id: "B0SHAREDC3", price: 4499, mrp: 5999 }); await r3.panel.open(); await poll(async () => await r3.panel.has(".cw svg"), 8000, 300);
-  t.check(await r3.panel.has(".cw svg") && /shared history from 4 HAULS readers, updated 5 days ago/.test(await r3.panel.text(".chartbox")), "shared chart drawn with its source: " + (await r3.panel.text(".chartbox")).slice(-90));
+  t.check(await r3.panel.has(".cw svg") && new RegExp(`shared history from 4 HAULS readers, updated ${Math.floor((Date.now() - Date.parse(d(5) + "T12:00:00Z")) / 864e5)} days ago`).test(await r3.panel.text(".chartbox")) /* the label counts from noon UTC of the last data day, so the number depends on the time of day */, "shared chart drawn with its source: " + (await r3.panel.text(".chartbox")).slice(-90));
   // a stale shared series (last price far from this page) is ignored
   sb.chartRows = [{ day: d(60), price: 9000, reporters: 3 }, { day: d(5), price: 9500, reporters: 3 }];
   const r4 = await product(ctx, { id: "B0SHAREDC4", price: 4499, mrp: 5999 }); await r4.panel.open(); await sleep(1500);
@@ -868,15 +869,14 @@ test("14", "range selector: 30D/90D/1Y/All changes label, x-axis, y labels, chip
   const read = () => panel.ev(function () { return { lbl: this.querySelector(".chartbox .lbl").textContent, x0: this.querySelector(".xl span").textContent, yt: (this.querySelector(".yl.t") || {}).textContent, yb: (this.querySelector(".yl.b") || {}).textContent,
     chips: [...this.querySelectorAll(".chip3 b")].map(b => b.textContent), pressed: [...this.querySelectorAll(".seg:not(.hz) button[aria-pressed=true]")].map(b => b.dataset.r) }; });
   const seen = {};
-  // hi = chart top label (includes the price in force at window start); chi = High chip (observed inside the window only).
-  for (const [r, days, hi, chi] of [["30D", 30, "₹1,100", "₹900"], ["90D", 90, "₹1,300", "₹1,100"], ["1Y", 365, "₹1,500", "₹1,300"], ["All", 0, "₹1,500", "₹1,500"]]) {
+  // hi = chart top label, chi = High chip: both include the price in force at the window start (the chips use the same rows as the line).
+  for (const [r, days, hi, chi] of [["30D", 30, "₹1,100", "₹1,100"], ["90D", 90, "₹1,300", "₹1,300"], ["1Y", 365, "₹1,500", "₹1,500"], ["All", 0, "₹1,500", "₹1,500"]]) {
     await panel.click(`.seg:not(.hz) button[data-r='${r}']`); await sleep(300); const s = seen[r] = await read();
     t.check(s.lbl.startsWith(r + " history"), `${r}: label "${s.lbl}"`);
     t.check(s.pressed.join() === r, `${r}: only ${r} pressed (${s.pressed})`);
     const x0 = days ? dshort(Date.now() - days * D) : dshort(H[0][0]); t.check(s.x0 === x0, `${r}: x-axis starts ${x0} (got ${s.x0})`);
     t.check(s.yt === hi && s.yb === "₹830", `${r}: y labels ${s.yt}/${s.yb} expected ${hi}/₹830`);
     t.check(s.chips.length === 3 && s.chips[0] === "₹830" && s.chips[2] === chi, `${r}: low/avg/high chips ${s.chips} (low ₹830, high ${chi})`);
-    if (chi !== hi) t.note(`${r}: High chip ${chi} but chart top label ${hi} (chart carries in the price at window start, chips don't)`);
   }
   t.check(new Set(["30D", "90D", "1Y"].map(r => seen[r].chips.join())).size === 3, "chips differ between 30D, 90D and 1Y");
   await panel.click(".seg:not(.hz) button[data-r='30D']"); await sleep(300); t.check((await store(sw, "range")).range === "30D", "selected range stored");
@@ -1066,6 +1066,127 @@ test("22", "platforms: Ajio dropped; six new shops declared; JSON-LD extraction 
   await ctx.route("https://www.ajio.com/**", r => r.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>x</title><span>₹999</span>" }));
   const p = await ctx.newPage(); await p.goto("https://www.ajio.com/some-shirt/p/469000000_blue"); await sleep(2500);
   t.check((await p.evaluate(() => !!document.getElementById("hauls-root"))) === false, "no HAULS panel injected on ajio.com");
+}));
+
+// ---------------------------------------------------------------- 57-61 Amazon reader: waits for the year, honest chart, empty states
+// Fake of Amazon's Price-history panel (the real one needs a signed-in page): ingress button -> docked panel with 1M/3M/1Y tabs. yearMs / otherMs = how long a tab takes to draw its chart (null = the click does nothing); noPanel = the button opens nothing.
+const AMZ = n => readFileSync(new URL(`../fixtures/amazon-history/${n}.svg`, import.meta.url), "utf8");
+const amzFakeFn = ({ h1m, h1y, o }) => { const W = window; W.__clicks = []; W.__closed = 0; W.__closeAt = 0; W.__yearAt = 0; W.__yearClickAt = 0; W.__opacity = null;
+  const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; document.body.append(d);
+  d.querySelector(".a-declarative").addEventListener("click", () => { if (o.noPanel) return; setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; document.body.classList.add("rufus-docked-left");
+    f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><div role="tablist">' + ["1M", "3M", "1Y"].map(l => `<span role="tab" aria-selected="${l === "1M"}">${l}</span>`).join("") + '</div><span class="rufus-pricing-chart-container">' + h1m + '</span></div>';
+    document.body.append(f); const box = f.querySelector(".rufus-pricing-chart-container"), tabs = [...f.querySelectorAll("[role=tab]")];
+    tabs.forEach(tb => tb.addEventListener("click", () => { const l = tb.textContent; W.__clicks.push(l); if (l === "1Y") W.__yearClickAt = Date.now(); const ms = l === "1Y" ? o.yearMs : o.otherMs; if (ms == null) return; tabs.forEach(x => x.setAttribute("aria-selected", String(x === tb)));
+      setTimeout(() => { box.innerHTML = l === "1Y" ? h1y : h1m; if (l === "1Y") { W.__yearAt = Date.now(); W.__opacity = getComputedStyle(f).opacity; } }, ms); }));
+    f.querySelector("#rufus-panel-header-close").addEventListener("pointerup", () => { W.__closed++; W.__closeAt = Date.now(); setTimeout(() => { f.remove(); document.body.classList.remove("rufus-docked-left"); }, 300); }); /* like Amazon: only a real press closes it, and the page un-docks a moment later */ }, 300); }); };
+const amzFake = (p, o) => p.evaluate(amzFakeFn, { h1m: AMZ("chart-1m"), h1y: AMZ("chart-1y"), o });
+
+test("57", "Amazon reader waits for a slow year: 1Y draws 2.5 s after its tab is clicked; the reader stores it (tab 1Y, 365 days), keeps the panel open (visible) 1.2 s more, and only then closes", t => withExt({}, async ({ ctx, sw }) => {
+  await seed(sw, { ahAuto: true }); const id = "B0SLOWYEAR", k = key(id);
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 2500, otherMs: 400 }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the panel was closed");
+  await poll(() => r.p.evaluate(() => !document.getElementById("nav-flyout-rufus")), 6000, 300);
+  const w = await r.p.evaluate(() => ({ clicks: window.__clicks.join(), closed: window.__closed, closeAt: window.__closeAt, yearAt: window.__yearAt, op: window.__opacity, hide: !!document.getElementById("hauls-ah-hide"), docked: document.body.classList.contains("rufus-docked-left"), flyout: !!document.getElementById("nav-flyout-rufus") }));
+  const ah = ((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }, y = ah.ranges["1Y"];
+  t.check(w.clicks === "3M,1Y" && w.closed === 1, "3M then 1Y (the year last), closed once: " + JSON.stringify(w));
+  t.check(!!y && y.tab === "1Y" && y.days === 365 && y.points.length === 5 && y.points[0][1] === 5499, "the year was stored with its tab and its real span: " + JSON.stringify(y && [y.tab, y.days, y.points.length]));
+  t.check(!!y && y.at >= w.yearAt && w.closeAt >= y.at + 1100, `closed only after the year was stored (+1.2 s): drawn ${w.yearAt % 1e5}, stored ${y && y.at % 1e5}, closed ${w.closeAt % 1e5}`);
+  t.check(w.op === "1" && !w.hide, "the panel is not hidden while it is read (opacity " + w.op + ")");
+  t.check(!w.docked && !w.flyout, "the page is not left shifted: " + JSON.stringify([w.docked, w.flyout]));
+  t.check(!!ah.ranges["1M"] && ah.ranges["1M"].tab === "3M", "3M was read too");
+  await r.panel.click(".seg:not(.hz) button[data-r='1Y']"); await sleep(400); const lbl = await r.panel.text(".chartbox .lbl"); t.check(/^1Y history$/.test(lbl.trim()), "HAULS 1Y now has a year of data and says nothing short: " + lbl);
+}));
+
+test("58", "Amazon reader, 1Y never appears (tab click does nothing): it gives up after ~10 s, records what it did read, closes cleanly, leaves the page unshifted; a tab that does not fit the span is dropped", t => withExt({}, async ({ ctx, sw, extId }) => {
+  await seed(sw, { ahAuto: true }); const id = "B0NOYEAR01", k = key(id);
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: null, otherMs: 400 }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 60000, 500)), "the panel was closed although the year never came");
+  await poll(() => r.p.evaluate(() => !document.getElementById("nav-flyout-rufus")), 6000, 300);
+  const w = await r.p.evaluate(() => ({ clicks: window.__clicks.join(), closed: window.__closed, wait: window.__closeAt - window.__yearClickAt, docked: document.body.classList.contains("rufus-docked-left"), flyout: !!document.getElementById("nav-flyout-rufus"), hide: !!document.getElementById("hauls-ah-hide") }));
+  t.check(w.clicks === "3M,1Y" && w.closed === 1 && w.wait >= 9500 && w.wait < 25000, "it waited about 10 s for the year, then closed once: " + JSON.stringify(w));
+  t.check(!w.docked && !w.flyout && !w.hide, "page unshifted, nothing left behind");
+  const ah = ((await store(sw, "items")).items[k] || {}).ahist || {};
+  t.check(!!ah.ranges && !!ah.ranges["1M"] && !ah.ranges["1Y"] && ah.tried > ah.at, "what was read (1M/3M) is kept, no year is invented, and the end of the run is marked: " + JSON.stringify([Object.keys(ah.ranges || {}), ah.tried > ah.at]));
+  // the handler keeps a tab only when the span fits it
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); const now = Date.now();
+  const send = tab => o.evaluate(m => chrome.runtime.sendMessage(m), { type: "ahist", key: k, range: "1Y", days: 300, points: [[now - 300 * D, 4499], [now, 4499]], current: 4499, offer: null, highest: null, ...(tab ? { tab } : {}) });
+  await send("1M"); let y = ((await store(sw, "items")).items[k].ahist.ranges["1Y"]); t.check(y && y.days === 300 && y.tab === undefined, "tab 1M cannot describe 300 days: dropped: " + JSON.stringify(y && y.tab));
+  await send("1Y"); y = ((await store(sw, "items")).items[k].ahist.ranges["1Y"]); t.check(y && y.tab === "1Y", "tab 1Y with 300 days is kept");
+  const bad = await send("5Y"); t.check(!bad || bad.ok === false || bad.error, "an unknown tab is refused by the guard: " + JSON.stringify(bad));
+}));
+
+test("59", "chart box is never an empty box: one plain line when there is too little history (+ the Settings switch only for an Amazon product with the reader off)", t => withExt({}, async ({ ctx, sw }) => {
+  const line = "Not enough history yet. It builds as you visit this product.";
+  let r = await product(ctx, { id: "B0EMPTYST1", price: 830, mrp: 1299 }); await r.panel.open(); await sleep(400);
+  let box = await r.panel.text(".chartbox"); t.check(box.includes(line) && !/First seen|Revisit/.test(box), "reader off: the plain line is shown: " + box.slice(0, 160));
+  t.check((await r.panel.count(".chartbox > *")) >= 2 && /Turn on Amazon history in Settings/.test(await r.panel.text(".chartbox .link-btn")), "and the switch is offered");
+  const [pg] = await Promise.all([ctx.waitForEvent("page", { timeout: 8000 }), r.panel.click(".chartbox .link-btn")]); t.check(!!(await poll(() => /options\.html/.test(pg.url()), 6000, 200)), "the switch opens Settings: " + pg.url()); await pg.close().catch(() => {});
+  await r.p.close(); await seed(sw, { ahAuto: true });
+  r = await product(ctx, { id: "B0EMPTYST2", price: 830, mrp: 1299 }); await r.panel.open(); await sleep(400);
+  box = await r.panel.text(".chartbox"); t.check(box.includes(line) && !(await r.panel.has(".chartbox .link-btn")), "reader on: the same line, no switch offered: " + box.slice(0, 160));
+}));
+
+test("60", "a read in flight shows a skeleton in the chart box (not a blank), and when it gives up the box says so in one line", t => withExt({}, async ({ ctx, sw }) => {
+  await seed(sw, { ahAuto: true });
+  const r = await product(ctx, { id: "B0INFLIGHT", price: 830, mrp: 1299 }); await r.panel.open(); await amzFake(r.p, { noPanel: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  t.check(!!(await poll(() => r.panel.has(".chartbox .sk"), 8000, 250)), "skeleton while the read is in flight");
+  t.check(/Reading Amazon's history/.test(await r.panel.text(".chartbox")), "with a one-line note: " + (await r.panel.text(".chartbox")).slice(0, 80));
+  t.check(!!(await poll(async () => /Couldn't read Amazon's history this time/.test(await r.panel.text(".chartbox")), 25000, 400)) && !(await r.panel.has(".chartbox .sk")), "when the panel never opens the skeleton is replaced by a plain line: " + (await r.panel.text(".chartbox")).slice(0, 120));
+}));
+
+test("61", "chart honesty: a range wider than the data says how much data there is, never a full year from a month; the chips match the window the line draws", t => withExt({}, async ({ ctx, sw }) => {
+  const now = Date.now(), pick = async (panel, r) => { await panel.click(`.seg:not(.hz) button[data-r='${r}']`); await sleep(300); return panel.ev(function () { return { lbl: this.querySelector(".chartbox .lbl").textContent.trim(), yt: (this.querySelector(".yl.t") || {}).textContent, chips: [...this.querySelectorAll(".chip3 b")].map(b => b.textContent) }; }); };
+  await seed(sw, { items: { ...seedItem("B0HONEST01", [[now - 29 * D, 1000], [now - 10 * D, 900], [now - 36e5, 830]]), ...seedItem("B0HONEST02", [[now - 380 * D, 1500], [now - 45 * D, 1100], [now - 20 * D, 900], [now - 36e5, 830]]) } });
+  const a = await product(ctx, { id: "B0HONEST01", price: 830 }); await a.panel.open();
+  let s = await pick(a.panel, "1Y"); t.check(s.lbl === "1Y history · 29 days of data so far", "1Y with 29 days of data says so: " + s.lbl);
+  s = await pick(a.panel, "90D"); t.check(s.lbl === "90D history · 29 days of data so far", "90D too: " + s.lbl);
+  s = await pick(a.panel, "30D"); t.check(s.lbl === "30D history", "30D is covered (29 days is a month): " + s.lbl);
+  s = await pick(a.panel, "All"); t.check(s.lbl === "All history", "All never claims more than it has: " + s.lbl);
+  const b = await product(ctx, { id: "B0HONEST02", price: 830 }); await b.panel.open();
+  s = await pick(b.panel, "1Y"); t.check(s.lbl === "1Y history", "a year of data: no note: " + s.lbl);
+  // 30D window starts inside the 1,100 period: the line starts at 1,100, so the High chip must too (it used to say 900, the highest price seen INSIDE the window)
+  s = await pick(b.panel, "30D"); t.check(s.yt === "₹1,100" && s.chips[2] === "₹1,100" && s.chips[0] === "₹830", `30D: line top ${s.yt} = High chip ${s.chips[2]}, Low ${s.chips[0]}`);
+  s = await pick(b.panel, "90D"); t.check(s.yt === "₹1,500" && s.chips[2] === "₹1,500", `90D: line top ${s.yt} = High chip ${s.chips[2]}`);
+}));
+
+test("62", "Amazon background read waits for the year too: the small window stays until the page script marks it is finished, so 1Y (slow to draw) is stored before it closes", t => withExt({}, async ({ ctx, sw, extId }) => {
+  const id = "B0AMZBGYR1", now = Date.now(), args = { h1m: AMZ("chart-1m"), h1y: AMZ("chart-1y"), o: { yearMs: 2500, otherMs: 400 } };
+  await ctx.addInitScript(({ src, a, id }) => { if (!location.pathname.includes(id)) return; document.addEventListener("DOMContentLoaded", () => (0, eval)("(" + src + ")")(a)); }, { src: amzFakeFn.toString(), a: args, id });
+  await routeProduct(ctx, { id, price: 4499, mrp: 5999 });
+  await seed(sw, { ahAuto: true, items: seedItem(id, [[now - 5 * D, 4499], [now - 3600e3, 4499]], { wish: true, seenAt: now - 3600e3 }) });
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); ctx.on("page", pg => { pg.reload().catch(() => {}); });
+  const r = await o.evaluate(() => chrome.runtime.sendMessage({ type: "abg-run", gesture: true })); t.check(r && r.ok === true, "background read ok: " + JSON.stringify(r));
+  const ah = (await store(sw, "items")).items["amazon.in:" + id].ahist || { ranges: {} };
+  t.check(!!ah.ranges["1Y"] && ah.ranges["1Y"].tab === "1Y" && ah.ranges["1Y"].days === 365, "the year was stored before the window closed: " + JSON.stringify(Object.keys(ah.ranges)));
+}));
+
+// ---------------------------------------------------------------- g1 dropped sync changes are visible
+test("g1", "dropped changes: Settings and the account sheet say '3 changes could not be saved to your account.' only while the count is above 0; Try again syncs and clears it", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {
+  await fakeSupabase(ctx); await seedSession(sw, SESSION); await seed(sw, { profile: { plan: "free", contribute: false, name: "Test User" } });
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await sleep(1200);
+  t.check(await o.isHidden("#dropbox"), "nothing shown while no change was dropped");
+  await seed(sw, { syncDropped: { n: 3, at: Date.now() } }); await poll(() => o.isVisible("#dropbox"), 5000);
+  t.check(await o.isVisible("#dropbox") && (await o.textContent("#dropmsg")).trim() === "3 changes could not be saved to your account.", "Settings text: " + await o.textContent("#dropmsg"));
+  await seed(sw, { syncDropped: { n: 1, at: Date.now() } }); await poll(async () => /^1 change /.test((await o.textContent("#dropmsg")).trim()), 5000); t.check(/^1 change could not/.test((await o.textContent("#dropmsg")).trim()), "singular: " + await o.textContent("#dropmsg"));
+  await seed(sw, { syncDropped: { n: 4, at: Date.now() - 8 * 864e5 } }); await sleep(500); const old = await sw.evaluate(() => droppedCount({ n: 4, at: Date.now() - 8 * 864e5 })); t.check(old === 0, "an 8-day-old count is not counted");
+  const { panel } = await product(ctx); await seed(sw, { syncDropped: { n: 2, at: Date.now() } }); const s = await acctSheet(panel);
+  t.check(/2 changes could not be saved to your account\./.test(s.text) && s.btns.includes("Try again"), "account sheet says it and offers Try again: " + s.text.slice(0, 200));
+  await o.bringToFront(); await o.click("#droptry"); t.check(!!(await poll(async () => (await store(sw, "syncDropped")).syncDropped === undefined, 8000)), "a clean sync clears the count");
+  t.check(!!(await poll(() => o.isHidden("#dropbox"), 5000)), "Settings hides the notice again");
+}));
+
+// ---------------------------------------------------------------- g4 export is made on the Settings page
+test("g4", "export: the account sheet's Export button opens Settings at #export, a click there downloads the same JSON; and Settings has its own Export button", t => withExt({ anonKey: "dummy-anon-key" }, async ({ ctx, sw, extId }) => {
+  await fakeSupabase(ctx); await seedSession(sw, SESSION); await seed(sw, { profile: { plan: "free", contribute: false, name: "Test User" } });
+  const { panel } = await product(ctx), s = await acctSheet(panel);
+  const [np] = await Promise.all([ctx.waitForEvent("page", { timeout: 8000 }), panel.click(".sheet button", s.btns.findIndex(b => /Export my data/.test(b)))]);
+  await np.waitForLoadState("domcontentloaded"); await np.waitForSelector("#confirm:not([hidden])", { timeout: 8000 });
+  t.check(/#export$/.test(np.url()) && (await np.textContent("#cfh")).trim() === "Export your data?", "Settings opened at #export with the confirm card: " + np.url());
+  const [dl] = await Promise.all([np.waitForEvent("download", { timeout: 8000 }), np.click("#cfgo")]); const body = JSON.parse(readFileSync(await dl.path(), "utf8"));
+  t.check(dl.suggestedFilename() === "hauls-my-data.json" && Object.keys(body).join() === "exportedAt,account,localWatchlist", "same file as before: " + dl.suggestedFilename() + " " + Object.keys(body));
+  await np.close();
+  const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await poll(() => o.isVisible("#export"), 6000);
+  const [dl2] = await Promise.all([o.waitForEvent("download", { timeout: 8000 }), o.click("#export")]); t.check(dl2.suggestedFilename() === "hauls-my-data.json", "Settings' own Export button downloads it");
 }));
 
 // ---------------------------------------------------------------- runner
