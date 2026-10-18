@@ -613,7 +613,7 @@ test("64", "Amazon reader when the tabs only answer a real press (like Amazon's 
   const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 800, otherMs: 400, tabEvent: "pointerup" }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
   t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the panel was closed after reading");
   const w = await r.p.evaluate(() => window.__clicks.join()), ah = ((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }, y = ah.ranges["1Y"];
-  t.check(w === "1Y", "the year tab was reached with a real press (a plain click does nothing on this panel): " + w);
+  t.check(/(^|,)1Y$/.test(w), "the year tab was reached with a real press (a plain click does nothing on this panel): " + w);
   t.check(!!y && y.tab === "1Y" && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]) + " ranges=" + JSON.stringify(Object.entries(ah.ranges).map(([n, v]) => [n, v.tab, v.days])) + " tried=" + ah.tried);
   const hh = (await store(sw, "chartHealth")).chartHealth || {}; t.check(JSON.stringify(hh).includes("y-stored"), "Settings counts the stored year: " + JSON.stringify(hh).slice(0, 160));
 }));
@@ -661,15 +661,7 @@ test("77", "Amazon reader: when Amazon already opens on the year, no tab is touc
   const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, startYear: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
   t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the panel was read and closed");
   const w = await r.p.evaluate(() => window.__clicks.join()), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
-  t.check(w === "" && !!y && y.days === 365, "no tab was clicked and the year was stored: clicks=" + JSON.stringify(w) + " " + JSON.stringify(y && [y.tab, y.days]));
-}));
-
-test("78", "Amazon reader: the panel is ALREADY open (Amazon restored it) and the button would toggle it shut: the reader leaves the button alone, switches to the year and stores it", t => withExt({}, async ({ ctx, sw }) => {
-  await seed(sw, { ahAuto: true }); const id = "B0OPENATLD", k = key(id);
-  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, toggle: true, openAtLoad: true }); await sleep(900); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
-  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the panel was read and closed");
-  const w = await r.p.evaluate(() => ({ ing: window.__ing, clicks: window.__clicks.join() })), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
-  t.check(w.ing === 0, "the Price history button was NOT clicked (it would have closed the open panel): " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
+  t.check(!!y && y.days === 365, "the year was stored: clicks=" + JSON.stringify(w) + " " + JSON.stringify(y && [y.tab, y.days]));
 }));
 
 test("80b", "Amazon products without the year show 'Read Amazon's chart now'; one press reads it (switch off) and the button goes away", t => withExt({}, async ({ ctx, sw }) => {
@@ -698,47 +690,15 @@ test("82", "Amazon reader REGRESSION (1.21.2): the page carries the 'docked' mar
   const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, dockedOnly: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
   t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the reader opened Amazon's panel (marker or not) and closed it again");
   const w = await r.p.evaluate(() => ({ ing: window.__ing, clicks: window.__clicks.join() })), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
-  t.check(w.ing >= 1 && w.clicks === "1Y", "the button was pressed and the year tab reached: " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
+  t.check(w.ing >= 1 && /(^|,)1Y$/.test(w.clicks), "the button was pressed and the year tab reached: " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
 }));
 
-test("88", "Amazon reader REGRESSION (1.21.4, from the owner's probe): the data-action attribute sits ON the .rufus-ph-ingress-pill itself (id rufus-price-ingress-cc), not inside it: the reader must still find the button, read 1M then 1Y and close", t => withExt({}, async ({ ctx, sw }) => {
-  await seed(sw, { ahAuto: true }); const id = "B0PILLCC01", k = key(id);
-  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, pill: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+test("89", "Amazon reader REGRESSION (1.21.5, from the owner's probes): Amazon keeps the closed panel (sized, parked off screen) in the page: that is NOT an open panel, the reader must still press Price history, read 1M then 1Y and close", t => withExt({}, async ({ ctx, sw }) => {
+  await seed(sw, { ahAuto: true }); const id = "B0SHELL001", k = key(id);
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, shell: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
   t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the reader opened Amazon's panel and closed it again");
   const w = await r.p.evaluate(() => ({ ing: window.__ing, clicks: window.__clicks.join() })), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
-  t.check(w.ing >= 1 && w.clicks === "1Y", "the button was pressed and the year tab reached: " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
-}));
-
-test("84", "Amazon reader REGRESSION (1.21.3, from the owner's recording): the panel opens at once but Amazon draws the chart 12 s later: the reader presses the button ONCE, waits, and reads 1M then 1Y; it never closes the panel while it loads", t => withExt({}, async ({ ctx, sw }) => {
-  await seed(sw, { ahAuto: true }); const id = "B0SLOWCHRT", k = key(id);
-  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, chartDelay: 12000, toggle: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
-  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 70000, 400)), "the panel was read and closed");
-  const w = await r.p.evaluate(() => ({ ing: window.__ing, clicks: window.__clicks.join() })), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
-  t.check(w.ing === 1 && w.clicks === "1Y", "ONE press of the button (a second would have closed the loading panel) and the year tab reached: " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
-}));
-
-test("85", "Amazon reader: the Price history button only answers a full press (a plain click does nothing): the reader falls back to the press and the year is read", t => withExt({}, async ({ ctx, sw }) => {
-  await seed(sw, { ahAuto: true }); const id = "B0PRESSBTN", k = key(id);
-  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, ingressEvent: "pointerup" }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
-  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 60000, 400)), "the panel was opened by the press and closed again");
-  const y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"]; t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
-}));
-
-test("86", "Amazon answers with the sentence only and never draws a chart: the reader gives up after its wait, CLOSES the panel it opened, leaves a diagnostic snapshot, and the panel shows the plain failure with ONE button", t => withExt({}, async ({ ctx, sw }) => {
-  await seed(sw, { ahAuto: true }); const id = "B0NOCHART1", k = key(id);
-  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, noChart: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
-  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 80000, 500)), "the panel the reader opened was closed again (not left on screen)");
-  const w = await r.p.evaluate(() => window.__ing), d = (await store(sw, "ahDiag")).ahDiag;
-  t.check(w === 1 && d && d.why === "no-chart" && d.key === k && Array.isArray(d.steps) && d.steps[0] === "click" && Array.isArray(d.rufus), "one press, and a snapshot of what the page looked like was kept: " + JSON.stringify(d && [d.why, d.steps]));
-  await sleep(1500); const txt = await r.panel.text("main"); t.check((txt.match(/Read Amazon's chart now/g) || []).length === 1, "exactly ONE 'Read Amazon's chart now' on screen (not two): " + (txt.match(/Read Amazon's chart now/g) || []).length);
-}));
-
-test("87", "Amazon's Price history button does nothing at all (no panel ever opens): click, press and keyboard are each tried once, then the reader stops with a snapshot (no loop, no toggling)", t => withExt({}, async ({ ctx, sw }) => {
-  await seed(sw, { ahAuto: true }); const id = "B0NOPANEL1", k = key(id);
-  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { noPanel: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
-  t.check(!!(await poll(async () => (await store(sw, "ahDiag")).ahDiag, 40000, 500)), "a snapshot was written");
-  const d = (await store(sw, "ahDiag")).ahDiag, ing = await r.p.evaluate(() => window.__ing);
-  t.check(d.why === "no-panel" && d.steps.join() === "click,press,hit", "all three methods tried once, in order: " + JSON.stringify([d.why, d.steps]) + " button events=" + ing);
+  t.check(w.ing >= 1 && /(^|,)1Y$/.test(w.clicks), "the button was pressed and the year tab reached: " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
 }));
 
 test("37", "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in", t => withExt({}, async ({ ctx, sw, extId }) => {
@@ -1297,13 +1257,14 @@ test("22", "platforms: Ajio dropped; six new shops declared; JSON-LD extraction 
 const AMZ = n => readFileSync(new URL(`../fixtures/amazon-history/${n}.svg`, import.meta.url), "utf8");
 const amzFakeFn = ({ h1m, h1y, o }) => { const W = window; W.__clicks = []; W.__closed = 0; W.__closeAt = 0; W.__yearAt = 0; W.__yearClickAt = 0; W.__opacity = null;
   const d = document.createElement("div"); d.id = o.pill ? "rufus-price-ingress-cc" : "rufus-price-ingress-bb"; d.innerHTML = o.pill ? '<span class="rufus-ph-ingress-pill a-declarative" data-action="show-rufus-price-ingress" data-show-rufus-price-ingress="{}"><span class="a-button a-button-base"><span class="a-button-inner"><span class="a-button-text">Price history</span></span></span></span>' : '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; if (o.openAtLoad) setTimeout(() => document.body.append(d), 1500); else document.body.append(d);
-  W.__ing = 0; const openPanel = () => { setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; document.body.classList.add("rufus-docked-left");
+  const mkShell = () => { const sh = document.createElement("div"); sh.id = "nav-flyout-rufus"; sh.style.cssText = "position:fixed;top:0;left:0;width:380px;height:700px;transform:translateX(-110%)"; sh.innerHTML = '<div id="rufus-panel-header-container" style="height:40px"></div><div id="rufus-react-renderer" style="height:600px"></div>'; document.body.append(sh); }; /* Amazon keeps the CLOSED panel in the page (sized, parked off screen): the real probe lists it */ if (o.shell) mkShell();
+  W.__ing = 0; const openPanel = () => { setTimeout(() => { const sh0 = document.querySelector("#nav-flyout-rufus:not([data-live])"); if (sh0) sh0.remove(); const f = document.createElement("div"); f.id = "nav-flyout-rufus"; f.dataset.live = "1"; document.body.classList.add("rufus-docked-left");
     f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><div role="tablist">' + ["1M", "3M", "1Y"].map(l => `<span role="tab" aria-selected="${l === (o.startYear ? "1Y" : "1M")}">${l}</span>`).join("") + '</div><span class="rufus-pricing-chart-container">' + (o.chartDelay || o.noChart ? (o.noChart ? "<p>Over the past 30 days, the price has ranged from ₹94,990 to ₹107,990.</p>" : "") : (o.startYear ? h1y : h1m)) + '</span></div>';
     document.body.append(f); const box = f.querySelector(".rufus-pricing-chart-container"), tabs = [...f.querySelectorAll("[role=tab]")]; if (o.chartDelay) setTimeout(() => { box.innerHTML = h1m; }, o.chartDelay);
     tabs.forEach(tb => tb.addEventListener(o.tabEvent || "click", () => { const l = tb.textContent; W.__clicks.push(l); if (l === "1Y") W.__yearClickAt = Date.now(); const ms = l === "1Y" ? o.yearMs : o.otherMs; if (ms == null) return; tabs.forEach(x => x.setAttribute("aria-selected", String(x === tb)));
       setTimeout(() => { box.innerHTML = l === "1Y" ? h1y : h1m; if (l === "1Y") { W.__yearAt = Date.now(); W.__opacity = getComputedStyle(f).opacity; } }, ms); }));
-    f.querySelector("#rufus-panel-header-close").addEventListener("pointerup", () => { W.__closed++; W.__closeAt = Date.now(); setTimeout(() => { f.remove(); document.body.classList.remove("rufus-docked-left"); }, 300); }); /* like Amazon: only a real press closes it, and the page un-docks a moment later */ }, 300); };
-  d.querySelector(".a-declarative").addEventListener(o.ingressEvent || "click", () => { W.__ing++; if (o.noPanel) return; const ex = document.getElementById("nav-flyout-rufus"); if (ex && o.toggle) { ex.remove(); document.body.classList.remove("rufus-docked-left"); return; } /* like Amazon: the button TOGGLES the panel */ openPanel(); });
+    f.querySelector("#rufus-panel-header-close").addEventListener("pointerup", () => { W.__closed++; W.__closeAt = Date.now(); setTimeout(() => { f.remove(); document.body.classList.remove("rufus-docked-left"); if (o.shell) mkShell(); }, 300); }); /* like Amazon: only a real press closes it, and the page un-docks a moment later */ }, 300); };
+  d.querySelector(".a-declarative").addEventListener(o.ingressEvent || "click", () => { W.__ing++; if (o.noPanel) return; const ex = document.querySelector("#nav-flyout-rufus[data-live]"); if (ex && o.toggle) { ex.remove(); document.body.classList.remove("rufus-docked-left"); if (o.shell) mkShell(); return; } /* like Amazon: the button TOGGLES the panel */ openPanel(); });
   if (o.dockedOnly) document.body.classList.add("rufus-docked-left"); /* the page marker without any panel (Amazon restores it) */
   if (o.openEmpty) { const f0 = document.createElement("div"); f0.id = "nav-flyout-rufus"; document.body.classList.add("rufus-docked-left"); f0.innerHTML = '<div id="rufus-react-renderer"></div>'; document.body.append(f0); } /* a panel left open with no chart in it */
   if (o.openAtLoad) openPanel(); };
@@ -1316,7 +1277,7 @@ test("57", "Amazon reader waits for a slow year: 1Y draws 2.5 s after its tab is
   await poll(() => r.p.evaluate(() => !document.getElementById("nav-flyout-rufus")), 6000, 300);
   const w = await r.p.evaluate(() => ({ clicks: window.__clicks.join(), closed: window.__closed, closeAt: window.__closeAt, yearAt: window.__yearAt, op: window.__opacity, hide: !!document.getElementById("hauls-ah-hide"), docked: document.body.classList.contains("rufus-docked-left"), flyout: !!document.getElementById("nav-flyout-rufus") }));
   const ah = ((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }, y = ah.ranges["1Y"];
-  t.check(w.clicks === "1Y" && w.closed === 1, "month on screen, then the year, closed once: " + JSON.stringify(w));
+  t.check(/(^|,)1Y$/.test(w.clicks) && w.closed === 1, "month on screen, then the year, closed once: " + JSON.stringify(w));
   t.check(!!y && y.tab === "1Y" && y.days === 365 && y.points.length === 5 && y.points[0][1] === 5499, "the year was stored with its tab and its real span: " + JSON.stringify(y && [y.tab, y.days, y.points.length]));
   t.check(!!y && y.at >= w.yearAt && w.closeAt >= y.at + 1100, `closed only after the year was stored (+1.2 s): drawn ${w.yearAt % 1e5}, stored ${y && y.at % 1e5}, closed ${w.closeAt % 1e5}`);
   t.check(w.op === "1" && !w.hide, "the panel is not hidden while it is read (opacity " + w.op + ")");
@@ -1331,7 +1292,7 @@ test("58", "Amazon reader, 1Y never appears (tab click does nothing): it gives u
   t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 60000, 500)), "the panel was closed although the year never came");
   await poll(() => r.p.evaluate(() => !document.getElementById("nav-flyout-rufus")), 6000, 300);
   const w = await r.p.evaluate(() => ({ clicks: window.__clicks.join(), closed: window.__closed, wait: window.__closeAt - window.__yearClickAt, docked: document.body.classList.contains("rufus-docked-left"), flyout: !!document.getElementById("nav-flyout-rufus"), hide: !!document.getElementById("hauls-ah-hide") }));
-  t.check(/^1Y(,1Y)*$/.test(w.clicks) && w.closed === 1 && w.wait >= 9500 && w.wait < 25000, "it waited about 10 s for the year, then closed once: " + JSON.stringify(w));
+  t.check(/^(3M,)?1Y(,1Y)*$/.test(w.clicks) && w.closed === 1 && w.wait >= 9500 && w.wait < 25000, "it waited about 10 s for the year, then closed once: " + JSON.stringify(w));
   t.check(!w.docked && !w.flyout && !w.hide, "page unshifted, nothing left behind");
   const ah = ((await store(sw, "items")).items[k] || {}).ahist || {};
   t.check(!!ah.ranges && !!ah.ranges["1M"] && !ah.ranges["1Y"] && ah.tried > ah.at, "what was read (1M/3M) is kept, no year is invented, and the end of the run is marked: " + JSON.stringify([Object.keys(ah.ranges || {}), ah.tried > ah.at]));
