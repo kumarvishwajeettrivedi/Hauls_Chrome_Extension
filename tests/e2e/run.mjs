@@ -701,6 +701,14 @@ test("82", "Amazon reader REGRESSION (1.21.2): the page carries the 'docked' mar
   t.check(w.ing >= 1 && w.clicks === "1Y", "the button was pressed and the year tab reached: " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
 }));
 
+test("88", "Amazon reader REGRESSION (1.21.4, from the owner's probe): the data-action attribute sits ON the .rufus-ph-ingress-pill itself (id rufus-price-ingress-cc), not inside it: the reader must still find the button, read 1M then 1Y and close", t => withExt({}, async ({ ctx, sw }) => {
+  await seed(sw, { ahAuto: true }); const id = "B0PILLCC01", k = key(id);
+  const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, pill: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
+  t.check(!!(await poll(() => r.p.evaluate(() => window.__closed >= 1), 45000, 400)), "the reader opened Amazon's panel and closed it again");
+  const w = await r.p.evaluate(() => ({ ing: window.__ing, clicks: window.__clicks.join() })), y = (((await store(sw, "items")).items[k] || {}).ahist || { ranges: {} }).ranges["1Y"];
+  t.check(w.ing >= 1 && w.clicks === "1Y", "the button was pressed and the year tab reached: " + JSON.stringify(w)); t.check(!!y && y.days === 365, "the year was stored: " + JSON.stringify(y && [y.tab, y.days]));
+}));
+
 test("84", "Amazon reader REGRESSION (1.21.3, from the owner's recording): the panel opens at once but Amazon draws the chart 12 s later: the reader presses the button ONCE, waits, and reads 1M then 1Y; it never closes the panel while it loads", t => withExt({}, async ({ ctx, sw }) => {
   await seed(sw, { ahAuto: true }); const id = "B0SLOWCHRT", k = key(id);
   const r = await product(ctx, { id, price: 4499, mrp: 5999 }); await r.panel.open(); await amzFake(r.p, { yearMs: 500, otherMs: 300, chartDelay: 12000, toggle: true }); await r.p.evaluate(() => { history.pushState({}, "", location.pathname + "?x=1"); });
@@ -1288,7 +1296,7 @@ test("22", "platforms: Ajio dropped; six new shops declared; JSON-LD extraction 
 // Fake of Amazon's Price-history panel (the real one needs a signed-in page): ingress button -> docked panel with 1M/3M/1Y tabs. yearMs / otherMs = how long a tab takes to draw its chart (null = the click does nothing); noPanel = the button opens nothing.
 const AMZ = n => readFileSync(new URL(`../fixtures/amazon-history/${n}.svg`, import.meta.url), "utf8");
 const amzFakeFn = ({ h1m, h1y, o }) => { const W = window; W.__clicks = []; W.__closed = 0; W.__closeAt = 0; W.__yearAt = 0; W.__yearClickAt = 0; W.__opacity = null;
-  const d = document.createElement("div"); d.id = "rufus-price-ingress-bb"; d.innerHTML = '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; if (o.openAtLoad) setTimeout(() => document.body.append(d), 1500); else document.body.append(d);
+  const d = document.createElement("div"); d.id = o.pill ? "rufus-price-ingress-cc" : "rufus-price-ingress-bb"; d.innerHTML = o.pill ? '<span class="rufus-ph-ingress-pill a-declarative" data-action="show-rufus-price-ingress" data-show-rufus-price-ingress="{}"><span class="a-button a-button-base"><span class="a-button-inner"><span class="a-button-text">Price history</span></span></span></span>' : '<span class="a-declarative" data-action="show-rufus-price-ingress"><span class="a-button-text">Price history</span></span>'; if (o.openAtLoad) setTimeout(() => document.body.append(d), 1500); else document.body.append(d);
   W.__ing = 0; const openPanel = () => { setTimeout(() => { const f = document.createElement("div"); f.id = "nav-flyout-rufus"; document.body.classList.add("rufus-docked-left");
     f.innerHTML = '<div id="rufus-panel-header-container"><button class="rufus-panel-tooltip-close" aria-label="Close tip"></button><button id="rufus-panel-header-close" aria-label="close"></button></div><div id="rufus-react-renderer"><div role="tablist">' + ["1M", "3M", "1Y"].map(l => `<span role="tab" aria-selected="${l === (o.startYear ? "1Y" : "1M")}">${l}</span>`).join("") + '</div><span class="rufus-pricing-chart-container">' + (o.chartDelay || o.noChart ? (o.noChart ? "<p>Over the past 30 days, the price has ranged from ₹94,990 to ₹107,990.</p>" : "") : (o.startYear ? h1y : h1m)) + '</span></div>';
     document.body.append(f); const box = f.querySelector(".rufus-pricing-chart-container"), tabs = [...f.querySelectorAll("[role=tab]")]; if (o.chartDelay) setTimeout(() => { box.innerHTML = h1m; }, o.chartDelay);
