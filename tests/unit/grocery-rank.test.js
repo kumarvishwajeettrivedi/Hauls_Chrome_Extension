@@ -1,6 +1,6 @@
 // Step 1 of the grocery results work: relevance, "Cheapest", unit-price labels, dedupe, unconfirmed stores. Pure logic, no network.
 const assert = require("assert"), L = require("../../extension/lib.js");
-global.num = L.num; global.parsePack = L.parsePack; global.unitPrice = L.unitPrice;
+global.num = L.num; global.parsePack = L.parsePack; global.unitPrice = L.unitPrice; global.cleanText = L.cleanText; global.cleanUrl = L.cleanUrl;
 const G = require("../../extension/grocery.js");
 const it = (name, price, pack, o = {}) => ({ store: "Blinkit", name, price, pack, inStock: true, ...o });
 let ok = 0, bad = 0; const t = (n, f) => { try { f(); ok++; console.log("  ok   " + n); } catch (e) { bad++; console.log("  FAIL " + n + "\n       " + String(e.message).split("\n")[0]); } };

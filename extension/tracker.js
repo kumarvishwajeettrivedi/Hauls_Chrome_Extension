@@ -104,7 +104,8 @@ async function trkApply(key, res, now = Date.now()) {
   if (last && Math.abs(price - last) / last > TRK.JUMP) { // a huge move may be a captcha/variant/pincode artefact: needs a second matching read within the hold window
     if (fresh(it.suspect) && near(price, it.suspect.price)) { delete it.suspect; confirmed = true; } else { it.suspect = { price, at: now }; it.checked = now; await put(items); return "held"; }
   } else delete it.suspect;
-  if (it.target > 0 && price <= it.target && (last == null || last > it.target)) { // crossing the alert line (or a first-ever read below it): confirm before recording and alerting
+  const tg = alertDecision(it, price).target; // the alert price: the target, or for a heart without one the default (analysis.js)
+  if (tg > 0 && price <= tg && (last == null || last > tg)) { // crossing the alert line (or a first-ever read below it): confirm before recording and alerting
     if (confirmed || (fresh(it.pending) && near(price, it.pending.price))) delete it.pending; else { it.pending = { price, at: now }; it.checked = now; await put(items); return "held"; }
   } else delete it.pending;
   delete it.failN;

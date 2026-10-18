@@ -13,7 +13,7 @@ main{max-width:680px;margin:0 auto;padding:22px 20px 50px;display:grid;gap:16px}
 button{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 18px;border-radius:99px;background:var(--ink);color:#fff;font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;box-shadow:3px 3px 0 var(--mint)}
 button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--mint)}button.ghost{background:var(--chip);color:var(--ink);box-shadow:none;border:2px solid var(--ink)}button.ghost:active{transform:none}
 button.back{background:#fff;color:var(--ink);box-shadow:none;border:2px solid var(--ink);min-height:36px;padding:0 14px}button.tourbtn{background:var(--yellow);color:var(--ink);box-shadow:none;border:2px solid var(--ink);min-height:36px;padding:0 14px}
-button:focus-visible,.sw input:focus-visible+.knobtrack{outline:3px solid var(--mint);outline-offset:2px}
+button:focus-visible,summary:focus-visible,a:focus-visible,.sw input:focus-visible+.knobtrack{outline:3px solid var(--blue);outline-offset:2px}
 .pill{display:inline-block;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:800;border:2px solid var(--ink);background:var(--chip);color:var(--ink)}.pill.on{background:var(--mint)}.pill.rec{background:var(--yellow)}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
 .srow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:11px 0;border-top:2px dashed var(--line)}.srow:first-of-type{border-top:0}.srow b{min-width:110px;font-weight:800}.srow button{min-height:36px;padding:0 14px}
@@ -54,6 +54,8 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px
 <main>
   <section class="card" id="stale" hidden><h2>HAULS needs a reload</h2><p>The background part is out of date, so some buttons will fail.</p><div class="row"><button id="reload">Reload HAULS</button></div></section>
 
+  <section class="card" id="confirm" hidden><h2 id="cfh"></h2><p id="cfp"></p><div class="row"><button id="cfgo"></button><button id="cfno" class="ghost">Cancel</button></div><p id="cfmsg" role="status" class="meta"></p></section>
+
   <section class="card start" id="start" hidden>
     <h2><span>Get started <span class="pill" id="startcount">0 of 3</span></span><button class="ghost" id="starthide" style="min-height:30px;padding:0 12px;font-size:11px">Hide</button></h2>
     <div class="bar" aria-hidden="true"><i id="startbar"></i></div>
@@ -63,10 +65,10 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px
         <b>Turn on Amazon history</b><small>One switch below. It fetches real price charts for you.</small><button id="st1go">Show me</button></div>
       <div class="step" id="st2"><span class="n">2</span>
         <svg viewBox="0 0 160 92" aria-hidden="true"><rect x="22" y="10" width="116" height="72" rx="10" fill="#fff" stroke="#131316" stroke-width="3"/><rect x="34" y="22" width="40" height="30" rx="6" fill="#E9E3FF" stroke="#131316" stroke-width="2"/><rect x="82" y="24" width="44" height="6" rx="3" fill="#131316"/><rect x="82" y="36" width="30" height="6" rx="3" fill="#C9C4DA"/><circle class="a-ring" cx="128" cy="68" r="10" fill="none" stroke="#19E68C" stroke-width="3"/><circle cx="128" cy="68" r="8" fill="#0754F8" stroke="#131316" stroke-width="2"/><g class="a-ptr"><path d="M112 86 l0 -14 l5 4 l4 -3 l3 11 z" fill="#FFD93D" stroke="#131316" stroke-width="2.5" stroke-linejoin="round"/></g></svg>
-        <b>Open any product</b><small>On Amazon, Flipkart or Myntra, tap the blue HAULS button.</small></div>
+        <b>Open any product</b><small>On Amazon, Flipkart or Myntra, click the HAULS tab on the right edge.</small></div>
       <div class="step" id="st3"><span class="n">3</span>
         <svg viewBox="0 0 160 92" aria-hidden="true"><circle class="a-ring" cx="80" cy="46" r="18" fill="none" stroke="#FF4D6D" stroke-width="3"/><path class="a-pop" d="M80 66 C54 50 56 30 70 30 C76 30 80 35 80 38 C80 35 84 30 90 30 C104 30 106 50 80 66 Z" fill="#fff" stroke="#131316" stroke-width="3" stroke-linejoin="round"/><g class="a-bounce"><circle cx="124" cy="22" r="9" fill="#FFD93D" stroke="#131316" stroke-width="2.5"/><path d="M124 17 v6 M124 26 v0" stroke="#131316" stroke-width="2.5" stroke-linecap="round"/></g></svg>
-        <b>Heart it to watch</b><small>HAULS then tracks the price and tells you when it drops.</small></div>
+        <b>Heart it to watch</b><small>HAULS then watches the price and sends an alert when it drops.</small></div>
     </div>
   </section>
 
@@ -79,7 +81,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px
   </section>
 
   <section class="card" id="s-track" data-tour="2">
-    <h2>Price tracking</h2><p class="sub">While the browser is open, HAULS re-reads the prices of items you watch.</p>
+    <h2>Price checks</h2><p class="sub">Only while the browser is open, HAULS re-reads the prices of items on your watchlist. Alerts need this.</p>
     <div id="trk"></div>
     <p id="tmsg" role="status" class="meta"></p>
     <div class="row"><button id="trkrun" class="ghost">Check now</button><button id="testalert" class="ghost">Send test alert</button></div>
@@ -90,7 +92,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px
     <div class="srow" style="border-top:0"><div style="flex:1;min-width:200px"><b style="min-width:0">Independent stores</b><p class="sub" style="margin:2px 0 0">boAt, Mamaearth and other brand sites. Chrome asks first.</p></div><span class="pill" id="state">checking…</span><button id="on">Turn on</button><button id="off" class="ghost" hidden>Turn off</button></div>
     <p id="msg" role="status" class="meta"></p>
     <h2 style="margin-top:14px">Grocery</h2>
-    <p class="sub">Pincode: <b id="pinval">…</b> (change it in the Grocery tab). Connect a store once so HAULS can read its prices.</p>
+    <p class="sub">Pincode: <b id="pinval">…</b> (change it in the HAULS panel, Grocery tab). Connect a store once so HAULS can read its prices.</p>
     <div id="stores"></div>
     <p id="smsg" role="status"></p>
     <pre id="report" hidden></pre>
@@ -99,14 +101,14 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--chip);border:2px
 
   <section class="card">
     <h2>Your data</h2>
-    <p>Stays in this browser. Signed in, it syncs to your account; export or delete it from the account button in the panel.</p>
+    <p>Stays in this browser. If you sign in, your watchlist syncs to your account. Export or delete it from the account button in the HAULS panel.</p>
     <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:800">Advanced</summary>
       <p>For support. Open Amazon's own "Price history" on a product tab, then press a button and paste the result in the chat.</p>
       <p id="pmsg" role="status" class="meta"></p>
       <pre id="preport" hidden></pre>
-      <div class="row"><button id="probe" class="ghost">Copy page report</button><button id="pcopy" class="ghost" hidden>Copy again</button><button id="sumcopy" class="ghost">Copy storage summary</button></div>
+      <div class="row"><button id="cc" class="ghost">Reset saved lookups</button><button id="probe" class="ghost">Copy page report</button><button id="pcopy" class="ghost" hidden>Copy again</button><button id="sumcopy" class="ghost">Copy storage summary</button></div>
     </details>
   </section>
 </main>
-<footer id="ver" style="max-width:680px;margin:0 auto;padding:0 20px 24px;font-size:12px;opacity:.6"></footer>
+<footer id="ver" style="max-width:680px;margin:0 auto;padding:0 20px 24px;font-size:12px;color:var(--mute)"></footer>
 <script src="probe.js"></script><script src="options.js"></script>

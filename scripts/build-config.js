@@ -4,8 +4,9 @@ const fs = require("fs"), path = require("path");
 const root = path.join(__dirname, ".."), env = {};
 for (const line of fs.readFileSync(path.join(root, ".env"), "utf8").split("\n")) { const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/); if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, ""); }
 const url = (env.SUPABASE_URL || "").replace(/\/$/, ""), anon = env.SUPABASE_ANON_KEY || "";
-// A leaked service-role key must never be shipped as the "anon" key: decode the JWT and refuse anything but role=anon.
-if (anon) { try { const role = JSON.parse(Buffer.from(anon.split(".")[1], "base64url").toString()).role; if (role && role !== "anon") throw new Error(`SUPABASE_ANON_KEY has role "${role}". Refusing to write it into the extension.`); } catch (e) { if (/Refusing/.test(e.message)) throw e; /* sb_publishable_* style keys are not JWTs: allow */ } }
+// Only a public key may be shipped: a JWT whose role claim is exactly "anon", or an sb_publishable_ key. Anything else (service_role, sb_secret_, a role-less JWT, junk) is refused.
+if (anon) { let role; try { const p = anon.split("."); if (p.length === 3) role = JSON.parse(Buffer.from(p[1], "base64url").toString()).role; } catch {}
+  if (/^sb_secret_/.test(anon) || !(role === "anon" || /^sb_publishable_/.test(anon))) throw new Error(`SUPABASE_ANON_KEY must be a JWT with role "anon" or an sb_publishable_ key (got ${/^sb_secret_/.test(anon) ? "a secret key" : role ? `role "${role}"` : "something else"}). Refusing to write it into the extension.`); }
 if (!/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(url)) throw new Error("SUPABASE_URL missing or malformed in .env");
 // Public Google OAuth client id (never the secret). Enables the direct sign-in path whose consent screen shows HAULS instead of the supabase.co address.
 const gid = /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(env.Client_ID || env.GOOGLE_CLIENT_ID || "") ? (env.Client_ID || env.GOOGLE_CLIENT_ID) : "";

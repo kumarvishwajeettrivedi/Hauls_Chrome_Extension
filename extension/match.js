@@ -9,9 +9,9 @@ const MT_FOR = /\b(for|compatible with|fits?|suitable for|designed for)\s+(?:the
 const MT_FIT = new Set("slim regular skinny relaxed straight oversized bootcut tapered cellular lte digital disc".split(" "));
 const MT_SPEC = /^\d+(\.\d+)?(gb|tb|mb|inch|l|ml|kg|g|w|mah|hz|mp|h|cm|mm|v|years?|pack\d+|nm|db|ms|ton|star)$/;
 function mtNorm(t) {
-  return String(t || "").toLowerCase().replace(/[’']/g, "").replace(/[™®©]/g, "").replace(/&amp;/g, "&").replace(/[“”″"]/g, '"')
-    .replace(/(\d+(?:\.\d+)?)\s*(gb|tb|mb)\b/g, "$1$2").replace(/(\d+(?:\.\d+)?)\s*(?:inches|inch|")/g, "$1inch").replace(/([a-z0-9])\+(?=[\s)\],]|$)/g, "$1 plus ").replace(/(\d+(?:\.\d+)?)\s*tons?\b/g, "$1ton").replace(/(\d+(?:\.\d+)?)\s*(?:litres|litre|liters|liter|ltrs|ltr|l)\b/g, (m, n) => (+n * 1000) + "ml").replace(/(\d+(?:\.\d+)?)\s*kg\b/g, (m, n) => (+n * 1000) + "g")
-    .replace(/(\d+(?:\.\d+)?)\s*(ml|kg|gm|g|cm|mm|hz|mp|mah)\b/g, (m, n, u) => n + (u === "gm" ? "g" : u)).replace(/\b([a-z]+\d+[a-z0-9]*)\/\d{1,3}\b/g, "$1").replace(/\b([a-z]{1,4})-(\d{3,}[a-z0-9]*)\b/g, "$1$2").replace(/(\d+)\s*(?:watts|watt|w)\b/g, "$1w").replace(/(\d+(?:\.\d+)?)\s*(?:hours|hrs|hr|h)\b/g, "$1h")
+  return String(t || "").slice(0, 400).toLowerCase().replace(/[’']/g, "").replace(/[™®©]/g, "").replace(/&amp;/g, "&").replace(/[“”″"]/g, '"')
+    .replace(/(\d{1,6}(?:\.\d{1,4})?)\s*(gb|tb|mb)\b/g, "$1$2").replace(/(\d{1,6}(?:\.\d{1,4})?)\s*(?:inches|inch|")/g, "$1inch").replace(/([a-z0-9])\+(?=[\s)\],]|$)/g, "$1 plus ").replace(/(\d{1,6}(?:\.\d{1,4})?)\s*tons?\b/g, "$1ton").replace(/(\d{1,6}(?:\.\d{1,4})?)\s*(?:litres|litre|liters|liter|ltrs|ltr|l)\b/g, (m, n) => (+n * 1000) + "ml").replace(/(\d{1,6}(?:\.\d{1,4})?)\s*kg\b/g, (m, n) => (+n * 1000) + "g")
+    .replace(/(\d{1,6}(?:\.\d{1,4})?)\s*(ml|kg|gm|g|cm|mm|hz|mp|mah)\b/g, (m, n, u) => n + (u === "gm" ? "g" : u)).replace(/\b([a-z]+\d+[a-z0-9]*)\/\d{1,3}\b/g, "$1").replace(/\b([a-z]{1,4})-(\d{3,}[a-z0-9]*)\b/g, "$1$2").replace(/(\d+)\s*(?:watts|watt|w)\b/g, "$1w").replace(/(\d{1,6}(?:\.\d{1,4})?)\s*(?:hours|hrs|hr|h)\b/g, "$1h")
     .replace(/(?:pack|set|combo)\s*of\s*(\d+)|(\d+)\s*(?:pack|pcs|pieces|units)\b/g, (m, a, b) => " pack" + (a || b) + " ").replace(/(?:(\d)(?:st|nd|rd|th)\s*gen|gen(?:eration)?\s*(\d))\b/g, (m, a, b) => " gen" + (a || b) + " ");
 }
 const mtWords = t => mtNorm(t).split(/[^a-z0-9.]+/).map(x => x.replace(/^\.+|\.+$/g, "")).filter(Boolean);
@@ -22,6 +22,7 @@ function mtEd1(a, b) { if (a === b) return false; if (Math.abs(a.length - b.leng
 const MT_CPU_FAM = /\b(ryzen\s?\d|core\s?i\d|core\s?ultra\s?\d|core\s?\d|celeron|pentium|athlon|apple\s?m\d)\b/g; // laptop CPUs only: phone chips are implied by the model
 // A version word (pro, plus, ultra, fe, slim...) only counts next to the model number ("16 Pro", "S24 Ultra"), not in marketing copy ("Pro Sound").
 function mtFacts(title, brand, mpn) {
+  title = String(title || "").slice(0, 400);
   const norm = mtNorm(title), all = mtWords(title), head = mtWords(mtHead(title)).slice(0, 9), tag = new Set(all);
   const b = mtAlnum(brand);
   const strong = all.slice(0, 40).filter(w => /^(?=.*[a-z])(?=.*\d)[a-z0-9]{5,}$/.test(w) && !MT_SPEC.test(w) && !/^pack\d+$/.test(w) && !/^\d{4,5}[a-z]{1,2}$/.test(w));

@@ -138,20 +138,22 @@ async function grocerySearch(panel, t) {
   t.check((await panel.run("main input", function () { return this.value; }, [], 0)) === "560001", "pincode keystrokes landed");
   t.check((await panel.run("main input", function () { return this.value; }, [], 1)) === GROCERY_Q, "product keystrokes landed");
   await panel.p.keyboard.press("Enter");
-  await poll(async () => (await panel.count("main .res")) > 0 || /No matches|not found|deliver/i.test(await panel.text("main").catch(() => "")), 40000, 500);
+  await poll(async () => (await panel.count("main .ggrid .card")) > 0 || /No matches|not found|deliver/i.test(await panel.text("main").catch(() => "")), 40000, 500);
   await sleep(500);
 }
-test("6", "grocery: real typing, Enter, results, cheapest-first, own-site links", t => withExt({}, async ({ ctx }) => {
+test("6", "grocery: real typing, Enter, results, cheapest-first, own-site links", t => withExt({}, async ({ ctx, sw }) => {
   const { panel } = await product(ctx); await grocerySearch(panel, t);
-  const rows = await panel.ev(function () { return [...this.querySelectorAll("main .res")].map(a => ({ cls: a.className, store: (a.querySelector(".sc") || {}).title, small: (a.querySelector(".rn small") || {}).textContent || "", per: (a.querySelector(".rp2 small") || {}).textContent || "", price: a.querySelector(".rp2 b").textContent, name: a.querySelector(".rn span").textContent })); });
+  const rawErrs = (await sw.evaluate(async q => { try { const r = await groceryAt(q, { lat: 12.97, lon: 77.59, pin: "560001" }, {}); return r.errors; } catch (e) { return ["ERR " + e.message]; } }, GROCERY_Q)) || []; t.note("raw store errors: " + rawErrs.join(" ; "));
+  const rows = await panel.ev(function () { return [...this.querySelectorAll("main .ggrid .card")].map(a => ({ cls: a.className, store: (a.querySelector(".lg") || {}).title, soldOut: a.classList.contains("so"), pack: (a.querySelector(".pk") || {}).textContent || "", per: (a.querySelector(".pl") || {}).textContent || "", price: a.querySelector(".pr b").textContent, name: a.querySelector(".nm").textContent })); });
   const stores = [...new Set(rows.map(r => r.store))].filter(s => ["Blinkit", "DMart", "JioMart"].includes(s));
   t.note("stores in results: " + stores.join(",") + " (" + rows.length + " rows)");
   const errLines = await panel.ev(function () { return [...this.querySelectorAll("main .meta")].map(e => e.textContent); }); if (errLines.length) t.note("store errors: " + errLines.join(" ; "));
-  if (!rows.length) { if (errLines.some(e => /HTTP 4|HTTP 5|Failed to fetch/.test(e))) t.skip("all stores errored (network/blocked): " + errLines.join(";")); t.check(false, "no grocery results"); }
-  t.check(stores.length >= 2, `results from >=2 of Blinkit/DMart/JioMart (got ${stores.join(",") || "none"}); store errors: ${errLines.join(" ; ")}`);
-  const pers = rows.filter(r => !/sold out/.test(r.small) && r.per).map(r => parseFloat(r.per.replace(/[^\d.]/g, "")));
-  if (pers.length) t.check(rows[0].per && parseFloat(rows[0].per.replace(/[^\d.]/g, "")) <= Math.min(...pers) + 1e-9, `first row per-100 (${rows[0].per}) is the cheapest in-stock (min ₹${Math.min(...pers)}); rows: ` + rows.map(r => `${r.store}:${r.per || r.price}`).join(" "));
-  t.check(rows[0].cls.includes("best"), "first row flagged Cheapest");
+  if (!rows.length) { if (errLines.some(e => /HTTP 4|HTTP 5|Failed to fetch|A store didn't answer/.test(e))) t.skip("all stores errored (network/blocked): " + errLines.join(";")); t.check(false, "no grocery results"); }
+  const blocked = rawErrs.length > 0 && rawErrs.every(e => /HTTP (4|5)\d\d|Failed to fetch/.test(e)); // the stores that did not answer refused this network (e.g. HTTP 403): not our bug
+  t.check(stores.length >= 2 || (blocked && stores.length >= 1), `results from >=2 of Blinkit/DMart/JioMart (got ${stores.join(",") || "none"}); store errors: ${errLines.join(" ; ")}`);
+  const num = r => parseFloat(r.price.replace(/[^\d.]/g, "")), same = rows.filter(r => !r.soldOut && r.pack === rows[0].pack && /tata salt/i.test(r.name)); // "Cheapest" ranks only the best-matching tier (the exact phrase), not looser matches
+  t.check(!rows[0].soldOut && num(rows[0]) <= Math.min(...same.map(num)) + 1e-9, `first card (${rows[0].price}, ${rows[0].pack}) is the cheapest in-stock exact match of its pack; cards: ` + rows.map(r => `${r.store}:${r.price}:${r.pack}:${r.name}`).join(" ; "));
+  t.check(rows[0].cls.includes("best"), "first card flagged Cheapest");
   const links = await panel.ev(function () { return [...this.querySelectorAll("main .stores a.store")].map(a => [a.textContent, a.href]); });
   for (const [n, h] of [["Zepto", /zepto\.com/], ["Instamart", /swiggy\.com\/instamart/], ["BigBasket", /bigbasket\.com/]]) { const l = links.find(x => x[0] === n); t.check(l && h.test(l[1]) && /tata/i.test(decodeURIComponent(l[1])), `${n} own-site link with query: ${l && l[1]}`); }
   t.check((await panel.text(".pinchip")).includes("560001"), "pin chip shows 560001");
@@ -213,7 +215,7 @@ test("8", "quota: 50/50 limited state; wishlist cap 20", t => withExt({}, async 
   await r.p.close();
   const url = await routeProduct(ctx, { id: "B0NEWPROD1", price: 700, mrp: null }); r = await openPage(ctx, url); await r.panel.open();
   const txt = await r.panel.text(".vcard"), q = await r.panel.text(".quota .num");
-  t.check(/All 50 free lookups used this month/.test(txt), `limited message: "${txt.trim()}"`); t.check(/50\/50 lookups/.test(q), "quota row 50/50: " + q);
+  t.check(/used all 50 free lookups this month/.test(txt), `limited message: "${txt.trim()}"`); t.check(/50\/50 lookups/.test(q), "quota row 50/50: " + q);
   t.check(!(await r.panel.has(".hero .price")), "no price hero when limited");
   t.check((await store(sw, "usage")).usage.keys.length === 50, "no 51st lookup recorded");
   await r.p.close();
@@ -223,10 +225,10 @@ test("8", "quota: 50/50 limited state; wishlist cap 20", t => withExt({}, async 
   const k = key("B0CAPPROD1"); r = await product(ctx, { id: "B0CAPPROD1", price: 700, mrp: null }); await r.panel.open();
   await r.panel.click(".heart"); await sleep(800);
   t.check(!(await r.panel.has(".heart.on")), "21st heart rejected (not on)");
-  t.check((await r.panel.run(".heart", function () { return this.title; })) === "Limit reached", "heart shows 'Limit reached'");
+  t.check((await r.panel.run(".heart", function () { return this.title; })) === "Your watchlist is full. Remove one to add another.", "heart title explains the full watchlist");
   const wished = Object.values((await store(sw, "items")).items).filter(i => i.wish).length; t.check(wished === 20, "still exactly 20 wished items: " + wished);
   await r.panel.click(".trapbox .btn"); await sleep(600);
-  t.check(await r.panel.text(".trapbox .stp-msg") === "Watchlist limit reached on your plan", "trap Set also hits the cap: " + (await r.panel.text(".trapbox .stp-msg")));
+  t.check(await r.panel.text(".trapbox .stp-msg") === "Your watchlist is full. Remove one to add another.", "alert Set also hits the cap: " + (await r.panel.text(".trapbox .stp-msg")));
   t.check(!(await store(sw, "items")).items[k].target, "no target saved past cap");
 }));
 
@@ -284,7 +286,7 @@ test("11", "privacy: manifest has no <all_urls>; network only to allowlist", t =
 // ================================================================ NEW FEATURE TESTS (12+)
 const itemOf = async (sw, k) => (await store(sw, "items")).items?.[k];
 const targetOf = async (sw, k) => (await itemOf(sw, k))?.target;
-const MSG0 = "Enter a price above ₹0", MSGHI = "Trap must be below the current price";
+const MSG0 = "Enter a price above ₹0", MSGHI = "Alert price must be below today's price";
 
 // ---------------------------------------------------------------- 12 trap editor
 test("12", "trap editor: step size, hold-to-repeat, typed persist, invalid rejected", t => withExt({}, async ({ ctx, sw }) => {
@@ -310,7 +312,7 @@ test("12", "trap editor: step size, hold-to-repeat, typed persist, invalid rejec
   await panel.type(".trapbox .stp-in input", "700"); await panel.click(".trapbox .btn");
   t.check(!!(await poll(async () => (await targetOf(sw, k)) === 700, 4000)), "Set saves 700");
   await poll(async () => await panel.has(".trapbox .link-btn"), 4000);
-  t.check(/Trap set at ₹700/.test(await panel.text(".trapbox .lbl")), "label: " + await panel.text(".trapbox .lbl"));
+  t.check(/Price alert at ₹700/.test(await panel.text(".trapbox .lbl")), "label: " + await panel.text(".trapbox .lbl"));
   // existing trap autosaves (600 ms debounce)
   await panel.type(".trapbox .stp-in input", "650"); await sleep(250);
   t.check((await targetOf(sw, k)) === 700, "not saved before the 600ms debounce");
@@ -320,7 +322,7 @@ test("12", "trap editor: step size, hold-to-repeat, typed persist, invalid rejec
   await panel.press(".trapbox .stp-b", 1); t.check(!!(await poll(async () => (await targetOf(sw, k)) === 660, 3000)), "plus autosaves 650 -> 660");
   await p.reload({ waitUntil: "domcontentloaded" }); await panel.waitKnob(); await panel.open();
   t.check((await panel.val(".trapbox .stp-in input")) === "660", "persisted after reload: " + await panel.val(".trapbox .stp-in input"));
-  t.check(/Trap set at ₹660/.test(await panel.text(".trapbox .lbl")), "label after reload: " + await panel.text(".trapbox .lbl"));
+  t.check(/Price alert at ₹660/.test(await panel.text(".trapbox .lbl")), "label after reload: " + await panel.text(".trapbox .lbl"));
   // invalid on existing trap: message, NOT saved (target stays 660)
   for (const [txt, msg] of [["0", MSG0], ["abc", MSG0], ["766", MSGHI], ["1000", MSGHI]]) {
     await panel.type(".trapbox .stp-in input", txt); await sleep(1300);
@@ -339,7 +341,7 @@ test("13", "watchlist: inline stepper edit persists, invalid rejected, 'Set a tr
   const rows = () => panel.ev(function () { return [...this.querySelectorAll(".wrow")].map(r => ({ title: r.querySelector("a").textContent, stp: !!r.querySelector(".stp"), set: [...r.querySelectorAll(".btn")].map(b => b.textContent.trim()) })); });
   let rs = await rows(), bi = rs.findIndex(r => r.title === "Trapped Thing"), ai = rs.findIndex(r => r.title === "Wish Only Thing");
   t.check(bi === 0, "trapped row sorts first: " + JSON.stringify(rs.map(r => r.title)));
-  t.check(rs[bi].stp && rs[ai].set.includes("Set a trap") && !rs[ai].stp, "trapped row has stepper; wish-only row has 'Set a trap' and no stepper");
+  t.check(rs[bi].stp && rs[ai].set.includes("Set price alert") && !rs[ai].stp, "trapped row has stepper; wish-only row has 'Set a trap' and no stepper");
   const row = i => `.wlist > .wrow:nth-child(${i + 1})`;
   await panel.type(`${row(bi)} .stp-in input`, "900"); await sleep(250);
   t.check((await targetOf(sw, B)) === 800, "not saved before debounce");
@@ -492,8 +494,8 @@ if (!NOLIVE) test("29", "tracker (live): the service worker reads real Amazon, F
 test("30", "settings: background price check card shows per-store health and runs on demand (admin message accepted from the extension page)", t => withExt({}, async ({ ctx, sw, extId }) => {
   await seed(sw, { trk: { health: { "amazon.in": { ok: 3, fail: 1, held: 0, unavailable: 0, last: Date.now(), reasons: { captcha: 1 } } }, pause: { "flipkart.com": Date.now() + 3600e3 } }, items: {} });
   const o = await ctx.newPage(); await o.goto(`chrome-extension://${extId}/options.html`); await o.waitForSelector("#trk .srow");
-  const txt = await o.$eval("#trk", e => e.textContent); t.check(/Amazon/.test(txt) && /3 ok · 1 failed/.test(txt) && /captcha 1/.test(txt), "amazon health shown: " + txt.slice(0, 160)); t.check(/Flipkart.*Paused/.test(txt) && /Myntra.*Not checked yet/.test(txt), "paused and unchecked states");
-  await o.click("#trkrun"); await poll(async () => /Checked 0/.test(await o.$eval("#tmsg", e => e.textContent)), 8000, 300); t.check(/Checked 0, new prices 0/.test(await o.$eval("#tmsg", e => e.textContent)), "run-now answered: " + await o.$eval("#tmsg", e => e.textContent));
+  const txt = await o.$eval("#trk", e => e.textContent); const tips = (await o.$$eval("#trk [title]", es => es.map(e => e.title))).join("|"); t.check(/Amazon.*Working/.test(txt) && /3 ok · 1 failed/.test(tips) && /captcha 1/.test(tips), "amazon health shown (counts and reasons in tooltips): " + txt.slice(0, 160) + " | " + tips); t.check(/Flipkart.*Paused for now/.test(txt) && /Myntra.*Not checked yet/.test(txt), "paused and unchecked states");
+  await o.click("#trkrun"); await poll(async () => /Checked 0/.test(await o.$eval("#tmsg", e => e.textContent)), 8000, 300); t.check(/Checked 0 items, 0 new prices/.test(await o.$eval("#tmsg", e => e.textContent)), "run-now answered: " + await o.$eval("#tmsg", e => e.textContent));
 }));
 
 test("32", "Amazon chart: the real Price-history SVG, when Amazon draws it, becomes HAULS's history (chart, high/low, verdict) and is merged with own points", t => withExt({}, async ({ ctx, sw }) => {
@@ -526,7 +528,7 @@ test("36", "chart reader: health counters tick (read/stored/refused), Settings s
   const { p: p2, panel: pn2 } = await product(ctx, { id: "B0AMZKILL01", price: 4499, mrp: 5999 }); await pn2.open(); await sleep(600);
   await add(p2, svg); await sleep(2500);
   t.check(!Object.entries((await store(sw, "items")).items || {}).some(([k, i]) => /B0AMZKILL01/.test(k + (i.url || "")) && i.ahist), "kill switch: chart on a product is not read while chart-read is disabled");
-  await o.reload(); await o.waitForSelector("#hstat .pill"); t.check(/Paused by HAULS/.test(await o.$eval("#hstat", e => e.textContent)), "Settings says the reader is paused");
+  await o.reload(); await o.waitForSelector("#hstat .pill"); t.check(/Paused for now/.test(await o.$eval("#hstat", e => e.textContent)), "Settings says the reader is paused");
 }));
 
 test("33", "how soon: 2-3 days / 1 week / 1 month changes a fair price from Buy to Wait, saves the choice, and offers an alert price", t => withExt({}, async ({ ctx, sw }) => {
@@ -564,6 +566,18 @@ test("34", "auto-read (opt-in): clicks Amazon's own Price-history button in the 
   t.check((await r.p.evaluate(() => window.__clicked)) >= 1, "button clicked"); t.check(got.ahist.ranges["1M"].points[0][1] === 5499, "chart read");
   await poll(async () => (await r.p.evaluate(() => window.__closed)) >= 1 && !(await r.p.evaluate(() => document.getElementById("hauls-ah-hide"))), 8000, 300); t.check((await r.p.evaluate(() => window.__closed)) >= 1 && !(await r.p.evaluate(() => document.getElementById("hauls-ah-hide"))), "panel closed and the hiding style removed");
   t.check(!!got.ahist.tried, "attempt recorded (no repeat within 12 h)");
+}));
+
+test("56", "Amazon history opened by YOU on 1M: HAULS switches Amazon's own panel to 1Y once, so 30D / 90D / 1Y all have real data (and never loops)", t => withExt({}, async ({ ctx, sw }) => {
+  const svg = (await import("node:fs")).readFileSync(new URL("../fixtures/amazon-history/chart-1m.svg", import.meta.url), "utf8");
+  const r = await product(ctx, { id: "B0YEARPICK", price: 4499, mrp: 5999 }); // ahAuto is OFF: nothing here is HAULS's own reader
+  await r.p.evaluate(h => { window.__year = 0; const f = document.createElement("div"); f.id = "nav-flyout-rufus"; f.innerHTML = '<div id="rufus-react-renderer"><div role="tablist"><span role="tab" aria-selected="true">1M</span><span role="tab" aria-selected="false">3M</span><span role="tab" aria-selected="false">1Y</span></div><span class="rufus-pricing-chart-container">' + h + '</span></div>'; setTimeout(() => { document.body.append(f); [...f.querySelectorAll("[role=tab]")].find(e => e.textContent === "1Y").addEventListener("click", () => { window.__year++; const c = f.querySelector(".rufus-pricing-chart-container"); c.innerHTML = h; }); }, 800); }, svg);
+  await poll(async () => (await r.p.evaluate(() => window.__year)) >= 1, 12000, 300);
+  t.check((await r.p.evaluate(() => window.__year)) === 1, "the 1Y tab was clicked once after the 1M chart appeared");
+  await sleep(9500);
+  t.check((await r.p.evaluate(() => window.__year)) === 1, "and not again (no loop): " + await r.p.evaluate(() => window.__year));
+  const got = Object.values((await store(sw, "items")).items || {}).find(i => i.ahist && i.ahist.ranges && i.ahist.ranges["1M"]);
+  t.check(!!got, "the 1M chart was still stored");
 }));
 
 test("37", "Amazon background read: while idle, one watched product is opened in a small window, its chart is read by the page script, the window closes; off unless opted in", t => withExt({}, async ({ ctx, sw, extId }) => {
@@ -764,10 +778,11 @@ test("48", "a chart read while you are typing in the panel is drawn as soon as y
 test("49", "Settings: first install opens the guided tour; Amazon history is the first card with a clear On/Off switch; the Get started card ticks itself", t => withExt({ keepWelcome: true }, async ({ ctx, sw, extId }) => {
   let o = ctx.pages().find(p => /options\.html\?welcome=1/.test(p.url())); if (!o) o = await ctx.waitForEvent("page", { timeout: 8000, predicate: p => /options\.html/.test(p.url()) }).catch(() => null);
   t.check(!!o, "a fresh install opens the Settings page with the welcome tour");
-  await o.waitForSelector(".tour-tip", { timeout: 6000 }); await poll(async () => /1\. Turn this on/.test(await o.textContent(".tour-tip")), 4000, 200); t.check(/1\. Turn this on/.test(await o.textContent(".tour-tip")), "tour step 1 points at the Amazon history switch: " + (await o.textContent(".tour-tip")).slice(0, 80)); t.check(await o.evaluate(() => document.querySelector(".tour-tip").classList.contains("hide")), "the words fade in after the spotlight (hidden at first)"); await poll(async () => await o.evaluate(() => !document.querySelector(".tour-tip").classList.contains("hide")), 4000, 200); t.check(await o.evaluate(() => !document.querySelector(".tour-tip").classList.contains("hide")), "then they appear");
+  await o.waitForSelector(".tour-tip", { timeout: 6000 }); await poll(async () => /1\. How it works/.test(await o.textContent(".tour-tip")), 4000, 200); t.check(/1\. How it works/.test(await o.textContent(".tour-tip")), "tour step 1 explains how it works: " + (await o.textContent(".tour-tip")).slice(0, 80)); t.check(await o.evaluate(() => document.querySelector(".tour-tip").classList.contains("hide")), "the words fade in after the spotlight (hidden at first)"); await poll(async () => await o.evaluate(() => !document.querySelector(".tour-tip").classList.contains("hide")), 4000, 200); t.check(await o.evaluate(() => !document.querySelector(".tour-tip").classList.contains("hide")), "then they appear");
+  await sleep(1300); await o.click('.tour-tip button:has-text("Next")'); await poll(async () => /2\. Turn this on/.test(await o.textContent(".tour-tip")), 4000, 200); t.check(/2\. Turn this on/.test(await o.textContent(".tour-tip")), "step 2 points at the Amazon history switch");
   await sleep(1200); const spot = await o.evaluate(() => { const r = document.querySelector(".tour-spot").getBoundingClientRect(), h = document.getElementById("s-history").getBoundingClientRect(); return Math.abs(r.top - (h.top - 6)) < 8 && r.width > h.width; }); t.check(spot, "the spotlight sits on the Amazon history card");
   await o.click('.tour-tip button:has-text("Turn it on")'); await sleep(300); t.check((await store(sw, "ahAuto")).ahAuto === true, "the tour can turn the switch on for you");
-  await o.click('.tour-tip button:has-text("Next")'); await poll(async () => /2\. Check it is working/.test(await o.textContent(".tour-tip")), 4000, 200); t.check(/2\. Check it is working/.test(await o.textContent(".tour-tip")), "step 2"); await sleep(1300); await o.click('.tour-tip button:has-text("Next")'); await poll(async () => /3\. Optional extras/.test(await o.textContent(".tour-tip")), 4000, 200); t.check(/3\. Optional extras/.test(await o.textContent(".tour-tip")), "step 3"); await sleep(1300);
+  await o.click('.tour-tip button:has-text("Next")'); await poll(async () => /3\. Check it is working/.test(await o.textContent(".tour-tip")), 4000, 200); t.check(/3\. Check it is working/.test(await o.textContent(".tour-tip")), "step 3"); await sleep(1300); await o.click('.tour-tip button:has-text("Next")'); await poll(async () => /4\. Optional extras/.test(await o.textContent(".tour-tip")), 4000, 200); t.check(/4\. Optional extras/.test(await o.textContent(".tour-tip")), "step 4"); await sleep(1300);
   await o.click('.tour-tip button:has-text("Done")'); await sleep(200); t.check(!(await o.$(".tour-tip")) && (await store(sw, "tourDone")).tourDone === true, "tour closes and is remembered");
   const order = await o.evaluate(() => [...document.querySelectorAll("main > section")].filter(s => !s.hidden).map(s => s.id)); t.check(order.indexOf("s-history") <= 1 && order.indexOf("s-history") < order.indexOf("s-track") && order.indexOf("s-track") < order.indexOf("s-stores"), "Amazon history is at the top: " + order.join(" > "));
   t.check(await o.isChecked("#ahauto") && /On/.test(await o.evaluate(() => getComputedStyle(document.querySelector(".onoff"), "::after").content)), "the switch shows On");
@@ -900,13 +915,13 @@ test("16", "remove trap: Remove link clears target, keeps wish, UI returns to Se
   const id = "B0REMOVE01", k = key(id), now = Date.now();
   await seed(sw, { items: seedItem(id, [[now - 10 * D, 900], [now - 36e5, 830]], { target: 700, wish: true }) });
   const { p, panel } = await product(ctx, { id, price: 830, mrp: null }); await panel.open();
-  t.check(/Trap set at ₹700/.test(await panel.text(".trapbox .lbl")) && (await panel.val(".trapbox .stp-in input")) === "700", "existing trap shown with stepper prefilled 700");
+  t.check(/Price alert at ₹700/.test(await panel.text(".trapbox .lbl")) && (await panel.val(".trapbox .stp-in input")) === "700", "existing trap shown with stepper prefilled 700");
   t.check(await panel.has(".trapbox .link-btn") && /Remove/.test(await panel.text(".trapbox .link-btn")) && !(await panel.has(".trapbox .btn")), "Remove link present, no Set button");
   await panel.click(".trapbox .link-btn");
   t.check(!!(await poll(async () => (await itemOf(sw, k)) && (await targetOf(sw, k)) === undefined, 3000)), "target removed from storage");
   t.check((await itemOf(sw, k)).wish === true, "item still wished");
   await poll(async () => await panel.has(".trapbox .btn"), 3000);
-  t.check(/Set/.test(await panel.text(".trapbox .btn")) && !(await panel.has(".trapbox .link-btn")) && /Set trap price/.test(await panel.text(".trapbox .lbl")), "UI back to 'Set trap price' + Set button");
+  t.check(/Set/.test(await panel.text(".trapbox .btn")) && !(await panel.has(".trapbox .link-btn")) && /Set price alert/.test(await panel.text(".trapbox .lbl")), "UI back to 'Set price alert' + Set button");
   t.check(await panel.has(".heart.on"), "heart still on");
   await p.reload({ waitUntil: "domcontentloaded" }); await panel.waitKnob(); await panel.open();
   t.check(!(await panel.has(".trapbox .link-btn")), "stays removed after reload");
@@ -1020,7 +1035,7 @@ test("21c", "sync: server 500 keeps the outbox and the UI stays usable", t => wi
   await sleep(1200);
   const ob = await outboxOf(sw); t.check(ob.some(o => o.t === "watch" && o.key === k && o.target === 700), "watch op still queued: " + JSON.stringify(ob).slice(0, 160));
   t.check((await targetOf(sw, k)) === 700, "local trap saved regardless of server");
-  t.check(await panel.has(".trapbox .link-btn") && /Trap set at ₹700/.test(await panel.text(".trapbox .lbl")), "UI shows the trap as set");
+  t.check(await panel.has(".trapbox .link-btn") && /Price alert at ₹700/.test(await panel.text(".trapbox .lbl")), "UI shows the trap as set");
   await panel.type(".trapbox .stp-in input", "650"); t.check(!!(await poll(async () => (await targetOf(sw, k)) === 650, 3000)), "further edits still work while server is down");
   await panel.tab(2); await panel.tab(1); await panel.tab(0); t.check(await panel.has(".trapbox") && !(await panel.has("main .vcard.wait")), "tabs still render, no error card");
   t.check((await outboxOf(sw)).filter(o => o.t === "watch" && o.key === k).length === 1, "outbox coalesces to one watch op per product");

@@ -112,7 +112,7 @@
   // Step chart: a price holds until the next observation, and the last price is extended to today.
   const chart = (h, now = Date.now(), win = "") => {
     if (h.length === 1 && win) return el("p", "meta num", `No price change recorded in the last ${win}: ${fmt(h[0][1])}.`);
-    if (h.length < 2) return el("p", "meta", h.length ? `Tracking since ${dshort(h[0][0])}. Revisit to build the trend.` : "No history in this range yet.");
+    if (h.length < 2) return el("p", "meta", h.length ? `First seen ${dshort(h[0][0])}. Revisit to build the trend.` : "No history in this range yet.");
     const t0 = h[0][0], t1 = Math.max(now, h[h.length - 1][0]), span = (t1 - t0) || 1, ps = h.map(x => x[1]), lo = Math.min(...ps), hi = Math.max(...ps), W = 300, L = 6, R = 294, T = 14, B = 76;
     const X = t => L + (t - t0) / span * (R - L), Y = p => hi === lo ? (T + B) / 2 : B - (p - lo) / (hi - lo) * (B - T), f = n => n.toFixed(1);
     let d = `M${f(X(h[0][0]))},${f(Y(h[0][1]))}`; for (let i = 1; i < h.length; i++) d += ` L${f(X(h[i][0]))},${f(Y(h[i - 1][1]))} L${f(X(h[i][0]))},${f(Y(h[i][1]))}`; d += ` L${R},${f(Y(h[h.length - 1][1]))}`;
@@ -170,7 +170,7 @@
   knob.addEventListener("keydown", e => { if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); applyTop(knobTop + (e.key === "ArrowUp" ? -28 : 28)); saveTop(); } });
   // Keep keystrokes inside the panel: sites bind hotkeys (e.g. "/" to search) that would otherwise steal typing.
   ["keydown", "keyup", "keypress", "input", "beforeinput", "compositionstart", "compositionupdate", "compositionend"].forEach(t => wrap.addEventListener(t, e => { e.stopPropagation(); if (t === "keydown" && e.key === "Escape") { if (wrap.classList.contains("sheetopen")) closeSheet(); else setOpen(false); } }));
-  chrome.runtime.onMessage.addListener(m => { if (m.type === "toggle") toggle(); });
+  chrome.runtime.onMessage.addListener((m, sender) => { if (m && m.type === "toggle" && sender && sender.id === chrome.runtime.id) toggle(); });
   pinChip.onclick = async () => { tab = "grocery"; await draw(); const i = sr.querySelector(".pi input"); if (i) { i.focus(); i.select(); } }; // tap the pincode chip to edit the delivery pincode
   // S6: follow changes made elsewhere (sync from another device, another tab) without a reload.
   let whoHook = () => {}, pinHook = () => {};
@@ -193,13 +193,18 @@
   }
 
   const send = m => chrome.runtime.sendMessage(m);
+  // One plain message per way a save can fail (wish/track reply true or {error}); null = saved.
+  const failMsg = r => r === true ? null : r && r.error === "limit" ? T.limit : r && r.error === "storage-full" ? "Your browser storage is full. Free some space and try again." : r && r.error === "gone" ? "This item was removed. Reload the page and try again." : "Couldn't save. Try again.";
+  const offline = why => !navigator.onLine || /fetch|network|timeout|abort|offline/i.test(String(why || ""));
+  // After an alert fires the row says so, even if the system notification was missed: the date comes from the history point at that price.
+  const hitEl = it => { const at = [...(it.hist || [])].reverse().find(h => h[1] === it.notified); return el("p", "hit", `Reached your alert price${at ? " on " + dshort(at[0]) : ""}: ${fmt(it.notified)}`); };
   // Real user-activation (not a constant): privileged actions are only honoured after the user has interacted with the page.
-  const gesture = () => !!(navigator.userActivation ? navigator.userActivation.hasBeenActive : true);
+  const gesture = () => !!(navigator.userActivation ? navigator.userActivation.isActive : true);
   // Price stepper: − / typed amount / +, hold to repeat, validated against the current price. onSave(value) resolves to an error string or null.
   function stepper({ value, price, onSave, autosave = true }) {
     const root = el("div", "stp"), box = el("div", "stp-box"), msg = el("div", "stp-msg"), tick = el("span", "stp-tick"), minus = el("button", "stp-b"), plus = el("button", "stp-b"), pre = el("label", "stp-in"), inp = el("input");
-    minus.append(ico("minus")); plus.append(ico("plus")); minus.setAttribute("aria-label", "Decrease trap price"); plus.setAttribute("aria-label", "Increase trap price"); tick.append(ico("check"), "Saved");
-    inp.inputMode = "numeric"; inp.value = String(value); inp.setAttribute("aria-label", "Trap price"); pre.append("₹", inp);
+    minus.append(ico("minus")); plus.append(ico("plus")); minus.setAttribute("aria-label", "Decrease alert price"); plus.setAttribute("aria-label", "Increase alert price"); tick.append(ico("check"), "Saved");
+    inp.inputMode = "numeric"; inp.value = String(value); inp.setAttribute("aria-label", "Alert price"); pre.append("₹", inp);
     let saved = value, timer = null, hold = null; const step = trapStep(price);
     const show = m => { msg.textContent = m || ""; root.classList.toggle("bad", !!m); };
     const commit = async () => { clearTimeout(timer); const v = validateTrap(inp.value, price); if (!v.ok) return show(v.msg); show(""); if (v.value === saved) return; inp.value = String(v.value);
@@ -214,15 +219,14 @@
     box.append(minus, pre, plus); root.append(box, msg, tick);
     return { el: root, commit, get value() { return validateTrap(inp.value, price); }, show };
   }
-  const LIMIT_MSG = "Watchlist limit reached on your plan";
   // Trap box on the product tab: set once, then edit (autosave) or remove right here.
   function trapEditor(p, it) {
-    const tb = el("div", "trapbox"), save = async v => { const r = await send({ type: "track", key: p.key, target: v }); if (r && r.error) return LIMIT_MSG; it.target = v; lbl.lastChild.textContent = ` Trap set at ${fmt(v)}`; return null; };
-    const lbl = el("p", "lbl"); lbl.append(ico("bell"), el("span")); lbl.lastChild.textContent = it.target ? ` Trap set at ${fmt(it.target)}` : " Set trap price";
+    const tb = el("div", "trapbox"), save = async v => { const f = failMsg(await send({ type: "track", key: p.key, target: v }).catch(() => null)); if (f) return f; it.target = v; lbl.lastChild.textContent = ` Price alert at ${fmt(v)}`; return null; };
+    const lbl = el("p", "lbl"); lbl.append(ico("bell"), el("span")); lbl.lastChild.textContent = it.target ? ` Price alert at ${fmt(it.target)}` : " Set price alert";
     const start = it.target || Math.max(1, Math.floor(p.price * 0.95)), st = stepper({ value: start, price: p.price, autosave: !!it.target, onSave: save }), row = el("div", "stp-row"); row.append(st.el);
     if (it.target) { const rm = el("button", "link-btn", "Remove"); rm.onclick = async () => { await send({ type: "untrack", key: p.key }); delete it.target; draw(); }; row.append(rm); }
     else { const set = el("button", "btn", "Set"); set.append(ico("arrow")); set.onclick = async () => { const v = st.value; if (!v.ok) return st.show(v.msg); const err = await save(v.value); if (err) return st.show(err); burst(set); draw(); }; row.append(set); }
-    tb.append(lbl, row); return tb;
+    tb.append(lbl, row); if (it.target && it.notified > 0) tb.append(hitEl(it)); return tb;
   }
 
   const note = (t, ...rest) => { const n = el("div", "note"); n.append(el("b", "", t), ...rest); return n; };
@@ -231,7 +235,7 @@
     if (loading) { ["64px", "56px", "110px", "52px"].forEach(h => { const s = el("div", "sk"); s.style.setProperty("--h", h); main.append(s); }); return; }
     if (!cur && unreadable) { const n = el("div", "quiet"); n.append(el("b", "", "Couldn't read this page's price"), "HAULS found the product but not its price. The page layout may be new. Try reloading; if it keeps happening, the Grocery and Watchlist tabs still work."); const rb = el("button", "btn ghost", "Try again"); rb.onclick = () => { tries = 0; unreadable = false; loading = true; draw(); run(); }; return main.append(n, rb); }
     if (!cur) return main.append(el("p", "empty", T.emptyProduct));
-    if (cur.limited) { main.append(el("div", "vcard wait", ""), quotaRow()); main.firstChild.append(el("span", "vl", `All ${cur.limit} free lookups used this month. Saved items still update.`)); return; }
+    if (cur.limited) { main.append(el("div", "vcard wait", ""), quotaRow()); const nx = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1); main.firstChild.append(el("span", "vl", `You've used all ${cur.limit} free lookups this month. They reset on ${dshort(nx)}. Saved items still update.`)); return; }
     cur.it = withStoredFlags(cur.it, safeItems((await chrome.storage.local.get("items")).items), cur.p.key);
     const { p, it } = cur, ahp = ahPoints(it.ahist), cch = sharedChart(cur.chart, p.price), H = ahMerge(ahMerge(cur.comm && cur.comm.length ? mergeHistory(it.hist, cur.comm) : it.hist, ahp), cch.points), s = stats(H), horizon = (await chrome.storage.local.get("horizon")).horizon || "1w", bw = buyWait(H, p.price, p.mrp, Date.now(), it.ref, horizon), d = bw.deal;
     // hero: price sticker + lowest tag + heart
@@ -240,16 +244,17 @@
     else if (H.length > 1 && d.badge === "higher") sw.append(el("span", "tag y", `₹${p.price - s.min} above low`));
     countUp(price, p.price);
     const heart = el("button", "heart" + (it.wish ? " on" : "")); heart.append(ico("heart")); heart.setAttribute("aria-pressed", String(!!it.wish)); heart.setAttribute("aria-label", it.wish ? T.wished : T.wish); heart.title = it.wish ? T.wished : T.wish;
-    heart.onclick = async () => { const on = !heart.classList.contains("on"), r = await chrome.runtime.sendMessage({ type: "wish", key: p.key, on }); if (r && r.error) { heart.title = T.limit; return; }
+    const hmsg = el("p", "meta bad"); hmsg.setAttribute("role", "status");
+    heart.onclick = async () => { const on = !heart.classList.contains("on"), f = failMsg(await chrome.runtime.sendMessage({ type: "wish", key: p.key, on }).catch(() => null)); hmsg.textContent = f || ""; if (f) { heart.title = f; return; }
       it.wish = on; heart.classList.toggle("on", on); heart.setAttribute("aria-pressed", String(on)); heart.title = on ? T.wished : T.wish; if (on) burst(heart); };
-    hero.append(sw, heart); main.append(hero);
+    hero.append(sw, heart); main.append(hero, hmsg);
     const lc = lastChange(H);
     if (lc) { const cp = el("span", "chg-pill num" + (lc.delta > 0 ? " up" : "")); cp.append(`${lc.delta < 0 ? "▼" : "▲"} ${fmt(Math.abs(lc.delta))} · ${Math.abs(Math.round(lc.pct * 100))}% vs ${dshort(lc.at)}`); const w = el("div"); w.append(cp); main.append(w); }
     const pk = parsePack(p.title), per = pk && unitPrice(p.price, pk), bits = [];
     if (p.mrp && p.mrp > p.price) bits.push(`${Math.round((1 - p.price / p.mrp) * 100)}% off`);
     if (per) bits.push(`₹${per}/${pk.unit === "pc" ? "pc" : "100" + pk.unit}`);
     const offerP = readOfferPrice(p.price); if (offerP) bits.push(`${fmt(offerP)} with offers`); // the page's own "Buy for ₹X" line (coupons, bank offers, cashback)
-    { const hd = honestDiscount(H, p.price, p.mrp); if (hd && (hd.inflated || (hd.claimed >= 10 && hd.real > 0))) bits.push(hd.inflated ? (hd.real > 0 ? `really ${hd.real}% below its usual ${fmt(hd.typical)}` : `usually ${fmt(hd.typical)}, not a real discount`) : `${hd.real}% below its usual price`); }
+    { const dn = discountNote(honestDiscount(H, p.price, p.mrp), dealScan(H, p.price, p.mrp, Date.now(), it.ref).tone, bw.verdict); if (dn) bits.push(dn); } // same tone + verdict as the cards below: never "not a real discount" beside a Real Deal, always with its day count
     if (bits.length) { const sub = el("div", "sub2 num", bits.join(" · ")); if (p.mrp && p.mrp > p.price) { sub.append(el("span", "mrp", fmt(p.mrp))); } main.append(sub); }
     // low / avg / high + history chart, both following the selected range
     const c3 = el("div", "chips3"), cb = el("div", "chartbox"), seg = el("div", "seg"), now = Date.now();
@@ -258,8 +263,8 @@
       const useRef = sl.length < 2 && refUsable(it.ref, p.price, now); // too little own history in this tab: the numbers are Amazon's range for the days it covers, not one price repeated three times
       if (useRef) ws = { min: Math.min(it.ref.low, p.price), avg: (Math.min(it.ref.low, p.price) + Math.max(it.ref.high, p.price)) / 2, max: Math.max(it.ref.high, p.price), est: true }; // only a range is known: the midpoint stands in for the average and says so
       const prevV = c3.dataset.v ? JSON.parse(c3.dataset.v) : {}, nowV = { Low: ws.min, Avg: ws.avg, High: ws.max }; c3.dataset.v = JSON.stringify(nowV);
-      c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3" + (prevV[n] != null && Math.round(prevV[n]) !== Math.round(v) ? " chg" : "")), sm = el("small"), dv = Math.round(p.price - v); sm.append(ico(i), n);
-        x.append(sm, el("b", "num", (ws.est && n === "Avg" ? "~" : "") + fmt(v)), el("em", "dlt num", dv === 0 ? "now" : `now ${dv > 0 ? "+" : "−"}${fmt(Math.abs(dv))}`)); if (ws.est && n === "Avg") x.title = "Estimated from Amazon's range"; c3.append(x); });
+      c3.replaceChildren(); [["Low", ws.min, "down"], ["Avg", ws.avg, "trend"], ["High", ws.max, "up"]].forEach(([n, v, i]) => { const x = el("div", "chip3" + (n === "High" ? " hi" : "") + (prevV[n] != null && Math.round(prevV[n]) !== Math.round(v) ? " chg" : "")), sm = el("small"), dv = Math.round(p.price - v); sm.append(ico(i), n);
+        x.append(sm, el("b", "num", (ws.est && n === "Avg" ? "~" : "") + fmt(v)), el("em", "dlt num" + (dv < 0 ? " good" : dv > 0 ? " bad" : ""), dv === 0 ? "now" : `now ${dv > 0 ? "+" : "−"}${fmt(Math.abs(dv))}`)); if (ws.est && n === "Avg") x.title = "Estimated from Amazon's range"; c3.append(x); });
       [...seg.children].forEach(b => b.classList.toggle("beyond", useRef && +b.dataset.d > it.ref.days));
       cb.replaceChildren(el("p", "lbl", useRef && (!days || days > it.ref.days) ? `Last ${it.ref.days} days · all HAULS has for now` : `${range} history${cur.comm && cur.comm.length ? " · community + yours" : ""}`), !useRef ? chart(sl, now, days ? range : "") : bandChart(it.ref, p.price), ...(ahp.length ? [el("p", "meta", `Includes Amazon's own price history${it.ahist.offer ? ` · with offers ${fmt(it.ahist.offer)}` : ""}. Weekly lowest featured offer price, excluding shipping.`)] : cch.points.length ? [el("p", "meta", `Includes shared history from ${cch.n} HAULS reader${cch.n === 1 ? "" : "s"}, updated ${cch.age ? cch.age + " days ago" : "today"}.`)] : []));
       [...seg.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.r === range)));
@@ -278,7 +283,7 @@
           const nodes = [ul]; if (d.adv >= 0.1 && d.w && d.coverage !== "insufficient") nodes.push(note("Discount context", `Advertised ${Math.round(d.adv * 100)}% off the listed MRP. Against recent observed prices it's ${Math.abs(Math.round(d.vsAvg * 100))}% ${d.vsAvg <= 0 ? "below" : "above"}.`));
           openSheet(w.title, nodes); };
         const row = el("div", "bn-row"), right = el("div", "bn-right"); if (sc.score != null) { const gw = el("div", "bn-g"), lg = el("div", "bn-lg"); lg.append(el("span", "bad", "Bad time"), el("span", "good", "Good time")); gw.append(gaugeEl(sc.score, "Deal score", 112), lg); row.append(gw); } right.append(el("p", "lbl", "Our recommendation"), vc); row.append(right);
-        const kids = [row]; if (w.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Set price alert at ${fmt(w.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const r = await send({ type: "track", key: p.key, target: w.alertAt }); ab.textContent = r && r.error ? "Tracking limit reached" : `Alert set at ${fmt(w.alertAt)}`; }; kids.push(ab); }
+        const kids = [row]; if (w.alertAt && !it.target) { const ab = el("button", "btn ghost full", `Set price alert at ${fmt(w.alertAt)}`); ab.onclick = async () => { ab.disabled = true; const f = failMsg(await send({ type: "track", key: p.key, target: w.alertAt }).catch(() => null)); ab.textContent = f || `Alert set at ${fmt(w.alertAt)}`; if (f) ab.disabled = false; }; kids.push(ab); }
         body.replaceChildren(...kids); body.classList.remove("busy"); body.classList.add("fresh"); setTimeout(() => body.classList.remove("fresh"), 400);
       };
       let curH = horizon, tmr = 0;
@@ -449,17 +454,21 @@
   }
 
   // ---- account sheet: Google sign-in, consent toggle, sync status ----
-  async function openAccount() {
-    const a = await chrome.runtime.sendMessage({ type: "account", gesture: gesture() }), nodes = [];
-    const refresh = () => openAccount();
+  // After sign-out the account's items wait in a vault on this device (not in the live list): knowing that lets the UI say "saved", not "nothing".
+  const hasVault = async () => { try { const ks = chrome.storage.local.getKeys ? await chrome.storage.local.getKeys() : Object.keys(await chrome.storage.local.get(null)); return ks.some(k => k.startsWith("vault:")); } catch { return false; } };
+  async function openAccount(g = gesture()) { // g: read at the click; refresh() runs later, when transient activation is gone
+    const a = await chrome.runtime.sendMessage({ type: "account", gesture: g }), nodes = [];
+    const refresh = () => openAccount(g);
     if (!a.configured) { nodes.push(note("Sign-in isn't set up in this build", "Add the Supabase anon key and rebuild the config. Everything else works offline, and your data stays in this browser.")); return openSheet("Account", nodes); }
     if (!a.signedIn) {
-      if (a.notice) { const n = el("div", "quiet warn"); n.append(el("b", "", a.notice === "inactive" ? "You were signed out after 90 days without using HAULS" : "Your session ended"), a.notice === "inactive" ? "Sign in again to see your watchlist and sync. It is saved for you." : "It expired or was revoked. Sign in again to keep syncing. Your watchlist is saved for you."); nodes.push(n); }
-      [["sync", "Sync your watchlist across devices"], ["chart", "Community price history from day one"], ["bell", "Price-drop emails (coming soon)"]].forEach(([i, t]) => { const r = el("div", "row2"); r.append(ico(i), el("span", "", t)); r.style.fontWeight = "700"; nodes.push(r); });
-      const btn = el("button", "btn full"), msg = el("p", "meta"); btn.append("Continue with Google"); btn.onclick = async () => { btn.textContent = "Opening Google…"; const r = await chrome.runtime.sendMessage({ type: "signin", gesture: gesture() }); if (r && r.ok) { refresh(); draw(); } else { btn.replaceChildren("Continue with Google"); msg.textContent = r && r.error ? r.error : "Sign-in failed."; } };
-      nodes.push(btn, msg); { const cc = el("button", "link-btn", "Clear cache"); cc.onclick = async () => { await send({ type: "invalidate", reason: "user-clear-cache", gesture: gesture() }); cc.textContent = "Cache cleared"; }; nodes.push(cc); }
+      if (a.notice) { const n = el("div", "quiet warn"); n.append(el("b", "", a.notice === "inactive" ? "You were signed out after 90 days without using HAULS" : "Your session ended"), "Your saved items are kept on this device. Sign in again with the same account to get them back."); nodes.push(n); }
+      else if (await hasVault()) nodes.push(el("p", "meta strong", T.signedOutNote));
+      [["sync", "Sync your watchlist across devices"], ["chart", "Community price history from day one"]].forEach(([i, t]) => { const r = el("div", "row2"); r.append(ico(i), el("span", "", t)); r.style.fontWeight = "700"; nodes.push(r); });
+      { const r = el("label", "row2"), c = el("input"); c.type = "checkbox"; c.disabled = true; r.append(c, el("span", "", "Email me when a price reaches my alert price")); r.style.fontWeight = "700"; nodes.push(r, el("p", "meta", "Sign in to turn on alert emails.")); }
+      const btn = el("button", "btn full"), msg = el("p", "meta"); msg.setAttribute("role", "status"); btn.append("Continue with Google"); btn.onclick = async () => { if (btn.disabled) return; btn.disabled = true; msg.textContent = ""; btn.textContent = "Opening Google…"; const r = await chrome.runtime.sendMessage({ type: "signin", gesture: gesture() }).catch(() => null); if (r && r.ok) { refresh(); draw(); } else { btn.disabled = false; btn.replaceChildren("Continue with Google"); msg.textContent = /cancel/i.test((r && r.error) || "") ? "Sign-in was cancelled." : offline(r && r.error) ? "You're offline. Connect and try again." : "Couldn't sign in. Check your internet and try again."; } };
+      nodes.push(btn, msg);
       { const sg = el("button", "btn ghost"); sg.append(ico("gear"), "Independent stores & settings"); sg.onclick = () => send({ type: "open-options" }); nodes.push(sg); }
-      nodes.push(el("p", "meta", "We store your name, email and watchlist. Prices you see (and the ones HAULS re-checks for your watched items), and the Amazon price charts you open, are shared only if you switch sharing on. They are kept apart from your name and email and shown only as combined history. Your data stays in this browser first. You can erase your cloud data anytime."));
+      nodes.push(el("p", "meta", "We store your name, email and watchlist. Prices are shared only if you turn sharing on, never with your name. You can delete your cloud data any time."));
       return openSheet("Sign in to HAULS", nodes);
     }
     const who = el("div", "row2"), av = el("span", "sc", (a.user.name || a.user.email || "?")[0].toUpperCase()); av.style.setProperty("--c", "var(--mint)");
@@ -468,24 +477,30 @@
     const fg = el("button", "btn ghost", "Also remove prices I shared earlier"); fg.hidden = cb.checked;
     fg.onclick = async () => { const r = await send({ type: "forget-shared", gesture: gesture() }); fg.textContent = r && r.ok ? `Removed ${r.removed || 0} shared price${r.removed === 1 ? "" : "s"}` : "Couldn't remove them"; };
     cb.onchange = () => { chrome.runtime.sendMessage({ type: "contribute", on: cb.checked, gesture: gesture() }); fg.hidden = cb.checked; }; nodes.push(sw, fg);
-    const em = el("label", "row2"), ec = el("input"); ec.type = "checkbox"; ec.checked = !!(a.profile && a.profile.email_alerts === true); em.append(ec, el("span", "", `Email me when a price hits my target (${a.user.email})`)); em.style.cursor = "pointer"; em.style.fontWeight = "700";
-    ec.onchange = () => chrome.runtime.sendMessage({ type: "profile-update", email_alerts: ec.checked, gesture: gesture() }); nodes.push(em);
-    const st = el("p", "meta", a.lastSync ? `Last synced ${new Date(a.lastSync).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })} · ${a.queued} waiting` : `Not synced yet · ${a.queued} waiting`), sy = el("button", "btn ghost"); sy.append(ico("sync"), "Sync now");
-    sy.onclick = async () => { sy.textContent = "Syncing…"; const r = await chrome.runtime.sendMessage({ type: "sync" }); st.textContent = r.ok ? "Synced just now." : "Couldn't sync: " + ((r.flush && r.flush.reason) || (r.pull && r.pull.reason) || "try again"); sy.replaceChildren(ico("sync"), "Sync now"); draw(); };
+    const em = el("label", "row2"), ec = el("input"), emsg = el("p", "meta"); ec.type = "checkbox"; ec.checked = !!(a.profile && a.profile.email_alerts === true); em.append(ec, el("span", "", "Email me when a price reaches my alert price")); em.style.cursor = "pointer"; em.style.fontWeight = "700"; emsg.setAttribute("role", "status"); emsg.textContent = `Sent to ${a.user.email}, only when a price reaches your alert price.`;
+    ec.onchange = async () => { const want = ec.checked; ec.disabled = true; emsg.textContent = "Saving…"; const r = await send({ type: "profile-update", email_alerts: want, gesture: gesture() }).catch(() => null); ec.disabled = false; if (r && r.ok) emsg.textContent = want ? `Saved. We'll email ${a.user.email}. Check Spam the first time.` : "Saved. Alert emails are off."; else { ec.checked = !want; emsg.textContent = "Couldn't save. Try again."; } }; nodes.push(em, emsg);
+    const waiting = a.queued ? `${a.queued} change${a.queued === 1 ? "" : "s"} not uploaded yet` : "", st = el("p", "meta", [a.lastSync ? `Last synced ${new Date(a.lastSync).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}` : "Not synced yet", waiting].filter(Boolean).join(" · ")), sy = el("button", "btn ghost"); sy.append(ico("sync"), "Sync now");
+    sy.onclick = async () => { sy.textContent = "Syncing…"; const r = await chrome.runtime.sendMessage({ type: "sync" }).catch(() => null), why = r && ((r.flush && r.flush.reason) || (r.pull && r.pull.reason)); st.textContent = r && r.ok ? "Synced just now." : offline(why) || !r ? "You're offline. HAULS will retry when you're back." : "Couldn't sync. Try again in a minute."; sy.replaceChildren(ico("sync"), "Sync now"); draw(); };
     nodes.push(st, sy);
-    const ph = el("label", "pi"), phi = el("input"), phm = el("p", "meta"); phi.type = "tel"; phi.placeholder = "Phone (optional)"; phi.value = (a.profile && a.profile.phone) || ""; ph.append(phi); phi.setAttribute("aria-label", "Phone number, optional");
-    phi.onchange = async () => { const v = phi.value.trim(); if (v && !/^\+?[0-9 ()-]{7,20}$/.test(v)) return void (phm.textContent = "Enter a valid phone number or leave it empty."); const r = await send({ type: "profile-update", phone: v, gesture: gesture() }); phm.textContent = r && r.ok ? "Saved." : "Couldn't save."; };
-    nodes.push(ph, phm, el("p", "meta", "Google doesn't share phone numbers, so this is optional and only you can type it. We never verify or use it for marketing."));
+    // Indian mobile only: "+91" is fixed, the box takes 10 digits (6-9 first), pasted "+91 98765 43210" is cleaned. The same rule is enforced again in guard.js, background.js and the database.
+    const ph = el("div", "field"), pw = el("label", "pi"), phi = el("input"), sv = el("button", "btn sm", "Save"), phm = el("p", "meta"), pre = el("b", "", "+91"); phm.setAttribute("role", "status");
+    const clean = s0 => { let d = String(s0).replace(/\D/g, ""); if (d.length > 10 && d.startsWith("91")) d = d.slice(2); if (d.length > 10 && d.startsWith("0")) d = d.slice(1); return d.slice(0, 10); }, okNum = d => d === "" || /^[6-9][0-9]{9}$/.test(d);
+    let savedNum = clean(((a.profile && a.profile.phone) || "").replace(/^\+91/, "")), clr = 0; phi.type = "tel"; phi.inputMode = "numeric"; phi.autocomplete = "tel-national"; phi.maxLength = 10; phi.placeholder = "10-digit mobile number (optional)"; phi.value = okNum(savedNum) ? savedNum : ""; phi.setAttribute("aria-label", "Mobile number, 10 digits, India"); pw.append(pre, phi); sv.type = "button"; sv.disabled = true; ph.append(pw, sv);
+    const upd = () => { const d = phi.value; sv.disabled = !okNum(d) || d === savedNum; phm.textContent = d.length === 10 && !okNum(d) ? "Indian mobile numbers start with 6, 7, 8 or 9." : d.length > 0 && d.length < 10 ? `${10 - d.length} more digit${d.length === 9 ? "" : "s"}` : ""; };
+    phi.oninput = () => { clearTimeout(clr); phi.value = clean(phi.value); upd(); };
+    phi.onkeydown = e => { if (e.key === "Enter" && !sv.disabled) sv.click(); };
+    sv.onclick = async () => { const d = phi.value; if (!okNum(d)) return; sv.disabled = true; phm.textContent = "Saving…"; const r = await send({ type: "profile-update", phone: d ? "+91" + d : "", gesture: gesture() }); if (r && r.ok) { savedNum = d; phm.textContent = "Saved"; clearTimeout(clr); clr = setTimeout(() => { phm.textContent = ""; }, 2500); } else { phm.textContent = "Couldn't save. Try again."; sv.disabled = false; } };
+    nodes.push(ph, phm, el("p", "meta", "Optional. Only you can see it. Google doesn't share it."));
     const ex = el("button", "btn ghost"); ex.append(ico("download"), "Export my data"); ex.onclick = async () => { const r = await send({ type: "export-data", gesture: gesture() }); if (!r || !r.ok) return void (ex.textContent = "Couldn't export"); const u = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), account: r.data, localWatchlist: r.local }, null, 2)], { type: "application/json" })), l = document.createElement("a"); l.href = u; l.download = "hauls-my-data.json"; l.click(); setTimeout(() => URL.revokeObjectURL(u), 2000); };
     nodes.push(ex);
     const gs = el("button", "btn ghost"); gs.append(ico("gear"), "Settings"); gs.onclick = () => { chrome.runtime.sendMessage({ type: "open-options" }).catch(() => {}); }; nodes.push(gs);
     const out = el("button", "btn ghost", "Sign out"); out.onclick = async () => { await chrome.runtime.sendMessage({ type: "signout", gesture: gesture() }); closeSheet(); draw(); };
-    const del = el("button", "more", "Erase my cloud data"); let armed = false; del.onclick = async () => { if (!armed) { armed = true; del.textContent = "Tap again to erase everything"; return; } const r = await chrome.runtime.sendMessage({ type: "delete-data", gesture: gesture() }); closeSheet(); draw(); };
-    const outc = el("button", "link-btn", "Sign out and clear this device"); outc.onclick = async () => { await send({ type: "signout", clear: true, gesture: gesture() }); closeSheet(); draw(); };
-    const cc = el("button", "link-btn", "Clear cache"); cc.onclick = async () => { await send({ type: "invalidate", reason: "user-clear-cache", gesture: gesture() }); cc.textContent = "Cache cleared"; };
-    nodes.push(out, outc, cc, del); openSheet("Your account", nodes);
+    const outc = el("button", "link-btn", "Sign out and remove my data from this device"); outc.onclick = () => { send({ type: "open-options", at: "signout-clear" }); closeSheet(); }; // both erasing actions are confirmed on the settings page (guard.js refuses them from a content script)
+    const del = el("button", "more", "Delete my cloud data");
+    del.onclick = () => { send({ type: "open-options", at: "delete" }); closeSheet(); };
+    nodes.push(out, el("p", "meta", "Sign out keeps your items for this account on this device. Sign in again with the same account to get them back."), outc); if (a.queued > 0) nodes.push(el("p", "meta bad", `${a.queued} change${a.queued === 1 ? "" : "s"} haven't uploaded yet and will be lost.`)); nodes.push(del); openSheet("Your account", nodes);
   }
-  acctBtn.onclick = openAccount;
+  acctBtn.onclick = () => openAccount();
   const refreshWho = () => chrome.runtime.sendMessage({ type: "whoami" }).then(w => { if (w && w.initial) { acctBtn.replaceChildren(w.initial); acctBtn.style.fontWeight = "800"; } else { acctBtn.replaceChildren(ico("user")); acctBtn.style.fontWeight = ""; } }).catch(() => {});
   refreshWho(); whoHook = refreshWho;
 
@@ -535,7 +550,7 @@
       if (!q || !(/^\d{6}$/.test(pin) || st0.loc)) return msg(q ? "Add a pincode or tap Locate." : "Type a product.");
       out.replaceChildren(...(more ? [el("p", "meta strong", "Checking JioMart, BigBasket & Zepto, one at a time. A small window opens briefly and closes by itself…")] : []), ...[0, 1, 2].map(() => el("div", "sk")));
       let { loc, pin: saved } = await chrome.storage.local.get(["loc", "pin"]);
-      if (/^\d{6}$/.test(pin) && (!loc || saved !== pin)) { loc = await chrome.runtime.sendMessage({ type: "geocode", pin }); if (stale()) return; if (loc.error) return msg(loc.error); await chrome.storage.local.set({ loc, pin }); pinChip.replaceChildren(ico("pin"), pin); }
+      if (/^\d{6}$/.test(pin) && (!loc || saved !== pin)) { loc = await chrome.runtime.sendMessage({ type: "geocode", pin }); if (stale()) return; if (!loc || loc.error) return msg(loc && /not found/i.test(loc.error) ? "We couldn't find that pincode. Check it and try again." : "Couldn't look up that pincode. Try again in a minute."); await chrome.storage.local.set({ loc, pin }); pinChip.replaceChildren(ico("pin"), pin); }
       const { pin: sp } = await chrome.storage.local.get("pin"), { items, errors, unconfirmed = [], connect = [], later = [] } = await chrome.runtime.sendMessage({ type: "grocery", q, loc: { ...loc, pin: /^\d{6}$/.test(pin) ? pin : sp }, more });
       if (stale()) return; // the pincode changed while we were asking the stores
       out.replaceChildren();
@@ -543,9 +558,10 @@
       // store badge: the real logo when the page allows data: images, else a letter
       const badge = (name, cls = "lg") => { const b = el("span", cls); b.title = name; const letter = () => { b.replaceChildren(name[0]); b.style.setProperty("--c", STORE_C((STORE[name] || [])[1])); };
         if (STORE_LOGO[name]) { const im = el("img"); im.alt = name; im.src = STORE_LOGO[name]; im.onerror = letter; b.append(im); } else letter(); return b; };
+      const errs = () => errors.forEach(e => out.append(el("p", "meta", /^[A-Z][^]{12,}[.!]$/.test(e) && !/HTTP|fetch|Error|undefined/i.test(e) ? e : "A store didn't answer. Try again in a minute."))); // plain sentences pass; codes and stack text do not
       const view = { sort: "relevance", pack: null }, chips = el("div", "chipsrow"), grid = el("div", "ggrid"), top = [...items.filter(i => i.cheapest), ...items.filter(i => !i.cheapest)];
       const card = i => {
-        const a = el("a", "card" + (i.cheapest ? " best" : "") + (i.inStock ? "" : " so")); a.href = i.url; a.target = "_blank"; a.rel = "noopener";
+        const a = el("a", "card" + (i.cheapest ? " best" : "") + (i.inStock ? "" : " so")); if (i.url) a.href = i.url; a.target = "_blank"; a.rel = "noopener";
         const ph = el("div", "ph"); if (i.image) { const im = el("img"); im.alt = ""; im.loading = "lazy"; im.referrerPolicy = "no-referrer"; im.src = i.image; im.onerror = () => im.remove(); ph.append(im); }
         if (i.cheapest) ph.append(el("em", "cb", T.cheapest)); else if (i.bestValue) ph.append(el("em", "cb v", "Best value")); if (!i.inStock) ph.append(el("em", "cb o", "Sold out"));
         const pr = el("div", "pr"), pv = el("div"); pv.append(el("b", "num", "₹" + i.price)); if (i.mrp > i.price) pv.append(el("s", "num", "₹" + i.mrp)); pr.append(pv, badge(i.store));
@@ -554,20 +570,21 @@
         const list = sortGrocery(filterPack(top, view.pack), view.sort).slice(0, 24); grid.replaceChildren(...list.map(card));
         chips.replaceChildren(...[["relevance", "Relevance"], ["price", "Price ↑"], ["unit", "Unit price"]].map(([k, l]) => { const c = el("button", "cp", l); c.setAttribute("aria-pressed", String(view.sort === k)); c.onclick = () => { view.sort = k; paint(); }; return c; }),
           ...packChips(top).map(k => { const c = el("button", "cp pk2", k); c.setAttribute("aria-pressed", String(view.pack === k)); c.onclick = () => { view.pack = view.pack === k ? null : k; paint(); }; return c; })); };
-      if (top.length) { paint(); out.append(chips, grid); } else { out.append(el("p", "empty", "No matches from the connected stores.")); errors.forEach(e => out.append(el("p", "meta", e))); } // say WHY right here when there is nothing to show
+      if (top.length) { paint(); out.append(chips, grid); } else { out.append(el("p", "empty", "No matches from the connected stores.")); errs(); } // say WHY right here when there is nothing to show
       if (unconfirmed.length) { const nd = el("div", "nodel"); nd.append(...unconfirmed.map(n => badge(n, "lg off")), el("span", "", `${unconfirmed.join(" & ")}: can't confirm delivery to ${pin || sp || "your pincode"} yet, so no price is shown.`)); out.append(nd); }
       if (later.length) { const mb = el("button", "btn ghost sm", `Check ${later.join(", ")} too`); mb.title = "Opens one small window for a few seconds"; mb.onclick = () => run(true); out.append(mb); }
       if (connect.length) { const cn = el("button", "btn ghost", `Connect ${connect.join(" & ")} to see prices here`); cn.onclick = () => send({ type: "open-options" }); out.append(cn); }
       const own = el("div"), st = el("div", "stores wrap"); own.append(el("p", "lbl", T.ownSite)); [["Zepto", q], ["Instamart", q], ["BigBasket", q]].forEach(([n]) => { const a = el("a", "store"); a.href = STORE[n][0] + encodeURIComponent(q); a.target = "_blank"; a.rel = "noopener"; a.style.setProperty("--c", STORE[n][1]); a.append(el("i"), n); st.append(a); });
-      own.append(st); out.append(own); if (top.length) errors.forEach(e => out.append(el("p", "meta", e)));
+      own.append(st); out.append(own); if (top.length) errs();
     };
     go.onclick = () => run(false); [qI, pinI].forEach(i => i.addEventListener("keydown", e => { if (e.key === "Enter") run(); }));
     const gps = el("button", "btn ghost sm"); gps.append(ico("pin"), T.locate); gps.setAttribute("aria-label", T.locate); const hint = el("p", "meta");
     const useLoc = async (loc, pin, how) => { pinI.value = pin || pinI.value; await chrome.storage.local.set({ loc, pin: pin || "" }); if (pin) pinChip.replaceChildren(ico("pin"), pin); hint.textContent = pin ? `Using ${how} (${pin}).` : `Using ${how}.`; };
-    const viaNetwork = async why => { hint.textContent = why + " Using an approximate location from your network (ipwho.is)…"; const r = await chrome.runtime.sendMessage({ type: "iplocate", gesture: gesture() });
+    let clickG = false; // the button click, read before the permission prompt (activation is gone when the fallback runs)
+    const viaNetwork = async why => { hint.textContent = why + " Using an approximate location from your network (ipwho.is)…"; const r = await chrome.runtime.sendMessage({ type: "iplocate", gesture: clickG });
       if (r && r.lat) await useLoc({ lat: r.lat, lon: r.lon }, r.pin, "approximate location" + (r.city ? " near " + r.city : "")); else hint.textContent = "Couldn't detect your location. Type your pincode."; };
     gps.onclick = () => {
-      hint.textContent = "Asking your browser for permission… (we look up the pincode with OpenStreetMap)";
+      clickG = gesture(); hint.textContent = "Asking your browser for permission… (we look up the pincode with OpenStreetMap)";
       if (!navigator.geolocation) return void viaNetwork("No location support here.");
       navigator.geolocation.getCurrentPosition(async pos => {
         const r2 = n => Math.round(n * 100) / 100, loc = { lat: r2(pos.coords.latitude), lon: r2(pos.coords.longitude) }, r = await chrome.runtime.sendMessage({ type: "reverse", ...loc });
@@ -578,26 +595,37 @@
     const sr2 = el("div", "srow"); sr2.append(ql, go); out.className = "gout"; const gb = el("div", "gbox"); gb.append(placesBox, f1, phint, hint, sr2, out); main.append(gb); // search + button share a row on wide screens
   }
 
+  // Remove waits 5 s so Undo can bring the row back: nothing is sent to the background until then (it has no "restore").
+  let pendingRm = null;
+  const commitRm = async () => { const p = pendingRm; if (!p) return; pendingRm = null; clearTimeout(p.t); p.bar.remove(); await send({ type: "remove", key: p.k }).catch(() => {}); };
+  addEventListener("pagehide", () => { commitRm(); });
   async function drawTraps() {
-    const items = safeItems((await chrome.storage.local.get("items")).items), rows = Object.entries(items).filter(([, i]) => i.target || i.wish).sort((a, b) => !!b[1].target - !!a[1].target);
+    const items = safeItems((await chrome.storage.local.get("items")).items), rows = Object.entries(items).filter(([k, i]) => (i.target || i.wish) && !(pendingRm && pendingRm.k === k)).sort((a, b) => !!b[1].target - !!a[1].target);
+    const who = await send({ type: "whoami" }).catch(() => null);
+    if (who && !who.signedIn && await hasVault()) { const c = el("div", "vcard wait"), sb = el("button", "btn ghost", T.signIn); c.append(el("span", "vl", T.signedOutNote)); sb.onclick = openAccount; main.append(c, sb); }
     if (!rows.length) return main.append(el("p", "empty", T.emptyTraps));
     if (rows.length >= 3) {
-      const { waitlist } = await chrome.storage.local.get("waitlist"), w = el("div", "wl"), b = el("button", "btn", waitlist ? T.joined : T.join);
-      w.append(el("b", "", "Android app coming"), "Compare across the apps on your phone. If you are signed in we use your account email only to tell you when it launches."); b.onclick = async () => { await chrome.storage.local.set({ waitlist: true }); chrome.runtime.sendMessage({ type: "waitlist", gesture: gesture() }); b.replaceChildren(ico("check"), T.joined); b.firstChild.classList.add("ck"); burst(b); }; w.append(b); main.append(w);
+      const { waitlist } = await chrome.storage.local.get("waitlist"), signed = !!(who && who.signedIn), w = el("div", "wl"), b = el("button", "btn", waitlist ? T.joined : signed ? T.join : T.joinSignIn), wm = el("p", "wlm"); wm.setAttribute("role", "status"); b.disabled = !!waitlist;
+      w.append(el("b", "", "Android app coming"), "Compare across the apps on your phone. If you are signed in we use your account email only to tell you when it launches.");
+      b.onclick = async () => { if (!signed) return openAccount(); b.disabled = true; wm.textContent = ""; const r = await send({ type: "waitlist", gesture: gesture() }).catch(() => null); // only a reply that says ok counts as joined
+        if (r && r.ok) { await chrome.storage.local.set({ waitlist: true }); b.replaceChildren(ico("check"), T.joined); b.firstChild.classList.add("ck"); burst(b); } else { b.disabled = false; wm.textContent = T.joinFail; } };
+      w.append(b, wm); main.append(w);
     }
     const list = el("div", "wlist");
     for (const [k, it] of rows) {
       const s = it.hist.length ? stats(it.hist) : null, cp = s ? s.now : (it.last || 0), lc = lastChange(it.hist), d = el("div", "wrow");
       const top = el("div", "wtop"), img = el("img"); img.alt = ""; if (it.image) img.src = it.image;
-      const a = el("a", "", it.title || k); a.href = it.url; a.target = "_blank"; a.rel = "noopener";
+      const a = el("a", "", it.title || k); if (it.url) a.href = it.url; a.target = "_blank"; a.rel = "noopener";
       const p = el("div", "p num", cp ? fmt(cp) : "Open the product to see the price"); if (lc) p.append(el("span", "chg " + (lc.delta > 0 ? "up" : ""), `${lc.delta > 0 ? "+" : "−"}${fmt(Math.abs(lc.delta))}`));
       const t = el("div", "t"); t.append(a, p, el("div", "meta", it.site));
-      const x = el("button", "x"); x.append(ico("x")); x.setAttribute("aria-label", "Remove from watchlist"); x.onclick = async () => { await send({ type: "remove", key: k }); draw(); };
+      const x = el("button", "x"); x.append(ico("x")); x.setAttribute("aria-label", `Remove ${String(it.title || k).slice(0, 60)} from watchlist`);
+      x.onclick = async () => { await commitRm(); const bar = el("div", "undo"), ub = el("button", "", "Undo"); bar.setAttribute("role", "status"); bar.append(el("span", "", "Removed."), ub); panel.append(bar);
+        const t2 = setTimeout(async () => { await commitRm(); draw(); }, 5000); pendingRm = { k, bar, t: t2 }; ub.onclick = () => { clearTimeout(t2); pendingRm = null; bar.remove(); draw(); }; draw(); };
       top.append(img, t, x); d.append(top);
-      const line = el("div", "trap-line"), lab = el("span", "tl", "Trap");
-      if (it.target) { line.append(lab, stepper({ value: it.target, price: cp, onSave: async v => { const r = await send({ type: "track", key: k, target: v }); return r && r.error ? LIMIT_MSG : null; } }).el); }
-      else { const set = el("button", "btn ghost", "Set a trap"); set.onclick = async () => { if (!cp) return; const v = Math.max(1, Math.floor(cp * 0.95)); await send({ type: "track", key: k, target: v }); draw(); }; line.append(lab, set); }
-      d.append(line); list.append(d);
+      const line = el("div", "trap-line"), lab = el("span", "tl", "Alert price");
+      if (it.target) { line.append(lab, stepper({ value: it.target, price: cp, onSave: async v => failMsg(await send({ type: "track", key: k, target: v }).catch(() => null)) }).el); }
+      else { const set = el("button", "btn ghost", "Set price alert"); set.onclick = async () => { if (!cp) return; const v = Math.max(1, Math.floor(cp * 0.95)), f = failMsg(await send({ type: "track", key: k, target: v }).catch(() => null)); if (f) { set.textContent = f; return; } draw(); }; line.append(lab, set); }
+      d.append(line); if (!it.target && it.wish) d.append(el("p", "meta al", "Alerts you at a 10% drop")); if (it.notified > 0) d.append(hitEl(it)); list.append(d);
     }
     main.append(list);
   }
@@ -630,6 +658,7 @@
   // Amazon's own price-history answer appears inside the page when the user opens it. We read its text, nothing else, and remember the range for this product.
   if (S && dom === "amazon.in") {
     const featOff = async n => { try { const d = ((await chrome.storage.local.get("flags")).flags || {}).disabled_features; return Array.isArray(d) && d.includes(n); } catch { return false; } }, health = (event, reason) => send({ type: "ahist-health", event, reason }).catch(() => {}); // counters for Settings
+    let yearAt = 0; const amzPickYear = () => { try { const tab = [...document.querySelectorAll("#rufus-react-renderer [role=tab], #rufus-react-renderer button, #rufus-react-renderer span")].find(e => e.children.length === 0 && e.textContent.trim() === "1Y"); if (tab && tab.getAttribute("aria-selected") !== "true") tab.click(); } catch {} };
     let hrT = null; const pend = []; // every batch is kept: a later batch (for example the panel closing) must not discard the chart added just before it
     new MutationObserver(mu => { pend.push(...mu); if (pend.length > 500) pend.splice(0, pend.length - 500); clearTimeout(hrT); hrT = setTimeout(async () => { const muts = pend.splice(0);
       if (!cur || !cur.p || await featOff("chart-read")) return;
@@ -639,7 +668,8 @@
           const ch = ahParseChart(sv.outerHTML, Date.now()); if (!ch) { health("refused", "unreadable"); continue; } if (!ch.current || Math.abs(ch.current - cur.p.price) > 1) { health("refused", "other-product"); continue; } // must announce today's price on THIS product
           health("read");
           const r = await send({ type: "ahist", key: cur.p.key, range: ch.range, days: ch.days, points: ch.points, current: ch.current, offer: ch.offer, highest: ch.highest }).catch(() => null);
-          if (r && r.ok) { cur.it = r.it; idleRedraw(); health("stored"); } else health("refused", "price-mismatch"); } }
+          if (r && r.ok) { cur.it = r.it; idleRedraw(); health("stored"); } else health("refused", "price-mismatch");
+          if (r && r.ok && !ahBusy && ch.range !== "1Y" && Date.now() - yearAt > 8000) { yearAt = Date.now(); amzPickYear(); } } } // Amazon opens on 1M: ask for the full year so 30D / 90D / 1Y all have real data
       let found = null;
       for (const m of muts) for (const n of m.addedNodes) { const el1 = n.nodeType === 1 ? n : n.parentElement, t = n.nodeType === 1 ? n.textContent : n.nodeType === 3 ? n.nodeValue : "";
         if (!t || t.length >= 4000 || !/ranged from/i.test(t) || !el1 || (el1.closest && el1.closest(HISTORY_UNTRUSTED)) || (n.nodeType === 1 && n.querySelector && n.querySelector(HISTORY_UNTRUSTED))) continue;

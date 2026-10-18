@@ -5,7 +5,8 @@ const SITES = {
       // Newer phone pages leave .a-offscreen blank and only draw the digits: read the visible whole-rupee part.
       ".priceToPay .a-price-whole", "#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-price-whole", "#apex_desktop .a-price:not(.a-text-price) .a-price-whole", "#corePrice_feature_div .a-price:not(.a-text-price) .a-price-whole"],
     mrp: [".basisPrice .a-offscreen", ".a-text-price .a-offscreen"], image: ["#landingImage"], search: "https://www.amazon.in/s?k=" },
-  "flipkart.com": { name: "Flipkart", id: u => u.searchParams.get("pid"), title: [], price: [], mrp: [], image: [], search: "https://www.flipkart.com/search?q=" },
+  "flipkart.com": { name: "Flipkart", id: u => { const p = u.searchParams.get("pid"); return /^[A-Za-z0-9]{1,40}$/.test(p || "") ? p : undefined; }, // pid comes from the address bar: only a plain id becomes a product key
+    title: [], price: [], mrp: [], image: [], search: "https://www.flipkart.com/search?q=" },
   "myntra.com": { name: "Myntra", id: u => (u.pathname.match(/\/(\d+)\/buy/) || [])[1], title: [], price: [], mrp: [], image: [], search: "https://www.myntra.com/" },
 };
 // Verified extra shops (sites-extra.js loads first). JSON-LD/meta + the generic struck-through MRP finder do the extraction.
@@ -49,7 +50,7 @@ function stats(hist) {
 }
 // "500 g", "1 kg", "2 x 500 ml", "6 pcs" -> {amt, unit} in g / ml / pc
 function parsePack(t) {
-  const m = String(t || "").toLowerCase().replace(/,/g, "").replace(/\b[2-6]g\b/g, " ").match(/(?:(\d+)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*(kg|g|gm|ltr|l|ml|pcs|pc|piece|pieces|unit|units)\b/);
+  const m = String(t || "").slice(0, 300).toLowerCase().replace(/,/g, "").replace(/\b[2-6]g\b/g, " ").match(/(?:(\d{1,4})\s*[x×]\s*)?(\d{1,6}(?:\.\d{1,3})?)\s*(kg|g|gm|ltr|l|ml|pcs|pc|piece|pieces|unit|units)\b/);
   if (!m) return null;
   const k = { kg: ["g", 1000], g: ["g", 1], gm: ["g", 1], l: ["ml", 1000], ltr: ["ml", 1000], ml: ["ml", 1] }[m[3]] || ["pc", 1];
   return { amt: (m[1] ? +m[1] : 1) * parseFloat(m[2]) * k[1], unit: k[0] };
@@ -92,7 +93,7 @@ function smartLinks(title, here) {
 // Community daily medians + your own observations. Your own day always wins; result sorted by time.
 function mergeHistory(local, rows) {
   const day = t => new Date(t).toISOString().slice(0, 10), mine = new Set(local.map(h => day(h[0])));
-  const comm = (rows || []).filter(r => !mine.has(r.day) && +r.median_price > 0).map(r => [Date.parse(r.day + "T12:00:00Z"), +r.median_price]);
+  const comm = (Array.isArray(rows) ? rows : []).filter(r => r && typeof r === "object" && !mine.has(r.day) && +r.median_price > 0 && +r.median_price < 1e7 && isFinite(Date.parse(r.day + "T12:00:00Z"))).map(r => [Date.parse(r.day + "T12:00:00Z"), +r.median_price]);
   return [...comm, ...local].sort((a, b) => a[0] - b[0]);
 }
 
@@ -105,7 +106,7 @@ function validateTrap(raw, price) {
   const v = typeof raw === "number" ? raw : parseFloat(String(raw).replace(/[₹,\s]/g, ""));
   if (!isFinite(v) || v <= 0) return { ok: false, msg: "Enter a price above ₹0" };
   if (v >= 1e7) return { ok: false, msg: "That's too high" };
-  if (price && v >= price) return { ok: false, msg: "Trap must be below the current price" };
+  if (price && v >= price) return { ok: false, msg: "Alert price must be below today's price" };
   return { ok: true, value: Math.round(v) };
 }
 // Rows for the chart/stats over a window. The price in force at the window start is carried in (clamped to the start) so the step line begins correctly.
@@ -123,35 +124,48 @@ function downsample(h, max = 200) {
 }
 // Compact Indian-grouped amount for the notch pill: ₹64, ₹1,23,456, ₹1Cr+
 const notchAmount = n => { const a = Math.abs(Math.round(n)); return a >= 1e7 ? "₹" + Math.floor(a / 1e7) + "Cr+" : "₹" + a.toLocaleString("en-IN"); };
+// ---- storage boundary: ONE normaliser for every string that came from a page or the server (guard.js sanitizeText is the same rule for the message path) ----
+// Strips control, bidi, zero-width, tag and lone-surrogate characters, collapses whitespace, caps the length. Never throws; non-string/number input becomes "".
+const _BAD_CH = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff\u{e0000}-\u{e007f}\ud800-\udfff]/gu; // /u: only UNPAIRED surrogates match. U+200C/U+200D (ZWNJ/ZWJ) stay: Indic conjuncts and emoji sequences need them (the database keeps them too)
+const cleanText = (s, max = 500) => (typeof s === "string" || typeof s === "number" ? String(s) : "").replace(_BAD_CH, " ").replace(/\s+/g, " ").trim().slice(0, max).replace(/[\ud800-\udfff]/gu, "").trim();
+// https only, must parse, no user:pass@, no javascript:/data:/blob:/http:. Returns the normalised href (ASCII only: the parser percent-encodes and punycodes) or null.
+function cleanUrl(s, max = 2000) {
+  if (typeof s !== "string" || s.length > max * 3) return null; let u; try { u = new URL(s.trim()); } catch { return null; }
+  if (u.protocol !== "https:" || !u.hostname || u.username || u.password) return null; const h = u.href.replace(/'/g, "%27"); return h.length <= max ? h : null; // the database refuses a raw apostrophe in a link
+}
+// Names that must never be dictionary keys: "__proto__", "constructor", "toString"... would hit Object.prototype on a plain {} (prototype pollution). Keys come from the address bar and from server rows.
+// Same character class as the database key CHECK (and guard.js key()): control, space, bidi, invisible, tag characters and the quote/angle/backslash characters that break out of HTML or SQL text.
+const _BAD_KEY = /[\u0000-\u0020\u007f-\u00a0\u00ad\u1680\u2000-\u200a\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u202f\u205f\u2060-\u2064\u2066-\u2069\u3000\ufeff\u{e0000}-\u{e007f}\ud800-\udfff"'`<>\\]/u;
+const okKey = k => typeof k === "string" && k.length > 0 && k.length <= 200 && !(k in Object.prototype) && k !== "prototype" && !_BAD_KEY.test(k);
+const planOf = p => ["free", "pro", "max"].includes(p) ? p : "free"; // must list the tiers of LIMITS (analysis.js; a unit test compares them)
 // Normalises a scraped product into exactly the shape the background accepts (see guard.js). Returns null when it can't be tracked safely.
 function cleanProduct(p) {
   if (!p || typeof p !== "object") return null;
-  const txt = (s, max) => String(s == null ? "" : s).replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028\u2029\u202a-\u202e\ufeff]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
-  const https = s => typeof s === "string" && s.length <= 2000 && /^https:\/\//i.test(s) ? s : null;
+  const txt = cleanText, https = s => cleanUrl(s);
   const price = Number(p.price), mrp = Number(p.mrp), key = txt(p.key, 200), url = https(p.url);
-  if (!key || !url || !isFinite(price) || price <= 0 || price >= 1e7) return null;
+  if (!okKey(key) || !url || !isFinite(price) || price <= 0 || price >= 1e7) return null;
   return { key, site: txt(p.site, 60), url, title: txt(p.title, 500), image: https(p.image), price, mrp: isFinite(mrp) && mrp > price && mrp < 1e7 ? mrp : null, src: ["jsonld", "dom", "meta"].includes(p.src) ? p.src : "dom", brand: txt(p.brand, 60) || undefined, mpn: txt(p.mpn, 40) || undefined, seller: p.seller && typeof p.seller === "object" && txt(p.seller.name, 80) ? { name: txt(p.seller.name, 80), ships: txt(p.seller.ships, 60), text: txt(p.seller.text, 200), href: txt(p.seller.href, 300) } : null };
 }
 // ---- S3 safe readers: persisted data may be old, hand-edited or corrupted. They repair on read and never throw. Unknown fields are preserved. ----
 const _uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now());
 function safeItem(it) {
   if (!it || typeof it !== "object" || Array.isArray(it)) return null;
-  const out = { ...it };
+  const out = { ...it }; for (const k of ["__proto__", "constructor", "prototype"]) if (Object.hasOwn(out, k)) delete out[k]; // a stored/synced object may carry these as plain own keys
   out.hist = (Array.isArray(it.hist) ? it.hist : []).filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]) && +p[1] > 0).map(p => [+p[0], +p[1]]).sort((a, b) => a[0] - b[0]).slice(-2000);
   out.wish = !!it.wish;
-  for (const k of ["site", "title"]) if (typeof out[k] !== "string") delete out[k];
-  for (const k of ["url", "image"]) if (typeof out[k] !== "string" || !/^https:\/\//i.test(out[k])) delete out[k];
+  for (const [k, n] of [["site", 60], ["title", 500], ["seller", 80]]) if (typeof out[k] !== "string") delete out[k]; else out[k] = cleanText(out[k], n);
+  for (const k of ["url", "image"]) { const u = typeof out[k] === "string" ? cleanUrl(out[k]) : null; if (u) out[k] = u; else delete out[k]; }
   if (!(+out.target > 0 && +out.target < 1e7)) delete out.target; else out.target = +out.target;
   return out;
 }
 function safeItems(raw) {
   const out = {}; if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
-  for (const [k, v] of Object.entries(raw)) { if (!k || k.length > 200) continue; const s = safeItem(v); if (s) out[k] = s; }
+  for (const [k, v] of Object.entries(raw)) { if (!okKey(k)) continue; const s = safeItem(v); if (s) out[k] = s; }
   return out;
 }
 // Remote kill switch (data only): flags.disabled_features may contain "chart-read", "chart-upload", "chart-auto", "bg-upload".
 const featureOff = (flags, name) => !!(flags && Array.isArray(flags.disabled_features) && flags.disabled_features.includes(name));
-const safeOutbox = raw => (Array.isArray(raw) ? raw : []).filter(o => o && typeof o === "object" && (o.t === "watch" || o.t === "obs" || (o.t === "chart" && Array.isArray(o.series) && o.series.length >= 2 && o.series.length <= 130 && o.series.every(q => Array.isArray(q) && q.length === 2 && isFinite(q[0]) && isFinite(q[1])))) && typeof o.key === "string" && o.key.length <= 200).map(o => (typeof o.id === "string" && o.id ? o : { ...o, id: _uid() })).slice(-500);
+const safeOutbox = raw => (Array.isArray(raw) ? raw : []).filter(o => o && typeof o === "object" && (o.t === "watch" || (o.t === "obs" && Number.isFinite(o.at) && Number.isFinite(o.price) && o.price > 0 && o.price < 1e7) || (o.t === "chart" && Array.isArray(o.series) && o.series.length >= 2 && o.series.length <= 130 && o.series.every(q => Array.isArray(q) && q.length === 2 && isFinite(q[0]) && isFinite(q[1])))) && typeof o.key === "string" && o.key.length <= 200).map(o => (typeof o.id === "string" && o.id ? o : { ...o, id: _uid() })).slice(-500);
 const safeUsage = raw => raw && typeof raw === "object" && typeof raw.month === "string" && Array.isArray(raw.keys) ? { month: raw.month, keys: raw.keys.filter(k => typeof k === "string").slice(0, 5000) } : null;
 // The Product tab's heart/trap must mirror the stored watchlist (it changes from the Watchlist tab, another tab, or a sync). Missing item = not wished, no trap.
 function withStoredFlags(it, items, key) { const st = (items && items[key]) || {}, o = { ...it, wish: !!st.wish }; if (st.target) o.target = st.target; else delete o.target; return o; }
@@ -171,7 +185,7 @@ function packChips(items) { const n = {}; for (const i of items) if (i.pack) n[i
 const filterPack = (items, pack) => pack ? items.filter(i => i.pack === pack) : items;
 // ---- saved delivery places (Home, Mom's house, Office): pure, never mutate, always return a clean list ----
 const MAX_PLACES = 8, PIN6 = /^\d{6}$/;
-const cleanName = n => String(n == null ? "" : n).replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 24);
+const cleanName = n => cleanText(typeof n === "string" ? n.replace(/[<>]/g, " ") : n, 24);
 function safePlaces(v) {
   const out = [], seen = new Set(); if (!Array.isArray(v)) return out;
   for (const p of v) { if (!p || typeof p !== "object") continue; const name = cleanName(p.name), pin = String(p.pin || ""), id = typeof p.id === "string" && /^[\w-]{1,20}$/.test(p.id) ? p.id : null;
@@ -200,4 +214,4 @@ const locConsistent = (loc, centroid, maxKm = 40) => !loc || !centroid || typeof
 const canRedraw = ({ open, tab, typing }) => !!open && tab === "product" && !typing;
 // Pincode field next to "Use my location": clean = nothing to save, dirty = a different valid pincode waiting for the sync icon, bad = not 6 digits.
 const pinFieldState = (draft, saved) => { const d = String(draft == null ? "" : draft).trim(); return !PIN6.test(d) ? "bad" : d === saved ? "clean" : "dirty"; };
-if (typeof module !== "undefined") module.exports = { featureOff, pinFieldState, canRedraw, MAX_PLACES, safePlaces, addPlace, updatePlace, removePlace, placeForPin, distKm, locConsistent, sortGrocery, packChips, filterPack, withStoredFlags, liveUpdate, safeItem, safeItems, safeOutbox, safeUsage, cleanProduct, trapStep, validateTrap, sliceHistory, downsample, notchAmount, mergeHistory, smartLinks, parsePack, unitPrice, SITES, siteFor, num, parseLd, addPoint, stats };
+if (typeof module !== "undefined") module.exports = { planOf, cleanText, cleanUrl, okKey, featureOff, pinFieldState, canRedraw, MAX_PLACES, safePlaces, addPlace, updatePlace, removePlace, placeForPin, distKm, locConsistent, sortGrocery, packChips, filterPack, withStoredFlags, liveUpdate, safeItem, safeItems, safeOutbox, safeUsage, cleanProduct, trapStep, validateTrap, sliceHistory, downsample, notchAmount, mergeHistory, smartLinks, parsePack, unitPrice, SITES, siteFor, num, parseLd, addPoint, stats };

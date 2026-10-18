@@ -19,12 +19,12 @@ export async function poll(fn, timeout = 10000, every = 250) {
 
 // Runs fn({ctx, sw, errs, reqs}) in a throwaway profile, always cleaning up.
 export async function withExt(opts, fn) {
-  const { viewport = { width: 1280, height: 900 }, colorScheme, geolocation, anonKey, keepWelcome } = opts || {};
+  const { viewport = { width: 1280, height: 900 }, colorScheme, geolocation, anonKey, keepWelcome, scale } = opts || {};
   const dir = mkdtempSync(path.join(tmpdir(), "hauls-e2e-"));
   // anonKey: run a temp COPY of extension/ whose config.js carries a dummy anon key (the repo ships it empty). The real source is never touched.
   let extDir = EXT;
   if (anonKey !== undefined) { extDir = path.join(dir, "ext-copy"); cpSync(EXT, extDir, { recursive: true }); const f = path.join(extDir, "config.js"); writeFileSync(f, readFileSync(f, "utf8").replace(/("SUPABASE_ANON_KEY":\s*)"[^"]*"/, `$1"${anonKey}"`)); }
-  const ctx = await chromium.launchPersistentContext(path.join(dir, "profile"), { headless: false, executablePath: CHROME, viewport, colorScheme,
+  const ctx = await chromium.launchPersistentContext(path.join(dir, "profile"), { headless: false, executablePath: CHROME, viewport, colorScheme, ...(scale ? { deviceScaleFactor: scale } : {}),
     args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, "--no-first-run", "--no-default-browser-check", ...headlessArgs(), ...(process.env.HAULS_ARGS || "").split(" ").filter(Boolean)] });
   const errs = [], reqs = [];
   try {
@@ -44,5 +44,5 @@ export async function withExt(opts, fn) {
 export const seed = (sw, data) => sw.evaluate(d => chrome.storage.local.set(d), data);
 export const store = (sw, keys) => sw.evaluate(k => chrome.storage.local.get(k), keys);
 // The auth session lives in the service worker's IndexedDB (sessionStore in auth.js), not chrome.storage.
-export const seedSession = (sw, s) => sw.evaluate(v => sessionStore.set(v), s);
+export const seedSession = (sw, s) => sw.evaluate(async v => { await sessionStore.set(v); if (v && v.user) await chrome.storage.local.set({ localOwner: v.user.id }); }, s); // sync only runs for data tagged with the signed-in account
 export const sessionOf = sw => sw.evaluate(() => sessionStore.get());

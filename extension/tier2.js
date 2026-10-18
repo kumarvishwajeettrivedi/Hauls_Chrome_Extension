@@ -1,7 +1,7 @@
 // Tier 2: stores whose search can only be read from their own page (signed requests / bot protection).⁠​‌‌‌​‌‌​​‌‌​‌​​‌​‌‌‌​​‌‌​‌‌​‌​​​​‌‌‌​‌‌‌​‌‌​​​​‌​‌‌​‌​‌​​‌‌​​‌​‌​‌‌​​‌​‌​‌‌‌​‌​​​​‌‌‌​‌​​​‌‌‌​​‌​‌‌​​​‌​​​‌‌‌​​‌​​‌‌​‌‌‌​​‌‌​​​​​​‌‌‌​​‌​​‌‌​​‌‌​​‌‌​​‌​⁡
 // HAULS opens the store's search page in a background tab the USER connected, copies the page's own search response via t2-hook.js, and closes the tab.
 // Everything here is local; nothing is sent anywhere. Parsers are added per store only after a real response has been inspected (see Test in Settings).
-const T2_BUILD = "2026-10-18.r34"; // bump when the background code changes; Settings compares it to detect a stale background
+const T2_BUILD = "2026-10-18.r35"; // bump when the background code changes; Settings compares it to detect a stale background
 const T2 = (() => {
   const STORES = {
     Zepto: { origins: ["https://*.zepto.com/*"], hosts: ["zepto.com"], search: q => "https://www.zepto.com/search?query=" + encodeURIComponent(q) + "&haulsprobe=1" },
@@ -24,7 +24,7 @@ const T2 = (() => {
     if (typeof v === "string") return safeStr(v);
     if (d >= max) return "…";
     if (Array.isArray(v)) return v.length ? { [`[${v.length}]`]: shapeOf(v[0], d + 1, max) } : [];
-    const o = {}; for (const k of Object.keys(v).slice(0, 40)) o[k] = shapeOf(v[k], d + 1, max); return o;
+    const o = {}; for (const k of Object.keys(v).slice(0, 40)) if (k !== "__proto__") o[k] = shapeOf(v[k], d + 1, max); return o; // JSON.parse makes "__proto__" an own key: assigning it would swap o's prototype
   }
   const PRICE_KEYS = ["sellingPrice", "selling_price", "offerPrice", "offer_price", "discountedPrice", "price"], MRP_KEYS = ["mrp", "maxPrice", "marked", "mrpPrice"];
   const numish = x => typeof x === "number" ? x : typeof x === "string" && /^\d+(\.\d+)?$/.test(x) ? +x : x && typeof x === "object" ? numish(x.value ?? x.offer_price ?? x.price) : undefined;
@@ -178,7 +178,7 @@ const T2 = (() => {
     for (const t of j.tabs) for (const p of (t && t.product_info && t.product_info.products) || []) {
       const d = p && p.pricing && p.pricing.discount, sp = parseFloat(d && d.prim_price && d.prim_price.sp), mrp = parseFloat(d && d.mrp); if (!(sp > 0) || typeof p.desc !== "string") continue;
       out.push({ store: "BigBasket", name: p.desc, brand: p.brand && p.brand.name, price: sp, mrp: mrp > sp ? mrp : null, pack: p.w || (p.magnitude ? `${p.magnitude} ${p.unit || ""}`.trim() : null),
-        inStock: !!p.availability && p.availability.avail_status === "001" && p.availability.not_for_sale !== true, image: img(Array.isArray(p.images) ? p.images[0] : null), url: typeof p.absolute_url === "string" ? "https://www.bigbasket.com" + p.absolute_url : null, confirmed: true }); }
+        inStock: !!p.availability && p.availability.avail_status === "001" && p.availability.not_for_sale !== true, image: img(Array.isArray(p.images) ? p.images[0] : null), url: typeof p.absolute_url === "string" && /^\/[^/\\@]/.test(p.absolute_url) ? "https://www.bigbasket.com" + p.absolute_url : null, confirmed: true }); }
     return out;
   }
   function bigBasketLocation(cap) {

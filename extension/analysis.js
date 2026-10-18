@@ -32,10 +32,17 @@ function dealStrength(hist, price, mrp, now = Date.now()) {
 // How soon the shopper needs it moves only the middle band: a fair price is fine in 2-3 days, but not worth buying if a month can be waited.
 const HORIZONS = [["3d", "2-3 days"], ["1w", "1 week"], ["1m", "1 month"]];
 function horizonVerdict(v, horizon) { return v === "okay" && horizon === "3d" ? "buy" : v === "okay" && horizon === "1m" ? "wait" : v; }
-function buyWait(hist, price, mrp, now = Date.now(), ref = null, horizon = "1w") { const r = buyWait0(hist, price, mrp, now, ref), v = horizonVerdict(r.verdict, horizon);
-  if (v === r.verdict) return r;
-  const alertAt = r.deal && r.deal.w ? Math.round(r.deal.w.min * 1.03) : ref ? Math.round(ref.low * 1.03) : null, hz = HORIZONS.find(h => h[0] === horizon)[1];
-  return { ...r, verdict: v, title: { buy: "Good time to buy", wait: "Wait if you can" }[v], short: v === "buy" ? `Fair price. Fine if you need it in ${hz}.` : `Fair, but you can wait ${hz} for a lower price.`, reasons: [`You need it in ${hz}.`, ...r.reasons], alertAt: v === "wait" && alertAt && alertAt < price ? alertAt : null };
+// Share of the last 90 days (time-weighted) when this product cost clearly less than it does now.
+const cheaperShare = (hist, price, now) => { const p = hist.filter(h => h[0] >= now - 90 * DAY); if (p.length < 2) return null; let tot = 0, ch = 0; p.forEach((h, i) => { const d = (i + 1 < p.length ? p[i + 1][0] : now) - h[0]; tot += d; if (h[1] < price * 0.99) ch += d; }); return tot ? Math.round(ch / tot * 100) : null; };
+// The horizon changes the advice, not just the label: 2-3 days cannot wait for a sale, a month can. "1 week" is the base verdict.
+function buyWait(hist, price, mrp, now = Date.now(), ref = null, horizon = "1w") {
+  const r = buyWait0(hist, price, mrp, now, ref); if (horizon === "1w") return r;
+  const hz = HORIZONS.find(h => h[0] === horizon)[1], low = r.deal && r.deal.w ? r.deal.w.min : ref ? ref.low : null, near = !!low && price <= low * 1.02, alertTo = low ? Math.round(low * 1.03) : null;
+  let v = r.verdict, short = r.short;
+  if (horizon === "3d") { if (v === "okay") { v = "buy"; short = `Fair price. Fine if you need it in ${hz}.`; } else if (v === "wait") short = `Pricey, and a drop may not come in ${hz}. Buy only if you must.`; }
+  else { if (v === "okay") { v = "wait"; short = `Fair, but you can wait ${hz} for a lower price.`; } else if (v === "buy") { if (near) short = `At its low. Waiting ${hz} is unlikely to beat it.`; else { v = "okay"; short = `Good price, but you have ${hz}. A lower one may come.`; } } else short = `High right now. ${hz} is long enough for a sale.`; }
+  const cs = cheaperShare(hist, price, now);
+  return { ...r, verdict: v, title: { buy: "Good time to buy", okay: "Fair price", wait: "Wait if you can" }[v], short, reasons: [`You need it in ${hz}.`, ...(cs != null ? [cs === 0 ? "Not cheaper at any point in the last 90 days." : `It was cheaper on ${cs}% of the last 90 days.`] : []), ...r.reasons], alertAt: v !== "buy" && alertTo && alertTo < price ? alertTo : null };
 }
 function buyWait0(hist, price, mrp, now = Date.now(), ref = null) {
   const d = dealStrength(hist, price, mrp, now), w = d.w;
@@ -54,7 +61,7 @@ function buyWait0(hist, price, mrp, now = Date.now(), ref = null) {
   if (d.adv >= 0.25 && d.badge === "weak") reasons.push(`The advertised ${Math.round(d.adv * 100)}% off is measured against the listed MRP, not recent observed prices.`);
   if (verdict === "wait" && price > w.min) reasons.push(`It was ${inr(price - w.min)} cheaper at its lowest.`);
   reasons.push(`Based on ${w.n} observations over ${w.days} days (${d.coverage} coverage). Observed by this extension, not seller-verified.`);
-  return { verdict, title: { buy: "Good time to buy", wait: "Wait if you can", okay: "Fair price" }[verdict], short: { buy: near ? "Near its lowest. Grab it." : "Well below usual. Grab it.", wait: pump ? "Price was pumped before this drop." : "Above its usual. Hold off.", okay: "Fair price right now." }[verdict], reasons, deal: d };
+  return { verdict, title: { buy: "Good time to buy", wait: "Wait if you can", okay: "Fair price" }[verdict], short: { buy: near ? "Near its lowest. Grab it." : "Well below usual. Grab it.", wait: pump ? "Price was pumped before this drop." : d.badge === "higher" ? "Above its usual. Hold off." : "Well above its lowest. Hold off.", okay: "Fair price right now." }[verdict], reasons, deal: d };
 }
 
 // Amazon's own price-history answer, as the user sees it: "Over the past 30 days, the price of X has ranged from ₹499 to ₹579. The current price is ₹499, the lowest in the past 30 days."
@@ -80,11 +87,14 @@ const refUsable = (ref, price, now = Date.now()) => !!(ref && ref.low > 0 && ref
 
 // Alert rule (pure). Fires once when the price is at/below the target after having been above it (or after the target was set below the price).
 // armed: false while the target was set at/above the current price, so setting a target never alerts instantly; it re-arms once the price is above target.
-function alertDecision(it, price) {
-  if (!it || !(it.target > 0) || !(price > 0)) return { fire: false, patch: {} };
-  if (price > it.target) return { fire: false, patch: it.armed === true && it.notified == null ? {} : { armed: true, notified: null } };
-  const fire = it.armed !== false && it.notified !== price && (it.notified == null || price < it.notified);
-  return { fire, patch: fire ? { notified: price } : {} };
+function alertDecision(it, price, now = Date.now()) {
+  // line = the user's target; a heart without one alerts at a 10% drop from the price it was hearted at (it.wishPrice). Re-arming needs the price 3% above the line (a flicker around it is not a new alert);
+  // one alert per product per 6 h unless the price falls a further 3% below the last alerted one. Returns the line as `target` so callers (message, email, tracker) use the same number.
+  const line = it && it.target > 0 ? it.target : it && it.wish && it.wishPrice > 0 ? Math.round(it.wishPrice * 0.9) : 0;
+  if (!(line > 0) || !(price > 0)) return { fire: false, patch: {}, target: 0 };
+  if (price > line) return { fire: false, patch: price < line * 1.03 || (it.armed === true && it.notified == null) ? {} : { armed: true, notified: null }, target: line };
+  const cool = it.notifiedAt > 0 && now - it.notifiedAt < 6 * 3600e3, fire = it.armed !== false && it.notified !== price && (it.notified == null || price < it.notified) && !(cool && !(it.notified != null && price < it.notified * 0.97));
+  return { fire, patch: fire ? { notified: price, notifiedAt: now } : {}, target: line };
 }
 
 // Deal Scanner: a 0-100 score from observed prices only. Rows carry earned/max points so the card can show exactly why.
@@ -99,11 +109,19 @@ function pumpCheck(hist, price, now = Date.now()) {
   return peak[1] >= base * 1.15 && price <= base * 1.03 ? { base, peak: peak[1], at: peak[0] } : null;
 }
 // "X% off" vs what this product really sold for: the time-weighted 90-day typical price, from our own history only (null until there is enough of it).
+// Any claim (for or against the MRP) needs 14+ days and 8+ prices behind it; below that it returns null. `days` says how long the history is. The price in force at the window start is carried in, so a long-held older price counts.
 function honestDiscount(hist, price, mrp, now = Date.now()) {
-  if (!(price > 0) || coverage(windowStats(hist, now)) === "insufficient") return null;
-  const typical = twMedian(hist, now - 90 * DAY, now); if (!typical) return null;
+  const w = windowStats(hist, now); if (!(price > 0) || !w || w.n < 8 || w.days < 14) return null;
+  const from = now - 90 * DAY, before = hist.filter(h => h[0] < from).pop(), typical = twMedian(before ? [[from, before[1]], ...hist.filter(h => h[0] >= from)] : hist, from, now); if (!typical) return null;
   const real = Math.round((typical - price) / typical * 100), claimed = mrp && mrp > price ? Math.round((mrp - price) / mrp * 100) : 0;
-  return { claimed, real, typical, inflated: claimed >= 10 && real <= claimed - 15 };
+  return { claimed, real, typical, days: w.days, n: w.n, inflated: claimed >= 10 && real <= claimed - 15 };
+}
+// The one line under the price about the MRP discount, from the same numbers and tone as the Deal label and verdict card. Never says "not a real discount" next to a Real Deal / Buy, and always says how many days it is based on. null = say nothing.
+function discountNote(hd, tone, verdict) {
+  if (!hd || !tone || tone === "unknown") return null;
+  const basis = ` (based on ${hd.days} days)`, soft = tone === "real" || verdict === "buy";
+  if (hd.inflated) return hd.real > 0 ? `really ${hd.real}% below its usual ${inr(hd.typical)}${basis}` : soft ? `usually ${inr(hd.typical)}, not the MRP${basis}` : `usually ${inr(hd.typical)}, not a real discount${basis}`;
+  return hd.claimed >= 10 && hd.real > 0 ? `${hd.real}% below its usual price${basis}` : null;
 }
 function dealScan(hist, price, mrp, now = Date.now(), ref = null) {
   const w = windowStats(hist, now), cov = coverage(w);
@@ -197,6 +215,7 @@ const priceConfidence = (source, price, mrp) =>
 const LIMITS = { free: { lookups: 50, tracked: 20 }, pro: { lookups: 500, tracked: 200 }, max: { lookups: Infinity, tracked: Infinity } };
 const monthKey = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
 function useLookup(usage, key, plan = "free", now = new Date()) {
+  if (typeof plan !== "string" || !Object.hasOwn(LIMITS, plan)) plan = "free"; // an unknown stored/synced tier (or "__proto__") is the free tier: never a crash, never a bypass
   const u = usage && usage.month === monthKey(now) ? { month: usage.month, keys: [...usage.keys] } : { month: monthKey(now), keys: [] };
   if (u.keys.includes(key)) return { usage: u, allowed: true, used: u.keys.length, limit: LIMITS[plan].lookups };
   if (u.keys.length >= LIMITS[plan].lookups) return { usage: u, allowed: false, used: u.keys.length, limit: LIMITS[plan].lookups };
@@ -209,4 +228,4 @@ function lastChange(hist) {
   for (let i = n - 2; i >= 0; i--) if (hist[i][1] !== cur) return { delta: cur - hist[i][1], pct: (cur - hist[i][1]) / hist[i][1], from: hist[i][1], at: hist[i][0] };
   return null;
 }
-if (typeof module !== "undefined") module.exports = { honestDiscount, twMedian, sellerTier, HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, priceConfidence, useLookup, LIMITS, inr, DAY };
+if (typeof module !== "undefined") module.exports = { honestDiscount, discountNote, twMedian, sellerTier, HORIZONS, horizonVerdict, sellerSignals, alertDecision, sellerScore, historyTextTrusted, HISTORY_UNTRUSTED, parseAmazonHistoryText, refUsable, sellerInfo, sellerChange, dealScan, pumpCheck, lastChange, windowStats, dealStrength, buyWait, priceConfidence, useLookup, LIMITS, inr, DAY };

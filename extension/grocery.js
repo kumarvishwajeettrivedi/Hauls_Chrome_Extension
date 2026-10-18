@@ -132,8 +132,10 @@ function unitLabel(price, p) {
 function rank(items, q) {
   const words = q.toLowerCase().split(/\W+/).filter(w => w.length >= 2 && !/^\d/.test(w) && !STOP.has(w)), want = parsePack(q);
   const seen = new Set(), rows = [];
-  for (const i of items) {
-    if (!(i.price > 0)) continue;
+  for (let i of items) {
+    if (!i || typeof i !== "object" || !(i.price > 0) || !isFinite(i.price)) continue;
+    // third-party rows (store JSON / hidden pages) are untrusted: plain bounded text, https-only links and images, before anything renders them
+    i = { ...i, name: cleanText(i.name, 200), brand: i.brand == null ? i.brand : cleanText(i.brand, 80), pack: i.pack == null ? i.pack : cleanText(i.pack, 60), image: cleanUrl(i.image), url: cleanUrl(i.url) };
     const p = parsePack(i.pack || i.name), key = [i.store, ((i.brand || "") + " " + (i.name || "")).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(), packKey(p), i.price].join("|");
     if (seen.has(key)) continue; seen.add(key);
     const hay = ((i.brand || "") + " " + (i.name || "")).toLowerCase(), score = words.length ? words.filter(w => new RegExp("\\b" + w + "(?:s|es)?\\b").test(hay)).length / words.length : 1;
@@ -180,7 +182,7 @@ async function groceryAt(q, loc, opts) {
 // Approximate (city-level) location from the network, used only when the browser has no GPS. ponytail: third-party lookup, disclosed in the UI.
 async function ipLocate() {
   const d = await (await fetch("https://ipwho.is/")).json();
-  return d.success ? { pin: /^\d{6}$/.test(String(d.postal || "")) ? String(d.postal) : "", lat: d.latitude, lon: d.longitude, city: d.city } : {};
+  return d && d.success ? { pin: /^\d{6}$/.test(String(d.postal || "")) ? String(d.postal) : "", lat: Number.isFinite(d.latitude) ? d.latitude : undefined, lon: Number.isFinite(d.longitude) ? d.longitude : undefined, city: cleanText(d.city, 60) } : {};
 }
 const reverseCached = (lat, lon) => _c.wrap("rev", `${(+lat).toFixed(3)},${(+lon).toFixed(3)}`, 30 * GROCERY_DAY, () => reverseGeocode(lat, lon));
 async function reverseGeocode(lat, lon) {

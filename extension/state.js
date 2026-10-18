@@ -31,14 +31,22 @@ async function invalidate(reason, { st = chrome.storage.local, cacheApi = typeof
   if (keys.length) await st.remove(keys);
   return { ok: true, cleared, removed: keys };
 }
-// Soft budget for chrome.storage.local (hard quota is 10 MB). Over 80%: evict caches in this order until under; user content is never touched.
-const STORAGE_BUDGET = 5 * 1024 * 1024, EVICT_ORDER = ["cache:grocery", "histCache", "cache:hist", "cache:geo", "cache:dmart", "cache:flags"];
+// Soft budget for chrome.storage.local (hard quota is 10 MB). Over 80%: evict in this order until under: caches, shared charts, community history, old backups, then vaults (expired first, then the oldest).
+// Items and the outbox are never touched here (housekeeping drops look-only products as a last resort).
+const STORAGE_BUDGET = 5 * 1024 * 1024, EVICT_ORDER = ["cache:grocery", "chartCache", "histCache", "cache:hist", "cache:geo", "cache:dmart", "cache:flags"], BAK_TTL = 7 * 864e5;
 async function enforceBudget({ st = chrome.storage.local, budget = STORAGE_BUDGET, cacheApi = typeof cache !== "undefined" ? cache : null } = {}) {
   const before = await st.getBytesInUse(null), limit = budget * 0.8, evicted = [];
   if (before <= limit) return { before, after: before, evicted, over: false };
-  let now = before;
-  for (const k of EVICT_ORDER) { if (now <= limit) break; if (cacheApi && k.startsWith("cache:")) await cacheApi.clear(k.slice(6)); await st.remove(k); evicted.push(k); now = await st.getBytesInUse(null); }
-  return { before, after: now, evicted, over: now > limit }; // over:true = user content alone is above the soft budget; we never delete it
+  const all = await st.get(null), vttl = typeof VAULT_TTL === "number" ? VAULT_TTL : 30 * 864e5, now = Date.now();
+  const vaults = Object.keys(all).filter(k => k.startsWith("vault:")).sort((a, b) => ((now - ((all[a] || {}).at || 0) > vttl ? 0 : 1) - (now - ((all[b] || {}).at || 0) > vttl ? 0 : 1)) || ((all[a] || {}).at || 0) - ((all[b] || {}).at || 0));
+  let cur = before;
+  for (const k of [...EVICT_ORDER, ...Object.keys(all).filter(k => k.startsWith("bak:")), ...vaults]) { if (cur <= limit) break; if (!(k in all)) continue; if (cacheApi && k.startsWith("cache:")) await cacheApi.clear(k.slice(6)); await st.remove(k); evicted.push(k); cur = await st.getBytesInUse(null); }
+  return { before, after: cur, evicted, over: cur > limit }; // over:true = what is left (items, outbox, settings) is still above the soft budget
+}
+// Last resort: forget the oldest products that were only looked at (not hearted, no alert). The newest look-only one always stays. Mutates `items`; returns how many were dropped.
+function dropSeenOnly(items, share = 0.25) {
+  const ks = Object.keys(items).filter(k => !(items[k] && (items[k].wish || items[k].target > 0))).sort((a, b) => ((items[a] || {}).seenAt || 0) - ((items[b] || {}).seenAt || 0)); if (ks.length < 2) return 0;
+  const n = Math.min(ks.length - 1, Math.max(1, Math.ceil(ks.length * share))); for (const k of ks.slice(0, n)) delete items[k]; return n;
 }
 // Own history is kept 400 days. The price in force at the cut-off is kept (clamped to the cut-off) so charts still start correctly.
 const HISTORY_DAYS = 400;
@@ -47,10 +55,15 @@ function pruneHistory(hist, now = Date.now()) {
   return before && (!keep.length || keep[0][0] > cut) ? [[cut, before[1]], ...keep] : keep;
 }
 async function housekeeping({ st = chrome.storage.local, now = Date.now() } = {}) {
-  let pruned = 0;
+  let pruned = 0, dropped = 0;
   await withLock(async () => { const items = safeItems((await st.get("items")).items); let changed = false;
     for (const it of Object.values(items)) { const h = pruneHistory(it.hist, now); if (h.length !== it.hist.length) { pruned += it.hist.length - h.length; it.hist = h; changed = true; } }
     if (changed) await st.set({ items }); });
-  return { pruned, budget: await enforceBudget({ st }) };
+  const all = await st.get(null), vttl = typeof VAULT_TTL === "number" ? VAULT_TTL : 30 * 864e5; // vaults past their 30 days and backups past 7 are never read again
+  const stale = Object.keys(all).filter(k => (k.startsWith("vault:") && now - ((all[k] || {}).at || 0) > vttl) || (k.startsWith("bak:") && now - ((all[k] || {}).t || 0) > BAK_TTL)); if (stale.length) await st.remove(stale);
+  let budget = await enforceBudget({ st });
+  if (budget.over) await withLock(async () => { const items = safeItems((await st.get("items")).items); let n = 0; // still over: look-only products go, oldest first, until it fits
+    while (budget.over && (n = dropSeenOnly(items))) { dropped += n; await st.set({ items }); const after = await st.getBytesInUse(null); budget = { ...budget, after, over: after > STORAGE_BUDGET * 0.8 }; } });
+  return { pruned, dropped, swept: stale, budget };
 }
-if (typeof module !== "undefined") module.exports = { MIGRATIONS, runMigrations, RULES, invalidate, enforceBudget, pruneHistory, housekeeping, STORAGE_BUDGET, HISTORY_DAYS };
+if (typeof module !== "undefined") module.exports = { MIGRATIONS, runMigrations, RULES, invalidate, enforceBudget, dropSeenOnly, pruneHistory, housekeeping, STORAGE_BUDGET, HISTORY_DAYS };

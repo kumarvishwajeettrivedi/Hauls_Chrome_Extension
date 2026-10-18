@@ -11,3 +11,10 @@ hars/
 .superdesign/
 extension/config.js
 docs/internal/
+
+# secrets / keys (belt and braces; keys/ and .env* are the real homes)
+*.pem
+*.key
+*.p12
+*.pfx
+.hauls-provenance.key

@@ -6,7 +6,7 @@ function env(initial = {}, { signedIn = true, server = { doc: {}, stamps: {} } }
   const st = { async get(k) { const ks = k == null ? Object.keys(store) : [].concat(k), o = {}; ks.forEach(x => { if (x in store) o[x] = JSON.parse(JSON.stringify(store[x])); }); return o; },
     async set(o) { Object.entries(o).forEach(([k, v]) => { store[k] = JSON.parse(JSON.stringify(v)); }); }, async remove(k) { [].concat(k).forEach(x => delete store[x]); } };
   const ctx = vm.createContext({ chrome: { storage: { local: st } }, Date, JSON, Math, Array, Object, Promise, Number, console,
-    getSession: async () => signedIn ? { user: { id: "u" } } : null, storeGet: async k => (await st.get(k))[k], api: async (p, o) => { calls.push({ p, body: o.body }); return typeof server === "function" ? server(o.body) : server; } });
+    getSession: async () => signedIn ? { user: { id: "u" } } : null, sessionStore: { get: async () => signedIn ? { user: { id: "u" } } : null }, storeGet: async k => (await st.get(k))[k], api: async (p, o) => { calls.push({ p, body: o.body }); return typeof server === "function" ? server(o.body) : server; } });
   vm.runInContext(src("lib.js"), ctx); vm.runInContext(src("sync.js"), ctx); return { store, calls, run: c => vm.runInContext(c, ctx) };
 }
 let ok = 0, bad = 0, q = []; const t = (n, f) => q.push([n, f]);

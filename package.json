@@ -15,7 +15,10 @@
     "test:sql": "node tests/sql/pglite.test.mjs",
     "verify:live-0010": "node tests/live/verify-0010.mjs",
     "verify:live-0011": "node tests/live/verify-0011.mjs",
-    "verify:live-0012": "node tests/live/verify-0012.mjs"
+    "verify:live-0012": "node tests/live/verify-0012.mjs",
+    "scan:secrets": "node scripts/secret-scan.mjs",
+    "test:secrets": "node scripts/secret-scan.test.mjs",
+    "hooks:install": "bash scripts/install-hooks.sh"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
