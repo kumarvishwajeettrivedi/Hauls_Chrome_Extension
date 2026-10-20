@@ -6,8 +6,8 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-/9Uhz7+iwKjg8mk95NcK3x8773dFOCPtUz2XHGoPVV8='; style-src 'self' 'unsafe-inline' https://api.fontshare.com; font-src https://cdn.fontshare.com; img-src 'self' data:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>HAULS – Know the real price before you buy</title>
-<meta name="description" content="HAULS is a free price tracker for Amazon.in, Flipkart and Myntra: real price history, buy-or-wait verdicts, other sellers, urgency checks and grocery comparison for your pincode. Chrome, Edge and Brave.">
+<title>HAULS Beta: Price History for Amazon.in, Flipkart, Myntra</title>
+<meta name="description" content="Free Chrome extension (beta) for India: see price history and a buy-or-wait verdict on Amazon.in, Flipkart and Myntra. Works in Chrome, Edge and Brave.">
 <meta name="author" content="Vishwajeet">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="theme-color" content="#014baa">
@@ -16,13 +16,14 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="HAULS">
 <meta property="og:url" content="https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/">
-<meta property="og:title" content="HAULS – Know the real price before you buy">
-<meta property="og:description" content="See a product's real price history before you buy. Compare sellers and grocery prices for your exact pincode. Free, by Vishwajeet.">
+<meta property="og:title" content="HAULS Beta: Price History for Amazon.in, Flipkart, Myntra">
+<meta property="og:description" content="Free Chrome extension (beta) for India: see price history and a buy-or-wait verdict on Amazon.in, Flipkart and Myntra. Works in Chrome, Edge and Brave.">
 <meta property="og:image" content="https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/img/hero.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="HAULS – Know the real price before you buy">
+<meta name="twitter:title" content="HAULS Beta: Price History for Amazon.in, Flipkart, Myntra">
+<meta name="twitter:description" content="Free Chrome extension (beta) for India: see price history and a buy-or-wait verdict on Amazon.in, Flipkart and Myntra. Works in Chrome, Edge and Brave.">
 <meta name="twitter:image" content="https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/img/hero.jpg">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "HAULS", "alternateName": "HAULS price history extension", "applicationCategory": "ShoppingApplication", "operatingSystem": "Chrome, Edge, Brave", "description": "Free browser extension that shows real price history, buy-or-wait verdicts, seller comparison and urgency checks on Amazon.in, Flipkart, Myntra and more.", "url": "https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/", "downloadUrl": "https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip", "codeRepository": "https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension", "license": "https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/blob/main/NOTICE", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"}, "author": {"@type": "Person", "name": "Vishwajeet", "url": "https://github.com/kumarvishwajeettrivedi", "sameAs": ["https://github.com/kumarvishwajeettrivedi"]}, "sameAs": ["https://hauls.in/", "https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension"]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "HAULS", "alternateName": "HAULS price history extension", "applicationCategory": "ShoppingApplication", "operatingSystem": "Chrome, Edge, Brave", "description": "Free browser extension that shows real price history, buy-or-wait verdicts, seller comparison and urgency checks on Amazon.in, Flipkart, Myntra and more.", "url": "https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/", "downloadUrl": "https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip", "codeRepository": "https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension", "license": "https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/blob/main/NOTICE", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"}, "author": {"@type": "Person", "name": "Vishwajeet", "url": "https://github.com/kumarvishwajeettrivedi", "sameAs": ["https://github.com/kumarvishwajeettrivedi"]}, "sameAs": ["https://hauls.in/", "https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension"], "softwareVersion": "1.21.6", "browserRequirements": "Requires Google Chrome, Microsoft Edge or Brave on a computer", "screenshot": "https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/img/hero.jpg"}</script>
 <link rel="icon" href="img/favicon.png">
 <link rel="preconnect" href="https://api.fontshare.com">
 <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
@@ -134,7 +135,7 @@ footer{border-top:1px solid var(--line);padding:28px 0;font-size:14px;color:var(
 
 <section class="end"><div class="wrap"><h2>Don't buy blind.</h2><div class="cta" style="margin-top:28px"><a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download HAULS</a></div></div></section>
 
-<footer><div class="wrap"><span>© 2026 HAULS, built by <a href="https://github.com/kumarvishwajeettrivedi" rel="author me">Vishwajeet</a>. Independent tool, not affiliated with any store named here.</span><span class="l"><a href="https://hauls.in/">hauls.in</a><a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension">Source on GitHub</a><a href="https://github.com/kumarvishwajeettrivedi" rel="me noopener noreferrer" target="_blank">GitHub</a><a href="https://www.linkedin.com/in/vishwajeet-kumar-5b7530242/" rel="me noopener noreferrer" target="_blank">LinkedIn</a></span></div>
+<footer><div class="wrap"><span>© 2026 HAULS, built by <a href="https://github.com/kumarvishwajeettrivedi" rel="author me">Vishwajeet</a>. Independent tool, not affiliated with any store named here.</span><span class="l"><a href="https://hauls.in/" title="HAULS price tracker website">hauls.in</a><a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension">Source on GitHub</a><a href="https://github.com/kumarvishwajeettrivedi" rel="me noopener noreferrer" target="_blank">GitHub</a><a href="https://www.linkedin.com/in/vishwajeet-kumar-5b7530242/" rel="me noopener noreferrer" target="_blank">LinkedIn</a></span></div>
 <div class="wrap auth"><span>Official site and the only official download: this page and its <a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest">GitHub release</a>. Check your copy: <code>shasum -a 256 hauls-share.zip</code> must equal the value in <a href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a>. Copies elsewhere are not from the author.</span></div></footer>
 <script>
 // Shows the newest release; the text above is the fallback if GitHub cannot be reached.
