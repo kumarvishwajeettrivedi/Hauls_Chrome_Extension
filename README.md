@@ -16,44 +16,46 @@
 
 <p align="center"><img src="site/img/hero.jpg" alt="HAULS panel open on an Amazon.in product page" width="860"></p>
 
-## What it does
+## The problem
 
-Open a product on Amazon.in, Flipkart or Myntra and HAULS adds a small tab on the right edge of the page. Click it to see how the price has moved, whether the discount is real, who else sells the item, and whether to buy now or wait.
+"**70% OFF**" on a price that was **raised last week**. "**Only 2 left!**" with a countdown that resets on refresh. Indian shopping sites are loud. HAULS is the quiet friend who checks.
 
-- **Price history** for 30 days, 90 days, a year or all time.
-- **Buy-or-wait verdict**, tuned to how soon you need the item.
-- **Deal Scanner** score, with a warning when a price was raised before a "discount".
-- **Impulse Check** for "Only 2 left" labels and countdown timers.
-- **Seller card** and **other sellers** for the same item.
-- **Compare across stores**, listing only results confirmed to be the same product.
-- **Price alerts** and an optional email alert when your price is reached.
-- **Grocery prices** at your pincode (Beta).
+## One click, one answer
 
-Price history, the verdict and compare work without an account. The watchlist and price alerts need a Google sign-in.
+<table>
+<tr><td width="33%"><h3>📈 Real history</h3>30 days to all time, so you see what the price actually did.</td>
+<td width="33%"><h3>🟢 Buy or wait</h3>A plain verdict, tuned to how soon you need it.</td>
+<td width="33%"><h3>🕵️ Fake-deal radar</h3>Flags prices hiked just before a "sale".</td></tr>
+<tr><td><h3>🧘 Impulse check</h3>Calls out fake scarcity and countdown timers.</td>
+<td><h3>🔀 Cross-store compare</h3>Only exact same-product matches. No lookalikes.</td>
+<td><h3>🔔 Price alerts</h3>Set a target, get pinged when it hits.</td></tr>
+<tr><td><h3>🏪 Seller check</h3>Who is really selling, and who else has it.</td>
+<td><h3>🥦 Grocery prices</h3>Compared at your pincode <sub>(Beta)</sub>.</td>
+<td><h3>🔒 Private by default</h3>History stays in your browser. No ads, no trackers.</td></tr>
+</table>
+
+<p align="center"><img src="site/img/verdict-card.svg" alt="HAULS verdict card: BUY NOW at the lowest price in 12 months" width="620"></p>
 
 ## Works on
 
-Amazon.in, Flipkart and Myntra, with price tracking for Croma, Reliance Digital, Tata CLiQ, Nykaa, Vijay Sales and Snapdeal. Chrome, Edge, Brave and other Chromium browsers on a computer.
+| Full panel | Price tracking |
+|---|---|
+| Amazon.in · Flipkart · Myntra | Croma · Reliance Digital · Tata CLiQ · Nykaa · Vijay Sales · Snapdeal |
 
-## Your privacy
+Chrome, Edge, Brave and other Chromium browsers on desktop. No account needed to start; Google sign-in only unlocks watchlist and alerts.
 
-- Your price history and settings stay in your browser.
-- Signing in backs up only your watchlist and settings, visible only to you.
-- Sharing prices with the community is off unless you turn it on.
-- Items you delete are removed from the server. HAULS does not sell data and has no ads or trackers.
+## Get it in 60 seconds
 
-## Install
+1. Grab `hauls-share.zip` from the [latest release](../../releases/latest).
+2. Unzip, open `chrome://extensions`, switch on **Developer mode**.
+3. **Load unpacked**, pick the folder. Done.
 
-1. Download `hauls-share.zip` and `SHA256SUMS.txt` from the [latest release](../../releases/latest).
-2. Check the download: `shasum -a 256 hauls-share.zip` must match the line in `SHA256SUMS.txt`.
-3. Unzip it, open `chrome://extensions`, turn on Developer mode, choose **Load unpacked** and select the folder.
+Per-browser steps and checksum: [INSTALL.md](INSTALL.md).
 
-Full steps for each browser: [INSTALL.md](INSTALL.md).
+## Trust
 
-## Security
+No remote code · narrow permissions · data sold: never. Found a vulnerability? [SECURITY.md](SECURITY.md).
 
-No remote code, a narrow permission set, and only the public sign-in key in the extension. To report a vulnerability, see [SECURITY.md](SECURITY.md).
+---
 
-## License
-
-All rights reserved; see [NOTICE](NOTICE). The code is public for transparency. Built by [Vishwajeet](https://github.com/kumarvishwajeettrivedi). An independent tool, not affiliated with any store it works with. Prices come from the pages you visit and may differ at checkout.
+<p align="center">Made by <a href="https://github.com/kumarvishwajeettrivedi">Vishwajeet</a> · All rights reserved, see <a href="NOTICE">NOTICE</a><br><sub>Independent tool, not affiliated with any store. Prices come from pages you visit and may differ at checkout.</sub></p>
