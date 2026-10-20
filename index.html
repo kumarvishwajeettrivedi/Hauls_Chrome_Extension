@@ -43,7 +43,7 @@ nav .links{display:flex;gap:30px;margin-left:auto;font-size:15px;font-weight:700
 .btn.out{background:var(--paper);color:var(--blue)}
 nav .btn{min-height:42px;padding:0 22px;font-size:15px;box-shadow:3px 3px 0 var(--blue)}
 .hero{padding:84px 0 12px;text-align:center}
-.pill{display:inline-block;font:700 13px var(--body);letter-spacing:.06em;border:2px solid var(--blue);background:var(--sun);border-radius:999px;padding:6px 16px;margin-bottom:26px}
+.pills{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:26px}.pills .pill{margin:0}.pill.beta{background:var(--mint);text-decoration:none;color:inherit}.pill.beta:hover{text-decoration:underline}.pill{display:inline-block;font:700 13px var(--body);letter-spacing:.06em;border:2px solid var(--blue);background:var(--sun);border-radius:999px;padding:6px 16px;margin-bottom:26px}
 h1{font:700 clamp(42px,6.4vw,78px)/1.03 var(--display);word-spacing:.08em;margin:0 auto 22px;max-width:900px}
 .lead{font-size:20px;color:var(--mute);max-width:640px;margin:0 auto 34px}
 .cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}.fine{font-size:14px;color:var(--faint);margin:18px 0 0}
@@ -88,7 +88,7 @@ footer{border-top:1px solid var(--line);padding:28px 0;font-size:14px;color:var(
 <a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download</a></div></nav>
 
 <header class="hero"><div class="wrap">
-<span class="pill">Free for Chrome, Edge and Brave</span>
+<div class="pills"><span class="pill">Free for Chrome, Edge and Brave</span><a class="pill beta" href="feedback.html">🧪 Beta testing: try it now and give feedback</a></div>
 <h1>Know the real price before you buy.</h1>
 <p class="lead">HAULS shows a product's price history, tells you whether to buy or wait, and compares grocery prices for your exact pincode.</p>
 <div class="cta"><a class="btn" href="https://github.com/kumarvishwajeettrivedi/Hauls_Chrome_Extension/releases/latest/download/hauls-share.zip">Download HAULS</a><a class="btn out" href="#install">How to install</a></div>
@@ -130,6 +130,7 @@ footer{border-top:1px solid var(--line);padding:28px 0;font-size:14px;color:var(
 <li>Click <b>Load unpacked</b> and choose the unzipped folder, the one that contains <code>manifest.json</code>.</li>
 <li>Pin HAULS from the puzzle icon, then open a product on Amazon.in, Flipkart or Myntra and click the HAULS tab on the right edge.</li>
 </ol>
+<div class="note"><b>Before you test:</b> log in to the site you are inspecting (Amazon.in, Flipkart, Myntra or any other) so the page you test matches what you normally see. Then open a product, click the HAULS tab, and tell us what you find on the <a href="feedback.html">feedback page</a>.</div>
 <div class="note"><b>Updating:</b> download the new zip, unzip over the same folder, then click reload on HAULS in <code>chrome://extensions</code>. If Chrome mentions developer mode extensions, keep it enabled.</div>
 </div></section>
 
