@@ -21,7 +21,7 @@
     "hooks:install": "bash scripts/install-hooks.sh"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.10",
+    "@electric-sql/pglite": "^0.5.11",
     "playwright-core": "^1.50.0"
   }
 }
