@@ -1,7 +1,9 @@
 // Deal Scanner checked against REAL Amazon.in one-year price series (read by HAULS on 2026-10-17), not invented data.
 const assert = require("assert"), fs = require("fs"), path = require("path"), A = require("../../extension/analysis.js");
 let n = 0; const ok = (c, m) => { assert.ok(c, m); n++; };
-const S = JSON.parse(fs.readFileSync(path.join(__dirname, "../fixtures/amazon-history/real-series-2026-10-17.json"), "utf8")).series, DAY = 864e5, now = Date.now(), by = k => S.find(s => s.key === k);
+const S = JSON.parse(fs.readFileSync(path.join(__dirname, "../fixtures/amazon-history/real-series-2026-10-17.json"), "utf8")).series, DAY = 864e5, by = k => S.find(s => s.key === k);
+// pinned to the fixture's own newest point (the day it was read), NOT Date.now(): the real clock moves on, the frozen series does not
+const now = Math.max(...S.flatMap(s => s.points.map(p => p[0])));
 const scan = (s, price = s.price) => A.dealScan(s.points, price, s.mrp, now, s.ref);
 // time-weighted median: how long a price held matters, not how many points it has
 ok(A.twMedian([[0, 100], [9 * DAY, 50], [9.5 * DAY, 100]], 0, 10 * DAY) === 100, "a short dip (half a day) does not move the usual price");
