@@ -1,17 +1,20 @@
 <p align="center"><img src="site/img/logo.png" width="72" alt="HAULS"></p>
 
-<h1 align="center">HAULS</h1>
-<p align="center"><b>Don't buy blind.</b><br>A free browser extension that shows the real price history and a plain buy-or-wait answer on Indian shopping sites.</p>
+<h1 align="center">HAULS: price history Chrome extension for Amazon.in, Flipkart and Myntra</h1>
+<p align="center"><b>Don't buy blind.</b><br>A free browser extension that shows the real price history and a plain buy-or-wait answer on Indian shopping sites.<br><sub>Free beta for testers. Installed from GitHub, not on the Chrome Web Store yet.</sub></p>
 
 <p align="center">
   <a href="../../releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/kumarvishwajeettrivedi/Hauls_Chrome_Extension?label=release"></a>
   <img alt="Chrome Manifest V3" src="https://img.shields.io/badge/Chrome-Manifest%20V3-014baa">
 </p>
 <p align="center">
-  <a href="https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/">Website</a> ·
+  <a href="https://hauls.in/chrome-extension">Website</a> ·
   <a href="../../releases/latest/download/hauls-share.zip">Download</a> ·
   <a href="INSTALL.md">Install guide</a> ·
-  <a href="SECURITY.md">Security</a>
+  <a href="https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/#permissions">Permissions explained</a> ·
+  <a href="https://hauls.in/privacy">Privacy</a> ·
+  <a href="SECURITY.md">Security</a> ·
+  <a href="../../releases">Changelog</a>
 </p>
 
 <p align="center"><img src="site/img/hero.jpg" alt="HAULS panel open on an Amazon.in product page" width="860"></p>
@@ -54,7 +57,9 @@ Per-browser steps and checksum: [INSTALL.md](INSTALL.md).
 
 ## Trust
 
-No remote code · narrow permissions · data sold: never. Found a vulnerability? [SECURITY.md](SECURITY.md).
+No remote code · data sold: never. Every permission and why it is asked for is listed on the [permissions page](https://kumarvishwajeettrivedi.github.io/Hauls_Chrome_Extension/#permissions); what is collected is in [SECURITY.md](SECURITY.md) and the [privacy policy](https://hauls.in/privacy). Found a vulnerability? Use GitHub's private reporting in [SECURITY.md](SECURITY.md).
+
+Also from the same author, free in your browser with no signup: [discount after GST](https://hauls.in/tools/discount-after-gst-calculator), [no-cost EMI](https://hauls.in/tools/no-cost-emi-calculator) and [unit price](https://hauls.in/tools/unit-price-calculator) calculators, and an [India sale calendar](https://hauls.in/blog/india-sale-calendar). Questions or a wrong price: hauls.support@gmail.com.
 
 ---
 
